@@ -4,6 +4,8 @@ export interface ActiveInstance {
     end: string;
     racks: number[];
     areas: string[];
+    title: string;
+    color: string | null;
   }
   
   export interface SideSnapshot {

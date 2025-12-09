@@ -1,8 +1,8 @@
-import type { BookingInstanceRow } from "../../types/db";
+import type { BookingInstanceWithBookingRow } from "../../types/db";
 import type { ActiveInstance, SideSnapshot } from "../../types/snapshot";
 
 export function computeSnapshotFromInstances(
-  instances: BookingInstanceRow[],
+  instances: BookingInstanceWithBookingRow[],
   atIso: string
 ): SideSnapshot {
   const at = new Date(atIso);
@@ -21,6 +21,9 @@ export function computeSnapshotFromInstances(
     const racks: number[] = Array.isArray(inst.racks) ? inst.racks : [];
     const areas: string[] = Array.isArray(inst.areas) ? inst.areas : [];
 
+    const bookingTitle = inst.booking?.title ?? "Untitled";
+    const bookingColor = inst.booking?.color ?? null;
+
     // current: start <= at < end
     if (start <= at && at < end) {
       currentInstances.push({
@@ -29,6 +32,8 @@ export function computeSnapshotFromInstances(
         end: inst.end,
         racks,
         areas,
+        title: bookingTitle,
+        color: bookingColor,
       });
     }
 

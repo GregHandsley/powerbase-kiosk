@@ -1,10 +1,58 @@
 import { supabase } from "../../lib/supabaseClient";
-import type { BookingInstanceRow } from "../../types/db";
+import type { BookingInstanceWithBookingRow } from "../../types/db";
+
+type RawInstanceRow = {
+  id: number;
+  booking_id: number;
+  side_id: number;
+  start: string;
+  end: string;
+  areas?: unknown;
+  racks?: unknown;
+  created_at: string;
+  updated_at: string;
+  booking?:
+    | { title?: unknown; color?: unknown }
+    | { title?: unknown; color?: unknown }[]
+    | null;
+};
 
 /**
  * Returns all booking_instances for a side from the start of the day containing `atIso`
  * through to the end of the next day. We'll decide "current" vs "future" in computeSnapshot.
  */
+function normalizeInstanceRow(row: RawInstanceRow): BookingInstanceWithBookingRow {
+  const bookingRaw = row.booking ?? null;
+
+  const bookingObj = Array.isArray(bookingRaw)
+    ? bookingRaw[0] ?? null
+    : bookingRaw ?? null;
+
+  return {
+    id: row.id,
+    booking_id: row.booking_id,
+    side_id: row.side_id,
+    start: row.start,
+    end: row.end,
+    areas: Array.isArray(row.areas) ? row.areas : [],
+    racks: Array.isArray(row.racks) ? row.racks : [],
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    booking: bookingObj
+      ? {
+          title:
+            typeof bookingObj.title === "string" || bookingObj.title === null
+              ? bookingObj.title
+              : null,
+          color:
+            typeof bookingObj.color === "string" || bookingObj.color === null
+              ? bookingObj.color
+              : null,
+        }
+      : null,
+  };
+}
+
 export async function getInstancesAtNode(sideId: number, atIso: string) {
   const atDate = new Date(atIso);
   if (Number.isNaN(atDate.getTime())) {
@@ -19,21 +67,38 @@ export async function getInstancesAtNode(sideId: number, atIso: string) {
 
   const { data, error } = await supabase
     .from("booking_instances")
-    .select("*")
+    .select(
+      `
+      id,
+      booking_id,
+      side_id,
+      start,
+      "end",
+      areas,
+      racks,
+      created_at,
+      updated_at,
+      booking:bookings (
+        title,
+        color
+      )
+    `
+    )
     .eq("side_id", sideId)
     .gte("start", startOfDay.toISOString())
     .lt("start", endOfNextDay.toISOString())
     .order("start", { ascending: true });
 
+  const rows = (data ?? []).map(normalizeInstanceRow);
+
   return {
-    data: (data ?? []) as BookingInstanceRow[],
+    data: rows,
     error,
   };
 }
 
 /**
  * Optional helper to fetch future instances for a specific rack.
- * Not used yet, but handy if we want per-rack queries later.
  */
 export async function getFutureInstancesForRackNode(
   sideId: number,
@@ -43,16 +108,33 @@ export async function getFutureInstancesForRackNode(
 ) {
   const { data, error } = await supabase
     .from("booking_instances")
-    .select("*")
+    .select(
+      `
+      id,
+      booking_id,
+      side_id,
+      start,
+      "end",
+      areas,
+      racks,
+      created_at,
+      updated_at,
+      booking:bookings (
+        title,
+        color
+      )
+    `
+    )
     .eq("side_id", sideId)
-    // JSONB contains rackNumber in the racks array
     .contains("racks", [rackNumber])
     .gte("start", fromIso)
     .lt("start", toIso)
     .order("start", { ascending: true });
 
+  const rows = (data ?? []).map(normalizeInstanceRow);
+
   return {
-    data: (data ?? []) as BookingInstanceRow[],
+    data: rows,
     error,
   };
 }
