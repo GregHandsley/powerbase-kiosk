@@ -30,9 +30,9 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
-            <div className="app-shell">
-              <App />
-            </div>
+          <div className="app-shell">
+            <App />
+          </div>
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>

@@ -1,28 +1,28 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { User } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabaseClient";
-import type { Profile, ProfileRole } from "../types/auth";
-
-type AuthContextValue = {
-  user: User | null;
-  profile: Profile | null;
-  role: ProfileRole | null;
-  loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
-};
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const role: ProfileRole | null = profile?.role ?? null;
-
+  import type { User } from "@supabase/supabase-js";
+  import { supabase } from "../lib/supabaseClient";
+  import type { Profile, ProfileRole } from "../types/auth";
+  
+  type AuthContextValue = {
+    user: User | null;
+    profile: Profile | null;
+    role: ProfileRole | null;
+    loading: boolean;
+    signIn: (email: string, password: string) => Promise<{ error?: string }>;
+    signOut: () => Promise<void>;
+    refreshProfile: () => Promise<void>;
+  };
+  
+  const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+  
+  export function AuthProvider({ children }: { children: ReactNode }) {
+    const [user, setUser] = useState<User | null>(null);
+    const [profile, setProfile] = useState<Profile | null>(null);
+    const [loading, setLoading] = useState(true);
+  
+    const role: ProfileRole | null = profile?.role ?? null;
+  
   // --- helpers -------------------------------------------------------
 
   async function fetchProfile(userId: string) {
@@ -48,28 +48,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // --- initial load + auth subscription -----------------------------
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadInitialSession() {
+    useEffect(() => {
+      let isMounted = true;
+  
+      async function loadInitialSession() {
       try {
         setLoading(true);
         const {
           data: { user },
           error,
         } = await supabase.auth.getUser();
-
+  
         if (!isMounted) return;
-
+  
         if (error) {
           console.warn("getUser error", error.message);
           setUser(null);
           setProfile(null);
           return;
         }
-
+  
         setUser(user ?? null);
-
+  
         if (user) {
           void fetchProfile(user.id); // don't block UI on profile fetch
         } else {
@@ -77,16 +77,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } finally {
         if (isMounted) {
-          setLoading(false);
+        setLoading(false);
+      }
         }
       }
-    }
-
-    loadInitialSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  
+      loadInitialSession();
+  
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (_event, session) => {
       try {
         const u = session?.user ?? null;
         setUser(u);
@@ -101,43 +101,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } finally {
         // auth change completed → ensure we are not stuck loading
         setLoading(false);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+        }
+      });
+  
+      return () => {
+        isMounted = false;
+        subscription.unsubscribe();
+      };
+    }, []);
 
   // --- public API ----------------------------------------------------
-
-  const refreshProfile = async () => {
-    if (!user) {
-      setProfile(null);
-      return;
-    }
+  
+    const refreshProfile = async () => {
+      if (!user) {
+        setProfile(null);
+        return;
+      }
     try {
       setLoading(true);
       await fetchProfile(user.id);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const signIn: AuthContextValue["signIn"] = async (email, password) => {
+      }
+    };
+  
+    const signIn: AuthContextValue["signIn"] = async (email, password) => {
     try {
       setLoading(true);
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-
+  
       if (error) {
         console.warn("signIn error", error.message);
         return { error: error.message };
       }
-
+  
       // onAuthStateChange will set user/profile
       return {};
     } finally {
@@ -146,9 +146,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // avoids the "stuck loading" issue.
       setLoading(false);
     }
-  };
-
-  const signOut = async () => {
+    };
+  
+    const signOut = async () => {
     try {
       setLoading(true);
       const { error } = await supabase.auth.signOut();
@@ -160,26 +160,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const value: AuthContextValue = {
-    user,
-    profile,
-    role,
-    loading,
-    signIn,
-    signOut,
-    refreshProfile,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    };
+  
+    const value: AuthContextValue = {
+      user,
+      profile,
+      role,
+      loading,
+      signIn,
+      signOut,
+      refreshProfile,
+    };
+  
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
   }
-  return ctx;
-}
+  
+// eslint-disable-next-line react-refresh/only-export-components
+  export function useAuth() {
+    const ctx = useContext(AuthContext);
+    if (!ctx) {
+      throw new Error("useAuth must be used within an AuthProvider");
+    }
+    return ctx;
+  }  

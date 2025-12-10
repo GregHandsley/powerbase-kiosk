@@ -5,6 +5,7 @@ import { KioskBase } from "./pages/KioskBase";
 import { KioskStacked } from "./pages/KioskStacked";
 import { Schedule } from "./pages/Schedule";
 import { Admin } from "./pages/Admin";
+import { TestLayout } from "./pages/TestLayout";
 
 export default function App() {
   return (
@@ -27,6 +28,9 @@ export default function App() {
           <Link to="/schedule" className="hover:text-white">
             Schedule
           </Link>
+          <Link to="/test-layout" className="hover:text-white">
+            Test
+          </Link>
           <Link to="/admin" className="hover:text-white ml-auto">
             Admin
           </Link>
@@ -40,6 +44,7 @@ export default function App() {
           <Route path="/kiosk/base" element={<KioskBase />} />
           <Route path="/kiosk/stacked" element={<KioskStacked />} />
           <Route path="/schedule" element={<Schedule />} />
+          <Route path="/test-layout" element={<TestLayout />} />
           <Route path="/admin" element={<Admin />} />
         </Routes>
       </main>

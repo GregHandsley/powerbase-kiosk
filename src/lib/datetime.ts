@@ -15,15 +15,15 @@ export function todayString(): string {
     return `${h}:${m}`; // HH:mm
   }
   
-export function combineDateTime(dateStr: string, timeStr: string): Date {
-  // date: yyyy-mm-dd, time: HH:mm
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const [hour, minute] = timeStr.split(":").map(Number);
+  export function combineDateTime(dateStr: string, timeStr: string): Date {
+    // date: yyyy-mm-dd, time: HH:mm
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const [hour, minute] = timeStr.split(":").map(Number);
 
   const d = new Date(year, (month ?? 1) - 1, day ?? 1, hour ?? 0, minute ?? 0, 0, 0);
   if (Number.isNaN(d.getTime())) {
     return new Date();
   }
   return d;
-}
+  }
   
