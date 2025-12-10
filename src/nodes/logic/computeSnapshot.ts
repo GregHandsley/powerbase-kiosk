@@ -23,17 +23,22 @@ export function computeSnapshotFromInstances(
 
     const bookingTitle = inst.booking?.title ?? "Untitled";
     const bookingColor = inst.booking?.color ?? null;
+    const isLocked = inst.booking?.is_locked ?? false;
+    const createdBy = inst.booking?.created_by ?? null;
 
     // current: start <= at < end
     if (start <= at && at < end) {
       currentInstances.push({
-        id: inst.id,
+        instanceId: inst.id,
+        bookingId: inst.booking_id,
         start: inst.start,
         end: inst.end,
         racks,
         areas,
         title: bookingTitle,
         color: bookingColor,
+        isLocked,
+        createdBy,
       });
     }
 

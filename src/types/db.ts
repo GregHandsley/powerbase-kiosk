@@ -14,6 +14,8 @@ export interface BookingInstanceRow {
     booking?: {
       title: string | null;
       color: string | null;
+      is_locked: boolean;
+      created_by: string | null;
     } | null;
   }
   

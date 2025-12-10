@@ -1,10 +1,12 @@
 import type { SideLayout, RackLayoutSlot } from "../config/layout";
-import type { SideSnapshot } from "../types/snapshot";
+import type { SideSnapshot, ActiveInstance } from "../types/snapshot";
 import { groupContiguous } from "../lib/groupContiguous";
 
 type Props = {
   layout: SideLayout;
   snapshot: SideSnapshot | null;
+  onEditInstance?: (inst: ActiveInstance) => void;
+  canEditInstance?: (inst: ActiveInstance) => boolean;
 };
 
 function formatTime(iso: string | null | undefined): string | null {
@@ -17,7 +19,12 @@ function formatTime(iso: string | null | undefined): string | null {
   });
 }
 
-export function SideFloorplan({ layout, snapshot }: Props) {
+export function SideFloorplan({
+  layout,
+  snapshot,
+  onEditInstance,
+  canEditInstance,
+}: Props) {
   const racks = layout.racks;
   const current = snapshot?.currentInstances ?? [];
   const nextUseByRack = snapshot?.nextUseByRack ?? {};
@@ -39,6 +46,7 @@ export function SideFloorplan({ layout, snapshot }: Props) {
     height: number;
     title: string;
     color: string | null;
+    inst: ActiveInstance;
   }[] = [];
 
   for (const inst of current) {
@@ -59,13 +67,14 @@ export function SideFloorplan({ layout, snapshot }: Props) {
       const width = right - left;
 
       maskRects.push({
-        key: `${inst.id}-${group[0]}-${group[group.length - 1]}`,
+        key: `${inst.instanceId}-${group[0]}-${group[group.length - 1]}`,
         x: left,
         y,
         width,
         height,
         title: inst.title,
         color: inst.color,
+        inst,
       });
     }
   }
@@ -146,32 +155,56 @@ export function SideFloorplan({ layout, snapshot }: Props) {
       })}
 
       {/* Booking masks */}
-      {maskRects.map((mask) => (
-        <g key={mask.key}>
-          <rect
-            x={mask.x + 0.3}
-            y={mask.y + 0.3}
-            width={mask.width - 0.6}
-            height={mask.height - 0.6}
-            fill={mask.color ?? "#22c55e"}
-            fillOpacity={0.45}
-            stroke={mask.color ?? "#4ade80"}
-            strokeWidth={0.4}
-            rx={1.4}
-          />
-          <text
-            x={mask.x + mask.width / 2}
-            y={mask.y + mask.height / 2}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={2}
-            fill="#e5e7eb"
-            fontFamily="system-ui, sans-serif"
+      {maskRects.map((mask) => {
+        const editable =
+          Boolean(onEditInstance) &&
+          (canEditInstance ? canEditInstance(mask.inst) : true);
+        return (
+          <g
+            key={mask.key}
+            onClick={() => {
+              if (editable) onEditInstance?.(mask.inst);
+            }}
+            style={{ cursor: editable ? "pointer" : "default" }}
           >
-            {mask.title}
-          </text>
-        </g>
-      ))}
+            <rect
+              x={mask.x + 0.3}
+              y={mask.y + 0.3}
+              width={mask.width - 0.6}
+              height={mask.height - 0.6}
+              fill={mask.color ?? "#22c55e"}
+              fillOpacity={0.45}
+              stroke={mask.color ?? "#4ade80"}
+              strokeWidth={0.4}
+              rx={1.4}
+            />
+            <text
+              x={mask.x + mask.width / 2}
+              y={mask.y + mask.height / 2}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={2}
+              fill="#e5e7eb"
+              fontFamily="system-ui, sans-serif"
+            >
+              {mask.title}
+            </text>
+            {editable && (
+              <text
+                x={mask.x + mask.width - 1}
+                y={mask.y + mask.height - 1}
+                textAnchor="end"
+                dominantBaseline="ideographic"
+                fontSize={1.4}
+                fill="#e5e7eb"
+                fontFamily="system-ui, sans-serif"
+              >
+                ✎
+              </text>
+            )}
+          </g>
+        );
+      })}
     </svg>
   );
 }
