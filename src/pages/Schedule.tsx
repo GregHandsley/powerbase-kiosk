@@ -4,13 +4,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSnapshotFromSearchParams } from "../hooks/useSnapshotFromSearchParams";
 import { AspectRatio } from "../components/AspectRatio";
 import { Clock } from "../components/Clock";
-import { POWER_LAYOUT, BASE_LAYOUT } from "../config/layout";
-import { SideFloorplan } from "../components/SideFloorplan";
+import { BASE_LAYOUT } from "../config/layout";
+import { BaseFloorplan } from "../components/floorplans/base/BaseFloorplan";
+import { PowerbaseFloorSvg } from "../components/floorplans/power/PowerbaseFloorSvg";
 import type { ActiveInstance, SideSnapshot } from "../types/snapshot";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 
-type SideMode = "both" | "power" | "base";
+type SideMode = "power" | "base";
 
 function formatTimeRange(startIso: string, endIso: string): string {
   const s = new Date(startIso);
@@ -44,9 +45,8 @@ export function Schedule() {
     setSearchParams,
   } = useSnapshotFromSearchParams();
 
-  const sideParam = (searchParams.get("side") ?? "both").toLowerCase();
-  const initialSide: SideMode =
-    sideParam === "power" || sideParam === "base" ? (sideParam as SideMode) : "both";
+  const sideParam = (searchParams.get("side") ?? "power").toLowerCase();
+  const initialSide: SideMode = sideParam === "base" ? "base" : "power";
 
   const [sideMode, setSideMode] = useState<SideMode>(initialSide);
   const [timeInput, setTimeInput] = useState(time);
@@ -101,8 +101,8 @@ export function Schedule() {
     [base.snapshot]
   );
 
-  const showPower = sideMode === "both" || sideMode === "power";
-  const showBase = sideMode === "both" || sideMode === "base";
+  const selectedSnapshot = sideMode === "power" ? power : base;
+  const selectedInstances = sideMode === "power" ? powerInstances : baseInstances;
 
   const canEditInstance = useCallback(
     (inst: ActiveInstance) => {
@@ -223,16 +223,6 @@ export function Schedule() {
             <div className="inline-flex rounded-md border border-slate-600 bg-slate-950 overflow-hidden">
               <button
                 type="button"
-                onClick={() => setSideModeAndUrl("both")}
-                className={`px-2 py-1 ${sideMode === "both"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800"
-                  }`}
-              >
-                Both
-              </button>
-              <button
-                type="button"
                 onClick={() => setSideModeAndUrl("power")}
                 className={`px-2 py-1 ${sideMode === "power"
                   ? "bg-indigo-600 text-white"
@@ -280,133 +270,68 @@ export function Schedule() {
         </div>
       </header>
 
-      {/* Power section */}
-      {showPower && (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-300">
-            <span className="font-semibold">
-              Power — {date} {time}
-            </span>
-            <span className="text-slate-400">
-              Snapshot at {power.snapshot?.at ?? "…"}
-            </span>
-          </div>
-          <AspectRatio ratio={16 / 9}>
-            <div className="w-full h-full bg-slate-900 border border-slate-700 rounded-xl p-3 flex flex-col">
-              <div className="flex-1 min-h-0">
-                {power.isLoading && !power.snapshot ? (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
-                    Loading Power snapshot…
-                  </div>
-                ) : (
-                  <SideFloorplan
-                    layout={POWER_LAYOUT}
-                    snapshot={power.snapshot}
-                  />
-                )}
-              </div>
+      {/* Single side section (Power or Base) */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between text-xs text-slate-300">
+          <span className="font-semibold">
+            {sideMode === "power" ? "Power" : "Base"} — {date} {time}
+          </span>
+          <span className="text-slate-400">
+            Snapshot at {selectedSnapshot.snapshot?.at ?? "…"}
+          </span>
+        </div>
+        <AspectRatio ratio={16 / 9}>
+          <div className="w-full h-full bg-slate-900 border border-slate-700 rounded-xl p-3 flex flex-col">
+            <div className="flex-1 min-h-0">
+              {selectedSnapshot.isLoading && !selectedSnapshot.snapshot ? (
+                <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
+                  Loading snapshot…
+                </div>
+              ) : sideMode === "power" ? (
+                <PowerbaseFloorSvg snapshot={selectedSnapshot.snapshot} />
+              ) : (
+                <BaseFloorplan snapshot={selectedSnapshot.snapshot} />
+              )}
             </div>
-          </AspectRatio>
-          <div className="text-xs text-slate-200">
-            <h2 className="font-semibold mb-1">Active bookings (Power)</h2>
-            {powerInstances.length === 0 ? (
-              <p className="text-slate-400">No active bookings at this time.</p>
-            ) : (
-              <ul className="space-y-0.5">
-                {powerInstances.map((inst) => (
-                  <li
-                    key={inst.instanceId}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700/60 bg-slate-900/40 px-2 py-1"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{inst.title}</span>
-                      <span className="text-slate-300">
-                        — Racks {inst.racks.join(", ")}
-                      </span>
-                      <span className="text-slate-400">
-                        ({formatTimeRange(inst.start, inst.end)})
-                      </span>
-                    </div>
-                    {canEditInstance(inst) && (
-                      <button
-                        type="button"
-                        onClick={() => handleEditInstance(inst)}
-                        className="rounded-md border border-indigo-500/70 bg-indigo-900/50 px-2 py-1 text-[11px] font-medium text-indigo-50 hover:bg-indigo-800/70"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
-        </section>
-      )}
-
-      {/* Base section */}
-      {showBase && (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-300">
-            <span className="font-semibold">
-              Base — {date} {time}
-            </span>
-            <span className="text-slate-400">
-              Snapshot at {base.snapshot?.at ?? "…"}
-            </span>
-          </div>
-          <AspectRatio ratio={16 / 9}>
-            <div className="w-full h-full bg-slate-900 border border-slate-700 rounded-xl p-3 flex flex-col">
-              <div className="flex-1 min-h-0">
-                {base.isLoading && !base.snapshot ? (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
-                    Loading Base snapshot…
+        </AspectRatio>
+        <div className="text-xs text-slate-200">
+          <h2 className="font-semibold mb-1">
+            Active bookings ({sideMode === "power" ? "Power" : "Base"})
+          </h2>
+          {selectedInstances.length === 0 ? (
+            <p className="text-slate-400">No active bookings at this time.</p>
+          ) : (
+            <ul className="space-y-0.5">
+              {selectedInstances.map((inst) => (
+                <li
+                  key={inst.instanceId}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700/60 bg-slate-900/40 px-2 py-1"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{inst.title}</span>
+                    <span className="text-slate-300">
+                      — Racks {inst.racks.join(", ")}
+                    </span>
+                    <span className="text-slate-400">
+                      ({formatTimeRange(inst.start, inst.end)})
+                    </span>
                   </div>
-                ) : (
-                  <SideFloorplan
-                    layout={BASE_LAYOUT}
-                    snapshot={base.snapshot}
-                  />
-                )}
-              </div>
-            </div>
-          </AspectRatio>
-          <div className="text-xs text-slate-200">
-            <h2 className="font-semibold mb-1">Active bookings (Base)</h2>
-            {baseInstances.length === 0 ? (
-              <p className="text-slate-400">No active bookings at this time.</p>
-            ) : (
-              <ul className="space-y-0.5">
-                {baseInstances.map((inst) => (
-                  <li
-                    key={inst.instanceId}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700/60 bg-slate-900/40 px-2 py-1"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{inst.title}</span>
-                      <span className="text-slate-300">
-                        — Racks {inst.racks.join(", ")}
-                      </span>
-                      <span className="text-slate-400">
-                        ({formatTimeRange(inst.start, inst.end)})
-                      </span>
-                    </div>
-                    {canEditInstance(inst) && (
-                      <button
-                        type="button"
-                        onClick={() => handleEditInstance(inst)}
-                        className="rounded-md border border-indigo-500/70 bg-indigo-900/50 px-2 py-1 text-[11px] font-medium text-indigo-50 hover:bg-indigo-800/70"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
-      )}
+                  {canEditInstance(inst) && (
+                    <button
+                      type="button"
+                      onClick={() => handleEditInstance(inst)}
+                      className="rounded-md border border-indigo-500/70 bg-indigo-900/50 px-2 py-1 text-[11px] font-medium text-indigo-50 hover:bg-indigo-800/70"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

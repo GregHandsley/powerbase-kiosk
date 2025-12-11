@@ -64,36 +64,23 @@ export function FloorShell({
 
       {/* large bottom-left MACHINES box */}
       <rect
-          x={floorMargin + 19}
-          y={48}
-          width={33}
-          height={37}
-          fill="#707070"
-          stroke="#6b21a8"
-          strokeWidth={0.8}
-        />
-        <text
-          x={floorMargin + 36}
-          y={68}
-          textAnchor="middle"
-          fontSize={4}
-          fill="#ffffff"
-          fontFamily="system-ui, sans-serif"
-        >
-          MACHINES
-        </text>
-
-      {/* top-left cut-out text */}
+        x={floorMargin + 19}
+        y={48}
+        width={33}
+        height={37}
+        fill="#707070"
+        stroke="#6b21a8"
+        strokeWidth={0.8}
+      />
       <text
-        x={floorMargin + 16}
-        y={34}
+        x={floorMargin + 36}
+        y={68}
         textAnchor="middle"
-        fontSize={2.3}
+        fontSize={4}
         fill="#ffffff"
         fontFamily="system-ui, sans-serif"
       >
-        {/* inline coords allow a leading space to center vertically */}
-        {"  "}
+        MACHINES
       </text>
 
       {/* top-left dumbbell box */}
@@ -115,56 +102,50 @@ export function FloorShell({
         fontFamily="system-ui, sans-serif"
       >
         <tspan x={floorMargin + 47} dy={0}>
-            DUMBELL
-          </tspan>
-          <tspan x={floorMargin + 47} dy={4}>
-            WEIGHT
-          </tspan>
-          <tspan x={floorMargin + 47} dy={4}>
-            AREA
-          </tspan>
-        </text>
+          DUMBELL
+        </tspan>
+        <tspan x={floorMargin + 47} dy={4}>
+          WEIGHT
+        </tspan>
+        <tspan x={floorMargin + 47} dy={4}>
+          AREA
+        </tspan>
+      </text>
 
       {/* right machines vertical strip */}
       <rect
-          x={viewBoxWidth - floorMargin - 16}
-          y={5}
-          width={10}
-          height={37}
-          fill="#707070"
-          stroke="#6b21a8"
-          strokeWidth={0.8}
-        />
-        <text
-          x={viewBoxWidth - floorMargin - 10}
-          y={23}
-          textAnchor="middle"
-          fontSize={2}
-          fill="#ffffff"
-          fontFamily="system-ui, sans-serif"
-          transform={`rotate(-90 ${viewBoxWidth - floorMargin - 10} 23)`}
-        >
-          MACHINES
-        </text>
+        x={viewBoxWidth - floorMargin - 16}
+        y={5}
+        width={10}
+        height={37}
+        fill="#707070"
+        stroke="#6b21a8"
+        strokeWidth={0.8}
+      />
+      <text
+        x={viewBoxWidth - floorMargin - 10}
+        y={23}
+        textAnchor="middle"
+        fontSize={2}
+        fill="#ffffff"
+        fontFamily="system-ui, sans-serif"
+        transform={`rotate(-90 ${viewBoxWidth - floorMargin - 10} 23)`}
+      >
+        MACHINES
+      </text>
 
       {/* right-top stairs strip */}
-      <rect
-          x={viewBoxWidth - floorMargin - 4}
-          y={5}
-          width={3}
-          height={37.5}
-          fill="#facc15"
+      <rect x={viewBoxWidth - floorMargin - 4} y={5} width={3} height={37.5} fill="#facc15" />
+      {Array.from({ length: 13 }).map((_, i) => (
+        <rect
+          key={i}
+          x={viewBoxWidth - floorMargin - 3.8}
+          y={7 + i * 2.8}
+          width={2.6}
+          height={0.8}
+          fill="#fde68a"
         />
-        {Array.from({ length: 13 }).map((_, i) => (
-          <rect
-            key={i}
-            x={viewBoxWidth - floorMargin - 3.8}
-            y={7 + i * 2.8}
-            width={2.6}
-            height={0.8}
-            fill="#fde68a"
-          />
-        ))}
+      ))}
 
       {/* bottom-right DB WEIGHT AREA */}
       <rect

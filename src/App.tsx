@@ -2,7 +2,6 @@ import { Routes, Route, Link } from "react-router-dom";
 import { Home } from "./pages/Home";
 import { KioskPower } from "./pages/KioskPower";
 import { KioskBase } from "./pages/KioskBase";
-import { KioskStacked } from "./pages/KioskStacked";
 import { Schedule } from "./pages/Schedule";
 import { Admin } from "./pages/Admin";
 import { TestLayout } from "./pages/TestLayout";
@@ -22,9 +21,6 @@ export default function App() {
           <Link to="/kiosk/base" className="hover:text-white">
             Kiosk Base
           </Link>
-          <Link to="/kiosk/stacked" className="hover:text-white">
-            Kiosk Stacked
-          </Link>
           <Link to="/schedule" className="hover:text-white">
             Schedule
           </Link>
@@ -42,7 +38,6 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/kiosk/power" element={<KioskPower />} />
           <Route path="/kiosk/base" element={<KioskBase />} />
-          <Route path="/kiosk/stacked" element={<KioskStacked />} />
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/test-layout" element={<TestLayout />} />
           <Route path="/admin" element={<Admin />} />

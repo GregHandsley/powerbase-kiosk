@@ -1,15 +1,13 @@
 import { useState } from "react";
 import { useSideSnapshot } from "../../hooks/useSideSnapshot";
-import { POWER_LAYOUT, BASE_LAYOUT } from "../../config/layout";
 import type { SideKey } from "../../nodes/data/sidesNodes";
-import { SideFloorplan } from "../SideFloorplan";
+import { BaseFloorplan } from "../floorplans/base/BaseFloorplan";
+import { PowerbaseFloorSvg } from "../floorplans/power/PowerbaseFloorSvg";
 
 export function AdminRackAllocator() {
   const [sideKey, setSideKey] = useState<SideKey>("Power");
 
   const { snapshot, isLoading, error } = useSideSnapshot(sideKey);
-
-  const layout = sideKey === "Power" ? POWER_LAYOUT : BASE_LAYOUT;
 
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-3">
@@ -42,11 +40,10 @@ export function AdminRackAllocator() {
           <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
             Loading snapshot…
           </div>
+        ) : sideKey === "Power" ? (
+          <PowerbaseFloorSvg snapshot={snapshot} />
         ) : (
-          <SideFloorplan
-            layout={layout}
-            snapshot={snapshot}
-          />
+          <BaseFloorplan snapshot={snapshot} />
         )}
       </div>
     </div>

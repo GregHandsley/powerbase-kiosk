@@ -2,7 +2,7 @@ import { AspectRatio } from "../components/AspectRatio";
 import { Clock } from "../components/Clock";
 import { useSideSnapshot } from "../hooks/useSideSnapshot";
 import { BASE_LAYOUT } from "../config/layout";
-import { SideFloorplan } from "../components/SideFloorplan";
+import { BaseFloorplan } from "../components/floorplans/base/BaseFloorplan";
 
 export function KioskBase() {
   const { snapshot, error, isLoading } = useSideSnapshot("Base");
@@ -33,7 +33,7 @@ export function KioskBase() {
                 Loading snapshot...
               </div>
             ) : (
-              <SideFloorplan layout={BASE_LAYOUT} snapshot={snapshot} />
+              <BaseFloorplan snapshot={snapshot} />
             )}
           </div>
         </div>

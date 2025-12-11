@@ -1,4 +1,4 @@
-import type { ActiveInstance, NextUseInfo } from "../../types/snapshot";
+import type { ActiveInstance, NextUseInfo } from "../../../types/snapshot";
 
 export type RackLayoutSlot = {
   number: number;
@@ -41,7 +41,6 @@ function wrapText(value: string, maxCharsPerLine: number, maxLines: number) {
     const isLastLine = lines.length === maxLines - 1;
     const tentative = current.length === 0 ? word : `${current} ${word}`;
     if (tentative.length <= maxCharsPerLine || isLastLine) {
-      // Allow the final line to exceed the max length so we never drop words.
       current = tentative;
     } else {
       if (current.length > 0) {
@@ -141,11 +140,9 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
   }
 
   const titleLines = wrapText(statusLine1, 16, 2);
-  // Tighter maxCharsPerLine to avoid horizontal clipping on long titles.
   const status2Lines = statusLine2 ? wrapText(statusLine2, 18, 2) : [];
   const status3Lines = statusLine3 ? wrapText(statusLine3, 18, 3) : [];
 
-  // Build vertical layout and scale down if it would overflow the inner box
   const content: {
     text: string;
     size: number;
@@ -156,7 +153,6 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     gapAfter: number;
   }[] = [];
 
-  // Rack label
   content.push({
     text: `Rack ${slot.number}`,
     size: 1.6,
@@ -166,7 +162,6 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     gapAfter: 0.45,
   });
 
-  // Title lines (primary focal)
   for (let i = 0; i < titleLines.length; i++) {
     content.push({
       text: titleLines[i],
@@ -177,7 +172,6 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     });
   }
 
-  // Status 2 (time window)
   for (let i = 0; i < status2Lines.length; i++) {
     content.push({
       text: status2Lines[i],
@@ -189,7 +183,6 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     });
   }
 
-  // Status 3 (next available / free window)
   for (let i = 0; i < status3Lines.length; i++) {
     content.push({
       text: status3Lines[i],
@@ -203,7 +196,7 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
 
   const totalHeight =
     content.reduce((acc, item) => acc + item.size + item.gapAfter, 0) - (content.at(-1)?.gapAfter ?? 0);
-  const available = innerHeight - 1.2; // small top/bottom breathing room
+  const available = innerHeight - 1.2;
   const scale = totalHeight > 0 ? Math.min(1, available / totalHeight) : 1;
 
   const lines: {
@@ -216,12 +209,12 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     letterSpacing?: number;
   }[] = [];
 
-  let cursorY = innerY + (1.2 / 2); // top breathing room
+  let cursorY = innerY + (1.2 / 2);
   for (const item of content) {
     const size = item.size * scale;
     lines.push({
       text: item.text,
-      y: cursorY + size, // position at baseline after applying size
+      y: cursorY + size,
       size,
       color: item.color,
       family: item.family,
@@ -258,9 +251,9 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
             textAnchor="middle"
             fontSize={line.size}
             fill={line.color}
-          fontFamily={line.family ?? '"SF Pro Display", "Inter", system-ui, sans-serif'}
-          fontWeight={line.weight}
-          letterSpacing={line.letterSpacing}
+            fontFamily={line.family ?? '"SF Pro Display", "Inter", system-ui, sans-serif'}
+            fontWeight={line.weight}
+            letterSpacing={line.letterSpacing}
           >
             {line.text}
           </text>
@@ -269,3 +262,4 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     </g>
   );
 }
+
