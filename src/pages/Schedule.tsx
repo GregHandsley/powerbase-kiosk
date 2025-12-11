@@ -6,7 +6,7 @@ import { AspectRatio } from "../components/AspectRatio";
 import { Clock } from "../components/Clock";
 import { BASE_LAYOUT } from "../config/layout";
 import { BaseFloorplan } from "../components/floorplans/base/BaseFloorplan";
-import { PowerbaseFloorSvg } from "../components/floorplans/power/PowerbaseFloorSvg";
+import { PowerbaseFloorSvg } from "../components/floorplans/power/PowerFloorplan";
 import type { ActiveInstance, SideSnapshot } from "../types/snapshot";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";

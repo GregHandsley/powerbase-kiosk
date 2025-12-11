@@ -1,4 +1,12 @@
 import type { ActiveInstance, NextUseInfo } from "../../../types/snapshot";
+import {
+  rackCornerRadius,
+  rackFontFamily,
+  rackMonoFamily,
+  rackPadding,
+  rackPalette,
+  rackStrokeWidth,
+} from "./theme";
 
 export type RackLayoutSlot = {
   number: number;
@@ -67,11 +75,10 @@ function isSameDay(a: Date | null, b: Date | null) {
 }
 
 export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
-  const padding = 0.6; // inset so text never touches the border stroke
-  const innerX = slot.x + padding;
-  const innerY = slot.y + padding;
-  const innerWidth = slot.width - padding * 2;
-  const innerHeight = slot.height - padding * 2;
+  const innerX = slot.x + rackPadding;
+  const innerY = slot.y + rackPadding;
+  const innerWidth = slot.width - rackPadding * 2;
+  const innerHeight = slot.height - rackPadding * 2;
 
   const rackCenterX = innerX + innerWidth / 2;
   const clipId = `rack-clip-${slot.number}`;
@@ -83,25 +90,7 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
   const currentEndDate = currentInst?.end ? new Date(currentInst.end) : null;
   const isOccupied = Boolean(currentInst);
 
-  const palette = isOccupied
-    ? {
-        fill: "#111b2b",
-        border: "#6b7f98",
-        label: "#f1f5f9",
-        primary: "#f8fafc",
-        free: "#c6f6d5",
-        secondary: "#dce3ed",
-        accent: "#a5f3fc",
-      }
-    : {
-        fill: "#13243a",
-        border: "#8ad5ff",
-        label: "#f8fafc",
-        primary: "#f8fafc",
-        free: "#b1f0c5",
-        secondary: "#dce3ed",
-        accent: "#b5f4ff",
-      };
+  const palette = isOccupied ? rackPalette.occupied : rackPalette.free;
 
   let statusLine1: string;
   let statusLine2: string | null = null;
@@ -177,7 +166,7 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
       text: status2Lines[i],
       size: 1.12,
       color: palette.secondary,
-      family: '"Inter", "SFMono-Regular", ui-monospace, monospace',
+      family: rackMonoFamily,
       weight: "600",
       gapAfter: 0.34,
     });
@@ -188,7 +177,7 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
       text: status3Lines[i],
       size: 1.0,
       color: palette.accent,
-      family: '"Inter", "SFMono-Regular", ui-monospace, monospace',
+      family: rackMonoFamily,
       weight: "600",
       gapAfter: 0.3,
     });
@@ -235,11 +224,11 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
         y={slot.y}
         width={slot.width}
         height={slot.height}
-        rx={2.6}
-        ry={2.6}
+        rx={rackCornerRadius}
+        ry={rackCornerRadius}
         fill={palette.fill}
         stroke={palette.border}
-        strokeWidth={0.65}
+        strokeWidth={rackStrokeWidth}
       />
 
       <g clipPath={`url(#${clipId})`}>
@@ -251,7 +240,7 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
             textAnchor="middle"
             fontSize={line.size}
             fill={line.color}
-            fontFamily={line.family ?? '"SF Pro Display", "Inter", system-ui, sans-serif'}
+            fontFamily={line.family ?? rackFontFamily}
             fontWeight={line.weight}
             letterSpacing={line.letterSpacing}
           >
@@ -262,4 +251,3 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     </g>
   );
 }
-

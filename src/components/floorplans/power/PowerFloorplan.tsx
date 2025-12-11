@@ -1,5 +1,6 @@
 import type { SideSnapshot, ActiveInstance, NextUseInfo } from "../../../types/snapshot";
 import { RackSlot, type RackLayoutSlot } from "../shared/RackSlot";
+import "../shared/floorplan.css";
 
 type Props = {
   snapshot?: SideSnapshot | null;
@@ -60,10 +61,11 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
       preserveAspectRatio="xMidYMid meet"
     >
       {/* outer background */}
-      <rect x={0} y={0} width={viewBoxWidth} height={viewBoxHeight} fill="#ffffff" />
+      <rect className="fp-bg-outer" x={0} y={0} width={viewBoxWidth} height={viewBoxHeight} />
 
       {/* main floor background as an L-shape with top-left cut-out */}
       <path
+        className="fp-bg-path"
         d={`
           M ${cutoutRight} ${floorMargin}
           H ${viewBoxWidth - floorMargin}
@@ -73,192 +75,137 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
           H ${cutoutRight}
           Z
         `}
-        fill="#d4d4d4"
-        stroke="#9ca3af"
-        strokeWidth={0.8}
       />
 
       {/* LEFT: Dumbbell Area */}
-      <rect
-        x={floorMargin + 2}
-        y={floorMargin + 17}
-        width={15}
-        height={42}
-        fill="#707070"
-        stroke="#6b21a8"
-        strokeWidth={0.8}
-      />
-      <text
-        x={floorMargin + 16.5}
-        y={floorMargin + 35}
-        textAnchor="middle"
-        fontSize={2}
-        fill="#ffffff"
-        fontFamily="system-ui, sans-serif"
-      >
-        <tspan x={floorMargin + 10} dy={0}>
-          Dumbbell
-        </tspan>
-        <tspan x={floorMargin + 10} dy={4}>
-          Area
-        </tspan>
-      </text>
+      <g transform={`translate(${floorMargin + 2} ${floorMargin + 17})`}>
+        <rect className="fp-area" width={15} height={42} />
+        <text
+          className="fp-area-label"
+          x={7.5}
+          y={42 / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+        >
+          DUMBBELL
+          <tspan x={7.5} dy={3.8}>
+            AREA
+          </tspan>
+        </text>
+      </g>
 
       {/* LEFT: Cables */}
-      <rect
-        x={floorMargin + 2}
-        y={viewBoxHeight - floorMargin - 22}
-        width={15}
-        height={20}
-        fill="#707070"
-        stroke="#6b21a8"
-        strokeWidth={0.8}
-      />
-      <text
-        x={floorMargin + 10}
-        y={floorMargin + 73}
-        textAnchor="middle"
-        fontSize={2}
-        fill="#ffffff"
-        fontFamily="system-ui, sans-serif"
-      >
-        Cables
-      </text>
-
-      {/* L-SHAPE BLACK ZONE (walls / voids) */}
-      <rect x={floorMargin + 18.5} y={floorMargin + 15.4} width={4} height={68.2} fill="#000000" />
-      <rect x={floorMargin + 20} y={floorMargin + 15.4} width={27.5} height={20} fill="#000000" />
-      <rect
-        x={floorMargin + 20}
-        y={topRowY + 19.5}
-        width={viewBoxWidth - floorMargin - 35}
-        height={5}
-        fill="#000000"
-      />
-
-      {/* two vertical black posts between grid columns */}
-      <rect
-        x={col2X + rackWidth + 1}
-        y={topRowY - 10}
-        width={4}
-        height={viewBoxHeight - topRowY - 5}
-        fill="#000000"
-      />
-      <rect
-        x={col3X + rackWidth + 1}
-        y={topRowY - 10}
-        width={4}
-        height={viewBoxHeight - topRowY - 5}
-        fill="#000000"
-      />
+      <g transform={`translate(${floorMargin + 2} ${viewBoxHeight - floorMargin - 22})`}>
+        <rect className="fp-area" width={15} height={20} />
+        <text
+          className="fp-area-label"
+          x={7.5}
+          y={20 / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+        >
+          CABLES
+        </text>
+      </g>
 
       {/* MID-LEFT: Fixed Resistance Machines */}
-      <rect
-        x={floorMargin + 24}
-        y={floorMargin + 40}
-        width={23}
-        height={42}
-        fill="#707070"
-        stroke="#6b21a8"
-        strokeWidth={0.8}
-      />
-      <text
-        x={floorMargin + 53}
-        y={floorMargin + 56}
-        textAnchor="middle"
-        fontSize={2}
-        fill="#ffffff"
-        fontFamily="system-ui, sans-serif"
-      >
-        <tspan x={floorMargin + 35.5} dy={0}>
-          Fixed
-        </tspan>
-        <tspan x={floorMargin + 35.5} dy={4}>
-          Resistance
-        </tspan>
-        <tspan x={floorMargin + 35.5} dy={4}>
-          Machines
-        </tspan>
-      </text>
+      <g transform={`translate(${floorMargin + 24} ${floorMargin + 40})`}>
+        <rect className="fp-area" width={23} height={42} />
+        <text
+          className="fp-area-label"
+          x={23 / 2}
+          y={42 / 2 - 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+        >
+          FIXED
+        </text>
+        <text
+          className="fp-area-label"
+          x={23 / 2}
+          y={42 / 2 + 3}
+          textAnchor="middle"
+          dominantBaseline="middle"
+        >
+          MACHINES
+        </text>
+      </g>
 
       {/* TOP BAND: Weight Lifting Area */}
       <rect
+        className="fp-banner"
         x={floorMargin + 47.5}
         y={floorMargin + 2}
         width={viewBoxWidth - floorMargin - 65}
         height={10}
         rx={4}
         ry={4}
-        fill="#e5e5e5"
-        stroke="#4b5563"
-        strokeWidth={0.6}
       />
       <text
+        className="fp-banner-text"
         x={100.5}
         y={floorMargin + 8}
         textAnchor="middle"
         fontSize={2}
-        fill="#111827"
-        fontFamily="system-ui, sans-serif"
       >
         Weight Lifting Area
       </text>
 
       {/* BOTTOM BAND: Functional Area */}
       <rect
+        className="fp-banner"
         x={floorMargin + 48.5}
         y={viewBoxHeight - floorMargin - 14}
         width={viewBoxWidth - floorMargin - 66}
         height={12}
         rx={4}
         ry={4}
-        fill="#e5e5e5"
-        stroke="#4b5563"
-        strokeWidth={0.6}
       />
       <text
+        className="fp-banner-text"
         x={floorMargin + 45 + (viewBoxWidth - floorMargin - 40 - 17) / 2}
         y={viewBoxHeight - floorMargin - 7}
         textAnchor="middle"
         fontSize={2}
-        fill="#111827"
-        fontFamily="system-ui, sans-serif"
       >
         Functional Area
       </text>
 
       {/* RIGHT: Track */}
       <rect
+        className="fp-track"
         x={viewBoxWidth - floorMargin - 13}
         y={floorMargin + 2}
         width={11}
         height={viewBoxHeight - floorMargin * 2 - 4}
-        fill="#f97316"
-        stroke="#6b21a8"
-        strokeWidth={0.8}
       />
       <text
+        className="fp-track-text"
         x={viewBoxWidth - floorMargin - 9}
         y={viewBoxHeight / 2 + 2.5}
         textAnchor="middle"
         fontSize={3}
-        fill="#ffffff"
-        fontFamily="system-ui, sans-serif"
         transform={`rotate(-90 ${viewBoxWidth - floorMargin - 9} ${viewBoxHeight / 2})`}
       >
         Track
       </text>
 
       {/* YELLOW STAIRS – top centre */}
-      <rect x={floorMargin + 40} y={floorMargin + 0.5} width={5} height={12} fill="#facc15" />
+      <rect
+        className="fp-stairs-main"
+        x={floorMargin + 40}
+        y={floorMargin + 0.5}
+        width={5}
+        height={12}
+      />
       {Array.from({ length: 8 }).map((_, i) => (
         <rect
           key={`step-${i}`}
+          className="fp-stairs-step"
           x={floorMargin + 40.3}
           y={floorMargin + 0.5 + i * 1.5}
           width={4.4}
           height={0.7}
-          fill="#fde68a"
         />
       ))}
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useSideSnapshot } from "../../hooks/useSideSnapshot";
 import type { SideKey } from "../../nodes/data/sidesNodes";
 import { BaseFloorplan } from "../floorplans/base/BaseFloorplan";
-import { PowerbaseFloorSvg } from "../floorplans/power/PowerbaseFloorSvg";
+import { PowerbaseFloorSvg } from "../floorplans/power/PowerFloorplan";
 
 export function AdminRackAllocator() {
   const [sideKey, setSideKey] = useState<SideKey>("Power");

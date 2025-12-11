@@ -1,7 +1,7 @@
 import { AspectRatio } from "../components/AspectRatio";
 import { Clock } from "../components/Clock";
 import { useSideSnapshot } from "../hooks/useSideSnapshot";
-import { PowerbaseFloorSvg } from "../components/floorplans/power/PowerbaseFloorSvg";
+import { PowerbaseFloorSvg } from "../components/floorplans/power/PowerFloorplan";
 
 export function KioskPower() {
   const { snapshot, error, isLoading } = useSideSnapshot("Power");

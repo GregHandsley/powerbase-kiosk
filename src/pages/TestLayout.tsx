@@ -1,4 +1,4 @@
-import { PowerbaseFloorSvg } from "../components/floorplans/power/PowerbaseFloorSvg";
+import { PowerbaseFloorSvg } from "../components/floorplans/power/PowerFloorplan";
 
 export function TestLayout() {
   return (
