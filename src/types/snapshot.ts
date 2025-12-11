@@ -11,10 +11,15 @@ export interface ActiveInstance {
   createdBy: string | null;
 }
 
+export interface NextUseInfo {
+  start: string;
+  title: string;
+}
+
 export interface SideSnapshot {
   at: string;
   sideId: number | null;
   currentInstances: ActiveInstance[];
-  nextUseByRack: Record<string, string | null>;
-  nextUseByArea: Record<string, string | null>;
+  nextUseByRack: Record<string, NextUseInfo | null>;
+  nextUseByArea: Record<string, NextUseInfo | null>;
 }

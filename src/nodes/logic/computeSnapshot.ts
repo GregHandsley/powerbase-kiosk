@@ -1,5 +1,5 @@
 import type { BookingInstanceWithBookingRow } from "../../types/db";
-import type { ActiveInstance, SideSnapshot } from "../../types/snapshot";
+import type { ActiveInstance, NextUseInfo, SideSnapshot } from "../../types/snapshot";
 
 export function computeSnapshotFromInstances(
   instances: BookingInstanceWithBookingRow[],
@@ -11,8 +11,8 @@ export function computeSnapshotFromInstances(
   }
 
   const currentInstances: ActiveInstance[] = [];
-  const nextUseByRack: Record<string, string | null> = {};
-  const nextUseByArea: Record<string, string | null> = {};
+  const nextUseByRack: Record<string, NextUseInfo | null> = {};
+  const nextUseByArea: Record<string, NextUseInfo | null> = {};
 
   for (const inst of instances) {
     const start = new Date(inst.start);
@@ -45,20 +45,21 @@ export function computeSnapshotFromInstances(
     // future: start > at -> contributes to next use
     if (start > at) {
       const startIso = inst.start;
+      const nextInfo: NextUseInfo = { start: startIso, title: bookingTitle };
 
       for (const r of racks) {
         const key = String(r);
         const existing = nextUseByRack[key];
-        if (!existing || new Date(startIso) < new Date(existing)) {
-          nextUseByRack[key] = startIso;
+        if (!existing || new Date(startIso) < new Date(existing.start)) {
+          nextUseByRack[key] = nextInfo;
         }
       }
 
       for (const areaKey of areas) {
         const key = String(areaKey);
         const existing = nextUseByArea[key];
-        if (!existing || new Date(startIso) < new Date(existing)) {
-          nextUseByArea[key] = startIso;
+        if (!existing || new Date(startIso) < new Date(existing.start)) {
+          nextUseByArea[key] = nextInfo;
         }
       }
     }

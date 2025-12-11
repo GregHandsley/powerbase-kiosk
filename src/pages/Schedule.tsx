@@ -302,8 +302,6 @@ export function Schedule() {
                   <SideFloorplan
                     layout={POWER_LAYOUT}
                     snapshot={power.snapshot}
-                    canEditInstance={canEditInstance}
-                    onEditInstance={handleEditInstance}
                   />
                 )}
               </div>
@@ -316,14 +314,28 @@ export function Schedule() {
             ) : (
               <ul className="space-y-0.5">
                 {powerInstances.map((inst) => (
-                  <li key={inst.instanceId} className="flex flex-wrap gap-2">
-                    <span className="font-medium">{inst.title}</span>
-                    <span className="text-slate-300">
-                      — Racks {inst.racks.join(", ")}
-                    </span>
-                    <span className="text-slate-400">
-                      ({formatTimeRange(inst.start, inst.end)})
-                    </span>
+                  <li
+                    key={inst.instanceId}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700/60 bg-slate-900/40 px-2 py-1"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{inst.title}</span>
+                      <span className="text-slate-300">
+                        — Racks {inst.racks.join(", ")}
+                      </span>
+                      <span className="text-slate-400">
+                        ({formatTimeRange(inst.start, inst.end)})
+                      </span>
+                    </div>
+                    {canEditInstance(inst) && (
+                      <button
+                        type="button"
+                        onClick={() => handleEditInstance(inst)}
+                        className="rounded-md border border-indigo-500/70 bg-indigo-900/50 px-2 py-1 text-[11px] font-medium text-indigo-50 hover:bg-indigo-800/70"
+                      >
+                        Edit
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -354,8 +366,6 @@ export function Schedule() {
                   <SideFloorplan
                     layout={BASE_LAYOUT}
                     snapshot={base.snapshot}
-                    canEditInstance={canEditInstance}
-                    onEditInstance={handleEditInstance}
                   />
                 )}
               </div>
@@ -368,14 +378,28 @@ export function Schedule() {
             ) : (
               <ul className="space-y-0.5">
                 {baseInstances.map((inst) => (
-                  <li key={inst.instanceId} className="flex flex-wrap gap-2">
-                    <span className="font-medium">{inst.title}</span>
-                    <span className="text-slate-300">
-                      — Racks {inst.racks.join(", ")}
-                    </span>
-                    <span className="text-slate-400">
-                      ({formatTimeRange(inst.start, inst.end)})
-                    </span>
+                  <li
+                    key={inst.instanceId}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700/60 bg-slate-900/40 px-2 py-1"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{inst.title}</span>
+                      <span className="text-slate-300">
+                        — Racks {inst.racks.join(", ")}
+                      </span>
+                      <span className="text-slate-400">
+                        ({formatTimeRange(inst.start, inst.end)})
+                      </span>
+                    </div>
+                    {canEditInstance(inst) && (
+                      <button
+                        type="button"
+                        onClick={() => handleEditInstance(inst)}
+                        className="rounded-md border border-indigo-500/70 bg-indigo-900/50 px-2 py-1 text-[11px] font-medium text-indigo-50 hover:bg-indigo-800/70"
+                      >
+                        Edit
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>

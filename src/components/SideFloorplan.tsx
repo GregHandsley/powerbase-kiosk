@@ -1,38 +1,15 @@
 import type { SideSnapshot, ActiveInstance } from "../types/snapshot";
-import { groupContiguous } from "../lib/groupContiguous";
-
-// If you already have RackLayoutSlot in ../config/layout, you can import it
-// instead of redefining this.
-type RackLayoutSlot = {
-  number: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
+import { FloorShell } from "./sidefloorplan/FloorShell";
+import { RackSlot, type RackLayoutSlot } from "./sidefloorplan/RackSlot";
 
 type Props = {
   snapshot: SideSnapshot | null;
-  onEditInstance?: (inst: ActiveInstance) => void;
-  canEditInstance?: (inst: ActiveInstance) => boolean;
+  // layout prop accepted for compatibility; the current SVG is static.
+  layout?: unknown;
 };
 
-function formatTime(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 // Static SVG floor layout for Powerbase with booking logic.
-export function SideFloorplan({
-  snapshot,
-  onEditInstance,
-  canEditInstance,
-}: Props) {
+export function SideFloorplan({ snapshot }: Props) {
   // ---- basic layout numbers ----
   const viewBoxWidth = 160;
   const viewBoxHeight = 90;
@@ -69,7 +46,6 @@ export function SideFloorplan({
   // size of the top-left cut-out (white area)
   const cutoutWidth = 40;
   const cutoutHeight = 39;
-  const cutoutRight = floorMargin + cutoutWidth;
 
   // helper to build a single vertical column of racks
   const buildColumn = (
@@ -114,55 +90,15 @@ export function SideFloorplan({
   // ---- snapshot-driven logic (from your template) ----
   const current = snapshot?.currentInstances ?? [];
   const nextUseByRack = snapshot?.nextUseByRack ?? {};
+  const snapshotDate = snapshot?.at ? new Date(snapshot.at) : new Date();
 
-  // Which racks are occupied right now
-  const occupiedRacks = new Set<number>();
-  for (const inst of current) {
-    for (const r of inst.racks) {
-      occupiedRacks.add(r);
-    }
-  }
-
-  // Build mask rects for each current instance (group contiguous rack numbers)
-  const maskRects: {
-    key: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    title: string;
-    color: string | null;
-    inst: ActiveInstance;
-    slots: RackLayoutSlot[]; // <— NEW
-  }[] = [];
-
+  // Which racks are occupied right now + quick lookups
+  const currentByRack = new Map<number, ActiveInstance>();
   for (const inst of current) {
     if (!inst.racks || inst.racks.length === 0) continue;
 
-    const groups = groupContiguous(inst.racks);
-
-    for (const group of groups) {
-      const slots = racks.filter((r) => group.includes(r.number));
-      if (slots.length === 0) continue;
-
-      const left = Math.min(...slots.map((s) => s.x));
-      const right = Math.max(...slots.map((s) => s.x + s.width));
-      const top = Math.min(...slots.map((s) => s.y));
-      const bottom = Math.max(...slots.map((s) => s.y + s.height));
-      const width = right - left;
-      const height = bottom - top;
-
-      maskRects.push({
-        key: `${inst.instanceId}-${group[0]}-${group[group.length - 1]}`,
-        x: left,
-        y: top,
-        width,
-        height,
-        title: inst.title,
-        color: inst.color,
-        inst,
-        slots,
-      });
+    for (const r of inst.racks) {
+      currentByRack.set(r, inst);
     }
   }
 
@@ -173,295 +109,24 @@ export function SideFloorplan({
       height="100%"
       preserveAspectRatio="xMidYMid meet"
     >
-      {/* outer background */}
-      <rect
-        x={0}
-        y={0}
-        width={viewBoxWidth}
-        height={viewBoxHeight}
-        fill="#ffffff"
+      <FloorShell
+        viewBoxWidth={viewBoxWidth}
+        viewBoxHeight={viewBoxHeight}
+        floorMargin={floorMargin}
+        cutoutWidth={cutoutWidth}
+        cutoutHeight={cutoutHeight}
       />
-
-      {/* main floor block as an L-shape with top-left cut-out */}
-      <path
-        d={`
-          M ${cutoutRight} ${floorMargin}
-          H ${viewBoxWidth - floorMargin}
-          V ${viewBoxHeight - floorMargin}
-          H ${floorMargin}
-          V ${floorMargin + cutoutHeight}
-          H ${cutoutRight}
-          Z
-        `}
-        fill="#bfbfbf"
-        stroke="#666666"
-        strokeWidth={0.8}
-      />
-
-      {/* bottom-left BIKE/MET CON AREA */}
-      <rect
-        x={floorMargin + 2}
-        y={44}
-        width={15}
-        height={41}
-        fill="#707070"
-        stroke="#6b21a8"
-        strokeWidth={0.8}
-      />
-      <text
-        x={floorMargin + 10}
-        y={65}
-        textAnchor="middle"
-        fontSize={2}
-        fill="#ffffff"
-        fontFamily="system-ui, sans-serif"
-      >
-        <tspan x={floorMargin + 10} dy={0}>
-          BIKE/MET
-        </tspan>
-        <tspan x={floorMargin + 10} dy={4}>
-          CON AREA
-        </tspan>
-      </text>
-
-      {/* bottom-centre MACHINES */}
-      <rect
-        x={floorMargin + 19}
-        y={48}
-        width={33}
-        height={37}
-        fill="#707070"
-        stroke="#6b21a8"
-        strokeWidth={0.8}
-      />
-      <text
-        x={floorMargin + 36}
-        y={68}
-        textAnchor="middle"
-        fontSize={4}
-        fill="#ffffff"
-        fontFamily="system-ui, sans-serif"
-      >
-        MACHINES
-      </text>
-
-      {/* top-left vertical DB WEIGHT AREA */}
-      <rect
-        x={floorMargin + 42}
-        y={5}
-        width={10}
-        height={37}
-        fill="#707070"
-        stroke="#6b21a8"
-        strokeWidth={0.8}
-      />
-      <text
-        x={floorMargin + 47}
-        y={20}
-        textAnchor="middle"
-        fontSize={1.5}
-        fill="#ffffff"
-        fontFamily="system-ui, sans-serif"
-      >
-        <tspan x={floorMargin + 47} dy={0}>
-          DUMBELL
-        </tspan>
-        <tspan x={floorMargin + 47} dy={4}>
-          WEIGHT
-        </tspan>
-        <tspan x={floorMargin + 47} dy={4}>
-          AREA
-        </tspan>
-      </text>
-
-      {/* right-top MACHINES vertical block */}
-      <rect
-        x={viewBoxWidth - floorMargin - 16}
-        y={5}
-        width={10}
-        height={37}
-        fill="#707070"
-        stroke="#6b21a8"
-        strokeWidth={0.8}
-      />
-      <text
-        x={viewBoxWidth - floorMargin - 10}
-        y={23}
-        textAnchor="middle"
-        fontSize={2}
-        fill="#ffffff"
-        fontFamily="system-ui, sans-serif"
-        transform={`rotate(-90 ${viewBoxWidth - floorMargin - 10} 23)`}
-      >
-        MACHINES
-      </text>
-
-      {/* right-top stairs strip */}
-      <rect
-        x={viewBoxWidth - floorMargin - 4}
-        y={5}
-        width={3}
-        height={37.5}
-        fill="#facc15"
-      />
-      {Array.from({ length: 13 }).map((_, i) => (
-        <rect
-          key={i}
-          x={viewBoxWidth - floorMargin - 3.8}
-          y={7 + i * 2.8}
-          width={2.6}
-          height={0.8}
-          fill="#fde68a"
-        />
-      ))}
-
-      {/* bottom-right DB WEIGHT AREA */}
-      <rect
-        x={viewBoxWidth - floorMargin - 16}
-        y={48}
-        width={14}
-        height={37}
-        fill="#707070"
-        stroke="#6b21a8"
-        strokeWidth={0.8}
-      />
-      <text
-        x={viewBoxWidth - floorMargin - 14}
-        y={64}
-        textAnchor="middle"
-        fontSize={2}
-        fill="#ffffff"
-        fontFamily="system-ui, sans-serif"
-      >
-        <tspan x={viewBoxWidth - floorMargin - 9} dy={0}>
-          DUMBELL
-        </tspan>
-        <tspan x={viewBoxWidth - floorMargin - 9} dy={4}>
-          WEIGHT
-        </tspan>
-        <tspan x={viewBoxWidth - floorMargin - 9} dy={4}>
-          AREA
-        </tspan>
-      </text>
-
-      {/* central vertical text */}
-      <text
-        x={80}
-        y={65}
-        textAnchor="middle"
-        fontSize={5}
-        fill="#4b5563"
-        fontFamily="system-ui, sans-serif"
-        transform="rotate(-90 80 45)"
-      >
-        WHERE HISTORY BEGINS
-      </text>
 
       {/* all racks (base rectangles) */}
-      {racks.map((rack) => {
-        const isOccupied = occupiedRacks.has(rack.number);
-        const nextUse = !isOccupied
-          ? formatTime(nextUseByRack[String(rack.number)])
-          : null;
-
-        return (
-          <g key={rack.number}>
-            <rect
-              x={rack.x}
-              y={rack.y}
-              width={rack.width}
-              height={rack.height}
-              // Slightly different fill if occupied vs free, tweak as you like
-              fill={isOccupied ? "#7c3aed" : "#7c3aed"}
-              stroke="#6b21a8"
-              strokeWidth={0.8}
-            />
-            {/* Rack label + number */}
-            <text
-              x={rack.x + rack.width / 2}
-              y={rack.y + rack.height / 2 - 2.2}
-              textAnchor="middle"
-              fontSize={2.4}
-              fill="#ffffff"
-              fontFamily="system-ui, sans-serif"
-            >
-              RACK
-            </text>
-            <text
-              x={rack.x + rack.width / 2}
-              y={rack.y + rack.height / 2 + 1}
-              textAnchor="middle"
-              fontSize={2.8}
-              fill="#ffffff"
-              fontFamily="system-ui, sans-serif"
-            >
-              {rack.number}
-            </text>
-
-            {/* Optional: next booking time on free racks */}
-            {nextUse && (
-              <text
-                x={rack.x + rack.width / 2}
-                y={rack.y + rack.height - 1.2}
-                textAnchor="middle"
-                fontSize={1.6}
-                fill="#e5e7eb"
-                fontFamily="system-ui, sans-serif"
-              >
-                Next {nextUse}
-              </text>
-            )}
-          </g>
-        );
-      })}
-
-      {maskRects.map((mask) => {
-        const editable =
-          Boolean(onEditInstance) &&
-          (canEditInstance ? canEditInstance(mask.inst) : true);
-
-        return (
-          <g
-            key={mask.key}
-            onClick={() => {
-              if (editable) onEditInstance?.(mask.inst);
-            }}
-            style={{ cursor: editable ? "pointer" : "default" }}
-          >
-            {mask.slots.map((slot) => (
-              <g key={slot.number}>
-                {/* squad name in the middle of this rack */}
-                <text
-                  x={slot.x + slot.width / 2}
-                  y={slot.y + slot.height / 2}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontSize={2}             // tweak if you want bigger/smaller
-                  fill="#e5e7eb"
-                  fontFamily="system-ui, sans-serif"
-                >
-                  {mask.title}
-                </text>
-
-                {/* optional: little pencil in the bottom-right of this rack */}
-                {editable && (
-                  <text
-                    x={slot.x + slot.width - 1}
-                    y={slot.y + slot.height - 1}
-                    textAnchor="end"
-                    dominantBaseline="ideographic"
-                    fontSize={1.4}
-                    fill="#e5e7eb"
-                    fontFamily="system-ui, sans-serif"
-                  >
-                    ✎
-                  </text>
-                )}
-              </g>
-            ))}
-          </g>
-        );
-      })}
+      {racks.map((rack) => (
+        <RackSlot
+          key={rack.number}
+          slot={rack}
+          currentInst={currentByRack.get(rack.number) ?? null}
+          nextUse={nextUseByRack[String(rack.number)] ?? null}
+          snapshotDate={snapshotDate}
+        />
+      ))}
     </svg>
   );
 }
