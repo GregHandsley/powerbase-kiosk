@@ -4,7 +4,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSnapshotFromSearchParams } from "../hooks/useSnapshotFromSearchParams";
 import { AspectRatio } from "../components/AspectRatio";
 import { Clock } from "../components/Clock";
-import { BASE_LAYOUT } from "../config/layout";
 import { BaseFloorplan } from "../components/floorplans/base/BaseFloorplan";
 import { PowerbaseFloorSvg } from "../components/floorplans/power/PowerFloorplan";
 import type { ActiveInstance, SideSnapshot } from "../types/snapshot";

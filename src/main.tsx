@@ -7,7 +7,17 @@ import App from "./App";
 import "./index.css";
 import { AuthProvider } from "./context/AuthContext";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchInterval: 20_000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      retry: 3,
+      staleTime: 10_000,
+    },
+  },
+});
 
 // Export for fast refresh so the module has an export.
 export function ErrorFallback() {

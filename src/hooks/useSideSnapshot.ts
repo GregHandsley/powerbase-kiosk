@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
 import { getSideIdByKeyNode, type SideKey } from "../nodes/data/sidesNodes";
 import { getInstancesAtNode } from "../nodes/data/instancesNodes";
 import { computeSnapshotFromInstances } from "../nodes/logic/computeSnapshot";
@@ -15,22 +14,19 @@ export function useSideSnapshot(
   sideKey: SideKey,
   at?: Date
 ): UseSideSnapshotResult {
-  // Freeze "now" once to avoid queryKey churn when caller doesn't pass a time.
-  const [frozenNowIso] = useState(() => new Date().toISOString());
-  const atIso = useMemo(() => (at ? at.toISOString() : frozenNowIso), [at, frozenNowIso]);
-
   const query = useQuery({
-    queryKey: ["snapshot", sideKey, atIso],
+    queryKey: ["snapshot", sideKey, at ? at.toISOString() : null],
     queryFn: async () => {
+      const effectiveAtIso = (at ?? new Date()).toISOString();
       const sideId = await getSideIdByKeyNode(sideKey);
-      const { data, error } = await getInstancesAtNode(sideId, atIso);
+      const { data, error } = await getInstancesAtNode(sideId, effectiveAtIso);
 
       if (error) {
         console.error("getInstancesAtNode error", error.message);
         throw new Error(error.message);
       }
 
-      return computeSnapshotFromInstances(data ?? [], atIso);
+      return computeSnapshotFromInstances(data ?? [], effectiveAtIso);
     },
     refetchInterval: 20_000, // 20s auto-refresh
   });

@@ -157,7 +157,7 @@ export function FloorShell({
       <text
         className="fp-vertical-text"
         x={80}
-        y={65}
+        y={64.6}
         textAnchor="middle"
         fontSize={5}
         transform="rotate(-90 80 45)"
