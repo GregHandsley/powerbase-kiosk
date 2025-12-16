@@ -1,6 +1,6 @@
 import type { SideSnapshot, ActiveInstance, NextUseInfo } from "../../../types/snapshot";
 import { RackSlot, type RackLayoutSlot } from "../shared/RackSlot";
-import "../shared/floorplan.css";
+import "../../../styles/floorplan.css";
 
 type Props = {
   snapshot?: SideSnapshot | null;

@@ -4,8 +4,8 @@ import { AspectRatio } from "../components/AspectRatio";
 import { useSideSnapshot } from "../hooks/useSideSnapshot";
 import { BaseFloorplan } from "../components/floorplans/base/BaseFloorplan";
 import { parseRatioParam } from "../lib/parseRatio";
-import { KioskHeader } from "../components/KioskHeader";
 import { useInstancesRealtime } from "../hooks/useInstancesRealtime";
+import { KioskFrame } from "../components/KioskFrame";
 
 export function KioskBase() {
   const [search] = useSearchParams();
@@ -20,30 +20,27 @@ export function KioskBase() {
       : null;
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-slate-950 text-slate-50 kiosk-page">
-      <KioskHeader title="Base" slotLabel={slotLabel} />
-      <div className="flex-1 kiosk-gradient flex items-center justify-center px-4 py-3">
-        <AspectRatio ratio={ratio}>
-          <div className="w-full h-full bg-slate-900/70 border border-slate-700 rounded-xl p-4">
-            {error && (
-              <div className="w-full h-full flex items-center justify-center text-xs text-red-400">
-                Error loading snapshot: {error}
-              </div>
-            )}
-            {!error && (
-              <div className="w-full h-full">
-                {isLoading && !snapshot ? (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
-                    Loading snapshot...
-                  </div>
-                ) : (
-                  <BaseFloorplan snapshot={snapshot} />
-                )}
-              </div>
-            )}
-          </div>
-        </AspectRatio>
-      </div>
-    </div>
+    <KioskFrame title="Base" slotLabel={slotLabel}>
+      <AspectRatio ratio={ratio}>
+        <div className="w-full h-full bg-slate-900/70 border border-slate-800 rounded-xl md:p-3">
+          {error && (
+            <div className="w-full h-full flex items-center justify-center text-xs text-red-400">
+              Error loading snapshot: {error}
+            </div>
+          )}
+          {!error && (
+            <div className="w-full h-full">
+              {isLoading && !snapshot ? (
+                <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
+                  Loading snapshot...
+                </div>
+              ) : (
+                <BaseFloorplan snapshot={snapshot} />
+              )}
+            </div>
+          )}
+        </div>
+      </AspectRatio>
+    </KioskFrame>
   );
 }

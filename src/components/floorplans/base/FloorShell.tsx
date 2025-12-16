@@ -1,4 +1,4 @@
-import "../shared/floorplan.css";
+import "../../../styles/floorplan.css";
 
 type Props = {
   viewBoxWidth: number;

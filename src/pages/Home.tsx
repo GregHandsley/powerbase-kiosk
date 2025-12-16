@@ -7,8 +7,8 @@ export function Home() {
     );
   };
 
-  return (
-    <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center">
+    return (
+      <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center">
       <div className="max-w-lg text-center px-4 space-y-4">
         <div>
           <h1 className="text-2xl font-semibold mb-2">Powerbase Kiosk – Dev Home</h1>
@@ -37,8 +37,8 @@ export function Home() {
         <p className="text-xs text-slate-400">
           Note: Pop-up blockers may need to allow this site. In production, point TVs directly to
           the kiosk URLs.
-        </p>
+          </p>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }

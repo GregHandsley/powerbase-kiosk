@@ -97,17 +97,18 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
   let statusLine3: string | null = null;
 
   if (!currentInst) {
-    statusLine1 = "FREE";
+    statusLine1 = "Available";
     const nextLabelTime = formatTime(nextUseStartIso);
     statusLine2 =
       nextUseToday && nextLabelTime
         ? nextUseTitle
           ? `Next: ${nextUseTitle} @ ${nextLabelTime}`
           : `Next: ${nextLabelTime}`
-        : "Free rest of day";
+        : "Free until close";
   } else {
     statusLine1 = currentInst.title;
-    statusLine2 = formatRange(currentInst.start, currentInst.end);
+    const range = formatRange(currentInst.start, currentInst.end);
+    statusLine2 = range ? range : null;
 
     if (nextUseStartIso && nextUseToday) {
       const freeWindowStart = formatTime(currentInst.end);
@@ -124,14 +125,15 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
       statusLine3 = hasFreeWindow ? `Free ${freeWindowStart}–${freeWindowEnd}` : nextLabel;
     } else {
       const endTime = formatTime(currentInst.end);
-      statusLine3 = endTime ? `Free after ${endTime} (rest of day)` : "Free later";
+      statusLine3 = endTime ? `Free after ${endTime}` : "Free later";
     }
   }
 
   const titleLines = wrapText(statusLine1, 16, 2);
-  const status2Lines = statusLine2 ? wrapText(statusLine2, 18, 2) : [];
+  const status2Lines = statusLine2 ? wrapText(statusLine2, 18, 3) : [];
   const status3Lines = statusLine3 ? wrapText(statusLine3, 18, 3) : [];
 
+  // Build content with strict hierarchy
   const content: {
     text: string;
     size: number;
@@ -142,44 +144,47 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     gapAfter: number;
   }[] = [];
 
+  // Top: Rack label (small, muted)
   content.push({
     text: `Rack ${slot.number}`,
-    size: 1.6,
-    color: palette.label,
+    size: 1.25,
+    color: palette.muted,
     weight: "700",
-    letterSpacing: 0.2,
-    gapAfter: 0.45,
+    letterSpacing: 0.25,
+    gapAfter: 0.5,
   });
 
+  // Middle: dominant line (squad or OPEN)
   for (let i = 0; i < titleLines.length; i++) {
     content.push({
       text: titleLines[i],
-      size: 1.55,
-      color: currentInst ? palette.primary : palette.free,
-      weight: "800",
-      gapAfter: 0.44,
+      size: 2.1,
+      color: !currentInst ? palette.primaryStrong ?? palette.primary : palette.primary,
+      weight: !currentInst ? "900" : "800",
+      gapAfter: 0.55,
     });
   }
 
+  // Bottom: functional mono (time / next)
   for (let i = 0; i < status2Lines.length; i++) {
     content.push({
       text: status2Lines[i],
-      size: 1.12,
+      size: 1.15,
       color: palette.secondary,
       family: rackMonoFamily,
       weight: "600",
-      gapAfter: 0.34,
+      gapAfter: 0.36,
     });
   }
 
   for (let i = 0; i < status3Lines.length; i++) {
     content.push({
       text: status3Lines[i],
-      size: 1.0,
+      size: 1.05,
       color: palette.accent,
       family: rackMonoFamily,
       weight: "600",
-      gapAfter: 0.3,
+      gapAfter: 0.32,
     });
   }
 
@@ -213,8 +218,22 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     cursorY += size + item.gapAfter * scale;
   }
 
+  const gradientId = `rack-grad-${slot.number}-${isOccupied ? "occ" : "free"}`;
+  const shadeId = `rack-shade-${slot.number}`;
+
   return (
     <g key={slot.number}>
+      <defs>
+        <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={palette.fillTop} />
+          <stop offset="100%" stopColor={palette.fillBottom} />
+        </linearGradient>
+        <linearGradient id={shadeId} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="70%" stopColor="rgba(0,0,0,0)" />
+          <stop offset="100%" stopColor="rgba(0,0,0,0.12)" />
+        </linearGradient>
+      </defs>
+
       <clipPath id={clipId}>
         <rect x={innerX} y={innerY} width={innerWidth} height={innerHeight} />
       </clipPath>
@@ -226,9 +245,21 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
         height={slot.height}
         rx={rackCornerRadius}
         ry={rackCornerRadius}
-        fill={palette.fill}
-        stroke={palette.border}
+        fill={`url(#${gradientId})`}
+        stroke={palette.stroke}
         strokeWidth={rackStrokeWidth}
+      />
+      {/* subtle bottom shade for depth */}
+      <rect
+        x={slot.x}
+        y={slot.y}
+        width={slot.width}
+        height={slot.height}
+        rx={rackCornerRadius}
+        ry={rackCornerRadius}
+        fill={`url(#${shadeId})`}
+        stroke="none"
+        pointerEvents="none"
       />
 
       <g clipPath={`url(#${clipId})`}>

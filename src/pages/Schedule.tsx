@@ -6,6 +6,7 @@ import { AspectRatio } from "../components/AspectRatio";
 import { Clock } from "../components/Clock";
 import { BaseFloorplan } from "../components/floorplans/base/BaseFloorplan";
 import { PowerbaseFloorSvg } from "../components/floorplans/power/PowerFloorplan";
+import { RackListEditor } from "../components/schedule/RackListEditor";
 import type { ActiveInstance, SideSnapshot } from "../types/snapshot";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
@@ -269,8 +270,8 @@ export function Schedule() {
         </div>
       </header>
 
-      {/* Single side section (Power or Base) */}
-      <section className="space-y-2">
+      {/* Rack list editor */}
+      <section className="space-y-3">
         <div className="flex items-center justify-between text-xs text-slate-300">
           <span className="font-semibold">
             {sideMode === "power" ? "Power" : "Base"} — {date} {time}
@@ -279,21 +280,10 @@ export function Schedule() {
             Snapshot at {selectedSnapshot.snapshot?.at ?? "…"}
           </span>
         </div>
-        <AspectRatio ratio={16 / 9}>
-          <div className="w-full h-full bg-slate-900 border border-slate-700 rounded-xl p-3 flex flex-col">
-            <div className="flex-1 min-h-0">
-              {selectedSnapshot.isLoading && !selectedSnapshot.snapshot ? (
-                <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
-                  Loading snapshot…
-                </div>
-              ) : sideMode === "power" ? (
-                <PowerbaseFloorSvg snapshot={selectedSnapshot.snapshot} />
-              ) : (
-                <BaseFloorplan snapshot={selectedSnapshot.snapshot} />
-              )}
-            </div>
-          </div>
-        </AspectRatio>
+        <RackListEditor
+          side={sideMode}
+          snapshot={sideMode === "power" ? power.snapshot ?? null : base.snapshot ?? null}
+        />
         <div className="text-xs text-slate-200">
           <h2 className="font-semibold mb-1">
             Active bookings ({sideMode === "power" ? "Power" : "Base"})
