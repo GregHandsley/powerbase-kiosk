@@ -1,11 +1,23 @@
 // src/hooks/useSnapshotFromSearchParams.ts
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSideSnapshot } from "./useSideSnapshot";
 import { todayString, currentTimeString, combineDateTime } from "../lib/datetime";
 
 export function useSnapshotFromSearchParams() {
   const [search, setSearch] = useSearchParams();
+  const hasInitialized = useRef(false);
+
+  // Always reset to current date/time on mount/refresh
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    
+    const params = new URLSearchParams(search);
+    params.set("date", todayString());
+    params.set("time", currentTimeString());
+    setSearch(params, { replace: true });
+    hasInitialized.current = true;
+  }, [search, setSearch]);
 
   const dateParam = search.get("date");
   const timeParam = search.get("time");

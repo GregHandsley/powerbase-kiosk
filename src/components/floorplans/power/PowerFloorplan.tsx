@@ -80,32 +80,32 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
       {/* LEFT: Dumbbell Area */}
       <g transform={`translate(${floorMargin + 2} ${floorMargin + 17})`}>
         <rect className="fp-area" width={15} height={42} />
-        <text
-          className="fp-area-label"
+      <text
+        className="fp-area-label"
           x={7.5}
           y={42 / 2}
-          textAnchor="middle"
+        textAnchor="middle"
           dominantBaseline="middle"
-        >
+      >
           DUMBBELL
           <tspan x={7.5} dy={3.8}>
             AREA
-          </tspan>
-        </text>
+        </tspan>
+      </text>
       </g>
 
       {/* LEFT: Cables */}
       <g transform={`translate(${floorMargin + 2} ${viewBoxHeight - floorMargin - 22})`}>
         <rect className="fp-area" width={15} height={20} />
-        <text
-          className="fp-area-label"
+      <text
+        className="fp-area-label"
           x={7.5}
           y={20 / 2}
-          textAnchor="middle"
+        textAnchor="middle"
           dominantBaseline="middle"
-        >
+      >
           CABLES
-        </text>
+      </text>
       </g>
 
       {/* MID-LEFT: Fixed Resistance Machines */}
@@ -120,15 +120,15 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
         >
           FIXED
         </text>
-        <text
-          className="fp-area-label"
+      <text
+        className="fp-area-label"
           x={23 / 2}
           y={42 / 2 + 3}
-          textAnchor="middle"
+        textAnchor="middle"
           dominantBaseline="middle"
         >
           MACHINES
-        </text>
+      </text>
       </g>
 
       {/* TOP BAND: Weight Lifting Area */}

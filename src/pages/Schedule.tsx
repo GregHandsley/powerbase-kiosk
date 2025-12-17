@@ -272,55 +272,55 @@ export function Schedule() {
 
       {/* Rack list editor */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between text-xs text-slate-300">
-          <span className="font-semibold">
+          <div className="flex items-center justify-between text-xs text-slate-300">
+            <span className="font-semibold">
             {sideMode === "power" ? "Power" : "Base"} — {date} {time}
-          </span>
-          <span className="text-slate-400">
+            </span>
+            <span className="text-slate-400">
             Snapshot at {selectedSnapshot.snapshot?.at ?? "…"}
-          </span>
-        </div>
+            </span>
+          </div>
         <RackListEditor
           side={sideMode}
           snapshot={sideMode === "power" ? power.snapshot ?? null : base.snapshot ?? null}
-        />
-        <div className="text-xs text-slate-200">
+                  />
+          <div className="text-xs text-slate-200">
           <h2 className="font-semibold mb-1">
             Active bookings ({sideMode === "power" ? "Power" : "Base"})
           </h2>
           {selectedInstances.length === 0 ? (
-            <p className="text-slate-400">No active bookings at this time.</p>
-          ) : (
-            <ul className="space-y-0.5">
+              <p className="text-slate-400">No active bookings at this time.</p>
+            ) : (
+              <ul className="space-y-0.5">
               {selectedInstances.map((inst) => (
-                <li
-                  key={inst.instanceId}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700/60 bg-slate-900/40 px-2 py-1"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{inst.title}</span>
-                    <span className="text-slate-300">
-                      — Racks {inst.racks.join(", ")}
-                    </span>
-                    <span className="text-slate-400">
-                      ({formatTimeRange(inst.start, inst.end)})
-                    </span>
-                  </div>
-                  {canEditInstance(inst) && (
-                    <button
-                      type="button"
-                      onClick={() => handleEditInstance(inst)}
-                      className="rounded-md border border-indigo-500/70 bg-indigo-900/50 px-2 py-1 text-[11px] font-medium text-indigo-50 hover:bg-indigo-800/70"
-                    >
-                      Edit
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
+                  <li
+                    key={inst.instanceId}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700/60 bg-slate-900/40 px-2 py-1"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{inst.title}</span>
+                      <span className="text-slate-300">
+                        — Racks {inst.racks.join(", ")}
+                      </span>
+                      <span className="text-slate-400">
+                        ({formatTimeRange(inst.start, inst.end)})
+                      </span>
+                    </div>
+                    {canEditInstance(inst) && (
+                      <button
+                        type="button"
+                        onClick={() => handleEditInstance(inst)}
+                        className="rounded-md border border-indigo-500/70 bg-indigo-900/50 px-2 py-1 text-[11px] font-medium text-indigo-50 hover:bg-indigo-800/70"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
     </div>
   );
 }

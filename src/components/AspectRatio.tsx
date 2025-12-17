@@ -12,7 +12,7 @@ export function AspectRatio({ ratio = 16 / 9, children }: AspectRatioProps) {
         className="relative h-full max-h-full max-w-full"
         style={{ aspectRatio: `${ratio}` }}
       >
-        <div className="absolute inset-0">{children}</div>
+      <div className="absolute inset-0">{children}</div>
       </div>
     </div>
   );
