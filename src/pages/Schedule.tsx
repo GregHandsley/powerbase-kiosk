@@ -1,40 +1,12 @@
 // src/pages/Schedule.tsx
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useState } from "react";
 import { useSnapshotFromSearchParams } from "../hooks/useSnapshotFromSearchParams";
-import { AspectRatio } from "../components/AspectRatio";
 import { Clock } from "../components/Clock";
-import { BaseFloorplan } from "../components/floorplans/base/BaseFloorplan";
-import { PowerbaseFloorSvg } from "../components/floorplans/power/PowerFloorplan";
 import { RackListEditor } from "../components/schedule/RackListEditor";
-import type { ActiveInstance, SideSnapshot } from "../types/snapshot";
-import { supabase } from "../lib/supabaseClient";
-import { useAuth } from "../context/AuthContext";
 
 type SideMode = "power" | "base";
 
-function formatTimeRange(startIso: string, endIso: string): string {
-  const s = new Date(startIso);
-  const e = new Date(endIso);
-  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) {
-    return `${startIso} → ${endIso}`;
-  }
-  const opts: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit" };
-  return `${s.toLocaleTimeString("en-GB", opts)} → ${e.toLocaleTimeString(
-    "en-GB",
-    opts
-  )}`;
-}
-
-function sortInstances(instances: ActiveInstance[]): ActiveInstance[] {
-  return [...instances].sort(
-    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
-  );
-}
-
 export function Schedule() {
-  const { user, role } = useAuth();
-  const queryClient = useQueryClient();
   const {
     date,
     time,
@@ -92,98 +64,7 @@ export function Schedule() {
     }
   };
 
-  const powerInstances = useMemo(
-    () => sortInstances(power.snapshot?.currentInstances ?? []),
-    [power.snapshot]
-  );
-  const baseInstances = useMemo(
-    () => sortInstances(base.snapshot?.currentInstances ?? []),
-    [base.snapshot]
-  );
-
   const selectedSnapshot = sideMode === "power" ? power : base;
-  const selectedInstances = sideMode === "power" ? powerInstances : baseInstances;
-
-  const canEditInstance = useCallback(
-    (inst: ActiveInstance) => {
-      if (!user) return false;
-      // Admins always can edit
-      if (role === "admin") return true;
-      // Coaches can edit if not locked
-      if (role === "coach") {
-        return !inst.isLocked;
-      }
-      // Fallback: if role hasn't loaded yet but user is present and booking is unlocked,
-      // allow edit so coaches who haven't synced profile role yet can still act.
-      if (!role && !inst.isLocked) return true;
-      return false;
-    },
-    [role, user]
-  );
-
-  const handleEditInstance = useCallback(
-    async (inst: ActiveInstance) => {
-      console.log("Attempting to edit instance:", {
-        instanceId: inst.instanceId,
-        bookingId: inst.bookingId,
-        role,
-        uid: user?.id
-      });
-      const current = inst.racks.join(", ");
-      const next = window.prompt("Enter rack numbers (comma-separated)", current);
-      if (next === null) return;
-      const parsed = next
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((n) => Number(n))
-        .filter((n) => Number.isFinite(n));
-      if (!parsed.length) return;
-      const deduped = Array.from(new Set(parsed)).sort((a, b) => a - b);
-
-      const { data, error } = await supabase
-        .from("booking_instances")
-        .update({ racks: deduped })
-        .eq("id", inst.instanceId)
-        .select();
-
-      if (error) {
-        console.error("updateInstanceRacks error", error.message);
-        window.alert(`Update failed: ${error.message}`);
-        return;
-      }
-
-      if (!data || data.length === 0) {
-        console.error("updateInstanceRacks: No rows updated (likely permission/RLS issue)");
-        window.alert("Update failed: You may not have permission to edit this booking.");
-        return;
-      }
-
-      // Optimistically update any cached snapshots
-      queryClient.setQueriesData(
-        { queryKey: ["snapshot"], exact: false },
-        (oldData: unknown) => {
-          if (!oldData) return oldData;
-          const snap = oldData as SideSnapshot;
-          if (!snap?.currentInstances) return oldData;
-          return {
-            ...snap,
-            currentInstances: snap.currentInstances.map((ci: ActiveInstance) =>
-              ci.instanceId === inst.instanceId ? { ...ci, racks: deduped } : ci
-            ),
-          };
-        }
-      );
-
-      // Also invalidate to refetch from server
-      await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
-      await queryClient.invalidateQueries({
-        queryKey: ["booking-instances-debug"],
-        exact: false,
-      });
-    },
-    [queryClient, role, user?.id]
-  );
 
   return (
     <div className="p-4 space-y-4">
@@ -283,44 +164,8 @@ export function Schedule() {
         <RackListEditor
           side={sideMode}
           snapshot={sideMode === "power" ? power.snapshot ?? null : base.snapshot ?? null}
-                  />
-          <div className="text-xs text-slate-200">
-          <h2 className="font-semibold mb-1">
-            Active bookings ({sideMode === "power" ? "Power" : "Base"})
-          </h2>
-          {selectedInstances.length === 0 ? (
-              <p className="text-slate-400">No active bookings at this time.</p>
-            ) : (
-              <ul className="space-y-0.5">
-              {selectedInstances.map((inst) => (
-                  <li
-                    key={inst.instanceId}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700/60 bg-slate-900/40 px-2 py-1"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{inst.title}</span>
-                      <span className="text-slate-300">
-                        — Racks {inst.racks.join(", ")}
-                      </span>
-                      <span className="text-slate-400">
-                        ({formatTimeRange(inst.start, inst.end)})
-                      </span>
-                    </div>
-                    {canEditInstance(inst) && (
-                      <button
-                        type="button"
-                        onClick={() => handleEditInstance(inst)}
-                        className="rounded-md border border-indigo-500/70 bg-indigo-900/50 px-2 py-1 text-[11px] font-medium text-indigo-50 hover:bg-indigo-800/70"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
+        />
+      </section>
     </div>
   );
 }
