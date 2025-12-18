@@ -19,7 +19,7 @@ export const BookingFormSchema = z.object({
   racksInput: z
     .string()
     .min(1, "At least one rack number is required"),
-  areas: z.array(z.string()).min(1, "Select at least one area"),
+  areas: z.array(z.string()).default([]),
   color: z.string().optional(),
   isLocked: z.boolean().optional(), // will be ignored for non-admins
 });

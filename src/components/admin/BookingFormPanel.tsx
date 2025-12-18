@@ -164,7 +164,7 @@ export function BookingFormPanel({ role }: Props) {
         throw new Error("No valid rack numbers found.");
       }
 
-      const areasKeys = values.areas;
+      const areasKeys = values.areas || [];
 
       // Admin can lock; coaches cannot
       const isLocked = role === "admin" ? !!values.isLocked : false;
@@ -415,9 +415,9 @@ export function BookingFormPanel({ role }: Props) {
           <div>
             <label className="block mb-1 font-medium">
               Areas{" "}
-              <span className="text-[10px] text-slate-400">(filtered by side in a later sprint)</span>
+              <span className="text-[10px] text-slate-400">(Coming soon)</span>
             </label>
-            <div className="border border-slate-700 rounded-md p-2 max-h-32 overflow-auto bg-slate-950/60">
+            <div className="border border-slate-700 rounded-md p-2 max-h-32 overflow-auto bg-slate-950/60 opacity-50 pointer-events-none">
               {areasLoading && (
                 <p className="text-slate-400 text-[11px]">Loading areas…</p>
               )}
@@ -432,12 +432,13 @@ export function BookingFormPanel({ role }: Props) {
                   {filteredAreas.map((area) => (
                     <label
                       key={area.id}
-                      className="inline-flex items-center gap-1 text-[11px] text-slate-200"
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-400"
                     >
                       <input
                         type="checkbox"
                         value={area.key}
-                        className="h-3 w-3 rounded border-slate-600 bg-slate-950"
+                        disabled
+                        className="h-3 w-3 rounded border-slate-600 bg-slate-950 cursor-not-allowed"
                         {...form.register("areas")}
                       />
                       <span>
@@ -449,11 +450,9 @@ export function BookingFormPanel({ role }: Props) {
                 </div>
               )}
             </div>
-            {form.formState.errors.areas && (
-              <p className="text-red-400 mt-0.5">
-                {form.formState.errors.areas.message as string}
-              </p>
-            )}
+            <p className="text-[10px] text-slate-500 mt-1 italic">
+              Area selection will be available in a later update
+            </p>
           </div>
         </div>
 
