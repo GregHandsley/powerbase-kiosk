@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addWeeks } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabaseClient";
 import { BookingFormSchema, type BookingFormValues } from "../../schemas/bookingForm";
 import { useAuth } from "../../context/AuthContext";
 import { getSideIdByKeyNode, type SideKey } from "../../nodes/data/sidesNodes";
+import { MiniScheduleFloorplan } from "../shared/MiniScheduleFloorplan";
 import clsx from "clsx";
 
 type AreaRow = {
@@ -28,6 +30,7 @@ function combineDateAndTime(dateStr: string, timeStr: string): Date {
 
 export function BookingFormPanel({ role }: Props) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [areas, setAreas] = useState<AreaRow[]>([]);
   const [areasLoading, setAreasLoading] = useState(false);
   const [areasError, setAreasError] = useState<string | null>(null);
@@ -93,6 +96,41 @@ export function BookingFormPanel({ role }: Props) {
     // For now, filter by sideKey name via a simple join in a later sprint.
     return areas;
   }, [areas]);
+
+  // Sync selected platforms with form's racksInput
+  const selectedPlatforms = useMemo(() => {
+    const racksInput = form.watch("racksInput");
+    if (!racksInput) return [];
+    return racksInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => Number(s))
+      .filter((n) => !Number.isNaN(n));
+  }, [form.watch("racksInput")]);
+
+  const handlePlatformSelectionChange = (selected: number[]) => {
+    form.setValue("racksInput", selected.join(","), { shouldValidate: true });
+  };
+
+  // Calculate start and end times for availability checking
+  const timeRange = useMemo(() => {
+    const startDate = form.watch("startDate");
+    const startTime = form.watch("startTime");
+    const endTime = form.watch("endTime");
+    
+    if (!startDate || !startTime || !endTime) {
+      return { start: null, end: null };
+    }
+
+    const start = combineDateAndTime(startDate, startTime);
+    const end = combineDateAndTime(startDate, endTime);
+    
+    return {
+      start: start.toISOString(),
+      end: end.toISOString(),
+    };
+  }, [form.watch("startDate"), form.watch("startTime"), form.watch("endTime")]);
 
   async function onSubmit(values: BookingFormValues) {
     if (!user) {
@@ -191,6 +229,11 @@ export function BookingFormPanel({ role }: Props) {
         throw new Error(instancesError.message);
       }
 
+      // Invalidate queries to refresh the floorplan and schedule views
+      await queryClient.invalidateQueries({ queryKey: ["booking-instances-for-time"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["booking-instances-debug"], exact: false });
+
       setSubmitMessage(
         `Created booking "${values.title}" with ${instancesPayload.length} instances.`
       );
@@ -250,13 +293,32 @@ export function BookingFormPanel({ role }: Props) {
 
           <div>
             <label className="block mb-1 font-medium">Side</label>
-            <select
-              className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
-              {...form.register("sideKey")}
-            >
-              <option value="Power">Power</option>
-              <option value="Base">Base</option>
-            </select>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => form.setValue("sideKey", "Power", { shouldValidate: true })}
+                className={clsx(
+                  "flex-1 rounded-md border px-2 py-1 text-xs font-medium transition",
+                  form.watch("sideKey") === "Power"
+                    ? "bg-indigo-600 border-indigo-500 text-white"
+                    : "bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900"
+                )}
+              >
+                Power
+              </button>
+              <button
+                type="button"
+                onClick={() => form.setValue("sideKey", "Base", { shouldValidate: true })}
+                className={clsx(
+                  "flex-1 rounded-md border px-2 py-1 text-xs font-medium transition",
+                  form.watch("sideKey") === "Base"
+                    ? "bg-indigo-600 border-indigo-500 text-white"
+                    : "bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900"
+                )}
+              >
+                Base
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
@@ -320,17 +382,31 @@ export function BookingFormPanel({ role }: Props) {
         {/* Middle column: racks + areas */}
         <div className="space-y-2">
           <div>
-            <label className="block mb-1 font-medium">Racks</label>
-            <input
-              className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
-              {...form.register("racksInput")}
-              placeholder="e.g. 1,2,3"
-            />
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              Comma-separated rack numbers. We will later replace this with a click-on-floorplan UI.
-            </p>
+            {timeRange.start && timeRange.end ? (
+              <MiniScheduleFloorplan
+                sideKey={form.watch("sideKey")}
+                selectedRacks={selectedPlatforms}
+                onRackClick={(rackNumber) => {
+                  const newSelected = selectedPlatforms.includes(rackNumber)
+                    ? selectedPlatforms.filter((r) => r !== rackNumber)
+                    : [...selectedPlatforms, rackNumber].sort((a, b) => a - b);
+                  handlePlatformSelectionChange(newSelected);
+                }}
+                startTime={timeRange.start}
+                endTime={timeRange.end}
+              />
+            ) : (
+              <div className="w-full">
+                <label className="block mb-1 font-medium text-xs">Platforms</label>
+                <div className="border border-slate-700 rounded-md bg-slate-950/60 p-4 text-center">
+                  <p className="text-xs text-slate-400">
+                    Please select date and time to view floorplan
+                  </p>
+                </div>
+              </div>
+            )}
             {form.formState.errors.racksInput && (
-              <p className="text-red-400 mt-0.5">
+              <p className="text-red-400 mt-1 text-xs">
                 {form.formState.errors.racksInput.message}
               </p>
             )}
