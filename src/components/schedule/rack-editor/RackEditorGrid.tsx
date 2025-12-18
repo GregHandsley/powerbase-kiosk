@@ -91,9 +91,9 @@ export function RackEditorGrid({
           />
         ) : row.disabled ? (
           <span className="text-slate-600">Not bookable</span>
-        ) : (
+        ) : activeId ? (
           <span className="text-slate-500">Drop booking here</span>
-        );
+        ) : null;
 
         // Determine if this rack is selected or disabled in selection mode
         const isSelected = row.rackNumber !== null && selectedSet.has(row.rackNumber);

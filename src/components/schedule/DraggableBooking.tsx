@@ -46,7 +46,7 @@ export function DraggableBooking({ booking, fromRack, activeId, onEdit, isSelect
           ? "bg-slate-800/40 border-slate-600/50 text-slate-400 cursor-not-allowed opacity-75"
           : isSelectingRacks
             ? "bg-slate-800/60 border-slate-700 text-slate-100 cursor-default"
-            : "bg-slate-800/60 border-slate-700 text-slate-100 cursor-grab active:cursor-grabbing"
+          : "bg-slate-800/60 border-slate-700 text-slate-100 cursor-grab active:cursor-grabbing"
       }`}
     >
       <div className="font-semibold line-clamp-2 break-words flex-1 min-w-0 flex items-center gap-2">
@@ -70,7 +70,7 @@ export function DraggableBooking({ booking, fromRack, activeId, onEdit, isSelect
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="text-sm sm:text-base text-slate-300 whitespace-nowrap">
-          {booking.start.slice(11, 16)}–{booking.end.slice(11, 16)}
+        {booking.start.slice(11, 16)}–{booking.end.slice(11, 16)}
         </div>
         {onEdit && (
           <button

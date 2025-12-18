@@ -1,5 +1,6 @@
 // src/pages/Schedule.tsx
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSnapshotFromSearchParams } from "../hooks/useSnapshotFromSearchParams";
 import { Clock } from "../components/Clock";
 import { RackListEditor } from "../components/schedule/RackListEditor";
@@ -7,6 +8,7 @@ import { RackListEditor } from "../components/schedule/RackListEditor";
 type SideMode = "power" | "base";
 
 export function Schedule() {
+  const navigate = useNavigate();
   const {
     date,
     time,
@@ -146,6 +148,18 @@ export function Schedule() {
                 : copyState === "error"
                   ? "Error"
                   : "Copy link"}
+            </button>
+          </div>
+
+          {/* Add Booking button */}
+          <div className="flex flex-col">
+            <span className="mb-1 text-slate-300">Actions</span>
+            <button
+              type="button"
+              onClick={() => navigate("/admin")}
+              className="px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-medium"
+            >
+              Add Booking
             </button>
           </div>
         </div>

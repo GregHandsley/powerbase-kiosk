@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { BookingFormPanel } from "../components/admin/BookingFormPanel";
-import { InstancesDebugPanel } from "../components/admin/InstancesDebugPanel";
 import { Clock } from "../components/Clock";
 import { useAuth } from "../context/AuthContext";
 
@@ -134,7 +133,6 @@ export function Admin() {
       </header>
 
       <BookingFormPanel role={role} />
-      <InstancesDebugPanel />
     </div>
   );
 }

@@ -8,6 +8,7 @@ type Props = {
   isSelected?: boolean;
   isDisabled?: boolean;
   isClickable?: boolean;
+  hasConflict?: boolean;
   onClick?: () => void;
   /** Size variant - 'full' for schedule view, 'mini' for compact view */
   variant?: "full" | "mini";
@@ -23,6 +24,7 @@ export function RackCell({
   isSelected = false,
   isDisabled = false,
   isClickable = false,
+  hasConflict = false,
   onClick,
   variant = "full",
 }: Props) {
@@ -32,17 +34,21 @@ export function RackCell({
     }
   };
 
-  const borderColor = isSelected
-    ? "border-indigo-500"
-    : isDisabled
-      ? "border-slate-600"
-      : "border-slate-700";
+  const borderColor = hasConflict
+    ? "border-red-500"
+    : isSelected
+      ? "border-indigo-500"
+      : isDisabled
+        ? "border-slate-600"
+        : "border-slate-700";
 
-  const backgroundColor = isSelected
-    ? variant === "mini" ? "bg-indigo-900/30" : "bg-indigo-600/20"
-    : isDisabled
-      ? variant === "mini" ? "bg-slate-800/50" : "bg-slate-900/40 opacity-50"
-      : variant === "mini" ? "bg-slate-800/30" : "bg-slate-900/80";
+  const backgroundColor = hasConflict
+    ? variant === "mini" ? "bg-red-900/40" : "bg-red-900/30"
+    : isSelected
+      ? variant === "mini" ? "bg-indigo-900/30" : "bg-indigo-600/20"
+      : isDisabled
+        ? variant === "mini" ? "bg-slate-800/50" : "bg-slate-900/40 opacity-50"
+        : variant === "mini" ? "bg-slate-800/30" : "bg-slate-900/80";
 
   if (variant === "mini") {
     return (

@@ -19,11 +19,15 @@ type Props = {
   /** Selected rack numbers */
   selectedRacks: number[];
   /** Callback when a rack is clicked */
-  onRackClick: (rackNumber: number) => void;
+  onRackClick: (rackNumber: number, replaceSelection?: boolean) => void;
   /** Start time for checking availability (ISO string) */
   startTime: string;
   /** End time for checking availability (ISO string) */
   endTime: string;
+  /** Whether to show the "Platforms" title label */
+  showTitle?: boolean;
+  /** If true, allows clicking on conflicting racks (for editing/selection mode) */
+  allowConflictingRacks?: boolean;
 };
 
 /**
@@ -37,6 +41,8 @@ export function MiniScheduleFloorplan({
   onRackClick,
   startTime,
   endTime,
+  showTitle = true,
+  allowConflictingRacks = false,
 }: Props) {
   const side = sideKey === "Base" ? "base" : "power";
   const selectedSet = new Set(selectedRacks);
@@ -140,6 +146,17 @@ export function MiniScheduleFloorplan({
     return booked;
   }, [instances]);
 
+  // Build a set of selected racks that have conflicts (are booked by others)
+  const conflictingSelectedRacks = useMemo(() => {
+    const conflicting = new Set<number>();
+    for (const rack of selectedRacks) {
+      if (bookedRacks.has(rack)) {
+        conflicting.add(rack);
+      }
+    }
+    return conflicting;
+  }, [selectedRacks, bookedRacks]);
+
   // Build a map of current instance by rack
   const bookingByRack = useMemo(() => {
     const map = new Map<number, ActiveInstance>();
@@ -171,7 +188,7 @@ export function MiniScheduleFloorplan({
 
   return (
     <div className="w-full">
-      <label className="block mb-1 font-medium text-xs">Platforms</label>
+      {showTitle && <label className="block mb-1 font-medium text-xs">Platforms</label>}
       <div className="border border-slate-700 rounded-md bg-slate-950/60 p-1.5">
         <div className="w-full">
           <div
@@ -206,8 +223,12 @@ export function MiniScheduleFloorplan({
             {layout.map((row) => {
               const booking = row.rackNumber !== null ? bookingByRack.get(row.rackNumber) ?? null : null;
               const isUsedByOtherBooking = row.rackNumber !== null && bookedRacks.has(row.rackNumber);
-              const isClickable = row.rackNumber !== null && !row.disabled && !isUsedByOtherBooking;
               const isSelected = row.rackNumber !== null && selectedSet.has(row.rackNumber);
+              // A selected rack has a conflict if it's both selected and booked by another booking
+              const hasConflict = row.rackNumber !== null && isSelected && conflictingSelectedRacks.has(row.rackNumber);
+              // Conflicting racks are NOT clickable - only available racks can be clicked
+              // If there are conflicts in the selection and clicking an available rack, it will clear the week
+              const isClickable = row.rackNumber !== null && !row.disabled && (allowConflictingRacks || !isUsedByOtherBooking);
 
               return (
                 <RackCell
@@ -217,9 +238,19 @@ export function MiniScheduleFloorplan({
                   isSelected={isSelected}
                   isDisabled={isUsedByOtherBooking}
                   isClickable={isClickable}
+                  hasConflict={hasConflict}
                   onClick={() => {
                     if (isClickable && row.rackNumber !== null) {
-                      onRackClick(row.rackNumber);
+                      // If there are conflicts in the current week's selection and clicking an available rack,
+                      // replace the entire selection with just this rack
+                      const weekHasConflicts = conflictingSelectedRacks.size > 0;
+                      if (weekHasConflicts) {
+                        // When there are conflicts, clicking an available rack should replace the entire selection
+                        onRackClick(row.rackNumber, true);
+                      } else {
+                        // Normal selection behavior when no conflicts
+                        onRackClick(row.rackNumber, false);
+                      }
                     }
                   }}
                   variant="mini"

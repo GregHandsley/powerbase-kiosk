@@ -54,7 +54,7 @@ export function BookingFormPanel({ role }: Props) {
       startDate: todayStr,
       startTime: "07:00",
       endTime: "08:30",
-      weeks: 4,
+      weeks: 1,
       racksInput: "",
       areas: [],
       color: "#4f46e5",
@@ -97,23 +97,74 @@ export function BookingFormPanel({ role }: Props) {
     return areas;
   }, [areas]);
 
-  // Sync selected platforms with form's racksInput
+  // Track selected racks per week
+  const [currentWeekIndex, setCurrentWeekIndex] = useState(0);
+  const [racksByWeek, setRacksByWeek] = useState<Map<number, number[]>>(new Map());
+  const [applyToAllWeeks, setApplyToAllWeeks] = useState(true); // Default to true for convenience
+
+  // Get the number of weeks from the form
+  const weeksCount = form.watch("weeks") || 1;
+
+  // Initialize racksByWeek when weeks count changes
+  useEffect(() => {
+    const newMap = new Map(racksByWeek);
+    // Remove weeks that are beyond the new count
+    for (let i = weeksCount; i < 20; i++) {
+      newMap.delete(i);
+    }
+    // Initialize empty arrays for new weeks
+    for (let i = 0; i < weeksCount; i++) {
+      if (!newMap.has(i)) {
+        newMap.set(i, []);
+      }
+    }
+    setRacksByWeek(newMap);
+    // Reset to first week if current week is out of bounds
+    if (currentWeekIndex >= weeksCount) {
+      setCurrentWeekIndex(0);
+    }
+  }, [weeksCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When applyToAllWeeks changes to true, sync all weeks with current week's selection
+  useEffect(() => {
+    if (applyToAllWeeks && weeksCount > 1) {
+      const currentRacks = racksByWeek.get(currentWeekIndex) || [];
+      // Always sync, even if empty (so all weeks are consistent)
+      const newMap = new Map(racksByWeek);
+      for (let i = 0; i < weeksCount; i++) {
+        newMap.set(i, [...currentRacks]); // Create a copy to avoid reference issues
+      }
+      setRacksByWeek(newMap);
+    }
+  }, [applyToAllWeeks, weeksCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Get selected racks for current week
   const selectedPlatforms = useMemo(() => {
-    const racksInput = form.watch("racksInput");
-    if (!racksInput) return [];
-    return racksInput
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((s) => Number(s))
-      .filter((n) => !Number.isNaN(n));
-  }, [form.watch("racksInput")]);
+    return racksByWeek.get(currentWeekIndex) || [];
+  }, [racksByWeek, currentWeekIndex]);
 
   const handlePlatformSelectionChange = (selected: number[]) => {
-    form.setValue("racksInput", selected.join(","), { shouldValidate: true });
+    const newMap = new Map(racksByWeek);
+    
+    // Normal selection behavior
+    if (applyToAllWeeks && weeksCount > 1) {
+      // Apply to all weeks
+      for (let i = 0; i < weeksCount; i++) {
+        newMap.set(i, selected);
+      }
+    } else {
+      // Apply only to current week
+      newMap.set(currentWeekIndex, selected);
+    }
+    
+    setRacksByWeek(newMap);
+    // Also update the form's racksInput for validation (use first week's selection as default)
+    if (currentWeekIndex === 0 || applyToAllWeeks) {
+      form.setValue("racksInput", selected.join(","), { shouldValidate: true });
+    }
   };
 
-  // Calculate start and end times for availability checking
+  // Calculate start and end times for availability checking for the current week
   const timeRange = useMemo(() => {
     const startDate = form.watch("startDate");
     const startTime = form.watch("startTime");
@@ -123,14 +174,18 @@ export function BookingFormPanel({ role }: Props) {
       return { start: null, end: null };
     }
 
-    const start = combineDateAndTime(startDate, startTime);
-    const end = combineDateAndTime(startDate, endTime);
+    const baseStart = combineDateAndTime(startDate, startTime);
+    const baseEnd = combineDateAndTime(startDate, endTime);
+    
+    // Add weeks offset for the current week
+    const start = addWeeks(baseStart, currentWeekIndex);
+    const end = addWeeks(baseEnd, currentWeekIndex);
     
     return {
       start: start.toISOString(),
       end: end.toISOString(),
     };
-  }, [form.watch("startDate"), form.watch("startTime"), form.watch("endTime")]);
+  }, [form.watch("startDate"), form.watch("startTime"), form.watch("endTime"), currentWeekIndex]);
 
   async function onSubmit(values: BookingFormValues) {
     if (!user) {
@@ -152,16 +207,121 @@ export function BookingFormPanel({ role }: Props) {
         throw new Error("End time must be after start time.");
       }
 
-      // Parse rack numbers from comma-separated string
-      const racks = values.racksInput
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => Number(s))
-        .filter((n) => !Number.isNaN(n));
+      // Validate that all weeks have racks selected
+      for (let i = 0; i < values.weeks; i++) {
+        const weekRacks = racksByWeek.get(i) || [];
+        if (weekRacks.length === 0) {
+          throw new Error(`Week ${i + 1} has no racks selected. Please select at least one rack for each week.`);
+        }
+      }
 
-      if (!racks.length) {
-        throw new Error("No valid rack numbers found.");
+      // Check for conflicts before creating the booking
+      const conflicts: Array<{
+        week: number;
+        rack: number;
+        conflictingBooking: string;
+        conflictTime: string;
+      }> = [];
+
+      for (let i = 0; i < values.weeks; i++) {
+        const weekStart = addWeeks(startTemplate, i);
+        const weekEnd = addWeeks(endTemplate, i);
+        const weekRacks = racksByWeek.get(i) || [];
+
+        // Fetch all bookings that overlap with this week's time range
+        const { data: overlappingInstances, error: overlapError } = await supabase
+          .from("booking_instances")
+          .select(
+            `
+            id,
+            start,
+            "end",
+            racks,
+            booking:bookings (
+              title
+            )
+          `
+          )
+          .eq("side_id", sideId)
+          .lt("start", weekEnd.toISOString())
+          .gt("end", weekStart.toISOString())
+          .order("start", { ascending: true });
+
+        if (overlapError) {
+          console.error("Error checking for conflicts:", overlapError);
+          throw new Error(`Error checking for conflicts: ${overlapError.message}`);
+        }
+
+        // Check each selected rack for conflicts
+        for (const rack of weekRacks) {
+          const conflictingInstance = overlappingInstances?.find((inst) => {
+            const instRacks = Array.isArray(inst.racks) ? inst.racks : [];
+            return instRacks.includes(rack);
+          });
+
+          if (conflictingInstance) {
+            const formatDateTime = (isoString: string) => {
+              const date = new Date(isoString);
+              return date.toLocaleString([], {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+            };
+
+            conflicts.push({
+              week: i + 1,
+              rack,
+              conflictingBooking:
+                (conflictingInstance.booking as { title?: string })?.title ?? "Unknown",
+              conflictTime: `${formatDateTime(conflictingInstance.start)} - ${formatDateTime(conflictingInstance.end)}`,
+            });
+          }
+        }
+      }
+
+      // If conflicts found, show detailed error and abort
+      if (conflicts.length > 0) {
+        // Group conflicts by week and booking for better error message
+        const conflictsByWeek = new Map<
+          number,
+          Map<string, { racks: number[]; conflictTime: string }>
+        >();
+        
+        conflicts.forEach((conflict) => {
+          if (!conflictsByWeek.has(conflict.week)) {
+            conflictsByWeek.set(conflict.week, new Map());
+          }
+          const weekMap = conflictsByWeek.get(conflict.week)!;
+          if (!weekMap.has(conflict.conflictingBooking)) {
+            weekMap.set(conflict.conflictingBooking, {
+              racks: [],
+              conflictTime: conflict.conflictTime,
+            });
+          }
+          weekMap.get(conflict.conflictingBooking)!.racks.push(conflict.rack);
+        });
+
+        // Build a more readable error message
+        const errorParts: string[] = [];
+        errorParts.push("⚠️ Booking conflicts detected:");
+        errorParts.push("");
+        
+        conflictsByWeek.forEach((weekConflicts, week) => {
+          errorParts.push(`Week ${week}:`);
+          weekConflicts.forEach((details, bookingTitle) => {
+            const racksList = details.racks.sort((a, b) => a - b).join(", ");
+            errorParts.push(
+              `  • "${bookingTitle}" is using racks ${racksList} (${details.conflictTime})`
+            );
+          });
+          errorParts.push("");
+        });
+        
+        errorParts.push("Please select different racks or adjust the booking time.");
+        throw new Error(errorParts.join("\n"));
       }
 
       const areasKeys = values.areas || [];
@@ -177,6 +337,9 @@ export function BookingFormPanel({ role }: Props) {
       };
 
       // 1) Insert into bookings
+      // Get racks for the booking template (use first week's selection)
+      const templateRacks = racksByWeek.get(0) || [];
+
       const { data: booking, error: bookingError } = await supabase
         .from("bookings")
         .insert({
@@ -186,7 +349,7 @@ export function BookingFormPanel({ role }: Props) {
           end_template: endTemplate.toISOString(),
           recurrence,
           areas: areasKeys,
-          racks,
+          racks: templateRacks,
           color: values.color || null,
           created_by: user.id,
           is_locked: isLocked,
@@ -211,13 +374,20 @@ export function BookingFormPanel({ role }: Props) {
       for (let i = 0; i < values.weeks; i++) {
         const start = addWeeks(startTemplate, i);
         const end = addWeeks(endTemplate, i);
+        // Get racks for this week, or use empty array if not set
+        const weekRacks = racksByWeek.get(i) || [];
+        
+        if (weekRacks.length === 0) {
+          throw new Error(`Week ${i + 1} has no racks selected. Please select at least one rack for each week.`);
+        }
+        
         instancesPayload.push({
           booking_id: booking.id,
           side_id: sideId,
           start: start.toISOString(),
           end: end.toISOString(),
           areas: areasKeys,
-          racks,
+          racks: weekRacks,
         });
       }
 
@@ -226,7 +396,11 @@ export function BookingFormPanel({ role }: Props) {
         .insert(instancesPayload);
 
       if (instancesError) {
-        throw new Error(instancesError.message);
+        // If instances fail to create, delete the booking to avoid orphaned records
+        await supabase.from("bookings").delete().eq("id", booking.id);
+        throw new Error(
+          `Failed to create booking instances: ${instancesError.message}. The booking was not created.`
+        );
       }
 
       // Invalidate queries to refresh the floorplan and schedule views
@@ -235,8 +409,12 @@ export function BookingFormPanel({ role }: Props) {
       await queryClient.invalidateQueries({ queryKey: ["booking-instances-debug"], exact: false });
 
       setSubmitMessage(
-        `Created booking "${values.title}" with ${instancesPayload.length} instances.`
+        `Created booking "${values.title}" with ${instancesPayload.length} instance${instancesPayload.length !== 1 ? "s" : ""}.`
       );
+      
+      // Clear rack selections to prevent red highlighting after booking creation
+      setRacksByWeek(new Map());
+      
       form.reset({
         ...form.getValues(),
         title: "",
@@ -382,22 +560,81 @@ export function BookingFormPanel({ role }: Props) {
         {/* Middle column: racks + areas */}
         <div className="space-y-2">
           <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block font-medium text-xs">Platforms</label>
+              {weeksCount > 1 && timeRange.start && timeRange.end && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentWeekIndex((prev) => Math.max(0, prev - 1))}
+                    disabled={currentWeekIndex === 0 || applyToAllWeeks}
+                    className={clsx(
+                      "px-2 py-1 text-xs rounded border",
+                      currentWeekIndex === 0 || applyToAllWeeks
+                        ? "border-slate-700 text-slate-600 cursor-not-allowed"
+                        : "border-slate-600 text-slate-300 hover:bg-slate-800"
+                    )}
+                  >
+                    ← Previous
+                  </button>
+                  <span className="text-xs text-slate-400 min-w-[80px] text-center">
+                    Week {currentWeekIndex + 1} of {weeksCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentWeekIndex((prev) => Math.min(weeksCount - 1, prev + 1))}
+                    disabled={currentWeekIndex === weeksCount - 1 || applyToAllWeeks}
+                    className={clsx(
+                      "px-2 py-1 text-xs rounded border",
+                      currentWeekIndex === weeksCount - 1 || applyToAllWeeks
+                        ? "border-slate-700 text-slate-600 cursor-not-allowed"
+                        : "border-slate-600 text-slate-300 hover:bg-slate-800"
+                    )}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </div>
+            {weeksCount > 1 && (
+              <div className="mb-2">
+                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyToAllWeeks}
+                    onChange={(e) => setApplyToAllWeeks(e.target.checked)}
+                    className="h-3 w-3 rounded border-slate-600 bg-slate-950"
+                  />
+                  <span>Apply rack selection to all weeks</span>
+                </label>
+              </div>
+            )}
+            
             {timeRange.start && timeRange.end ? (
               <MiniScheduleFloorplan
                 sideKey={form.watch("sideKey")}
                 selectedRacks={selectedPlatforms}
-                onRackClick={(rackNumber) => {
+                onRackClick={(rackNumber, replaceSelection = false) => {
+                  // If replaceSelection is true, replace the entire selection with just this rack
+                  if (replaceSelection) {
+                    handlePlatformSelectionChange([rackNumber]);
+                    return;
+                  }
+                  
+                  // Normal toggle behavior
                   const newSelected = selectedPlatforms.includes(rackNumber)
                     ? selectedPlatforms.filter((r) => r !== rackNumber)
                     : [...selectedPlatforms, rackNumber].sort((a, b) => a - b);
+                  
                   handlePlatformSelectionChange(newSelected);
                 }}
                 startTime={timeRange.start}
                 endTime={timeRange.end}
+                showTitle={false}
+                allowConflictingRacks={false}
               />
             ) : (
               <div className="w-full">
-                <label className="block mb-1 font-medium text-xs">Platforms</label>
                 <div className="border border-slate-700 rounded-md bg-slate-950/60 p-4 text-center">
                   <p className="text-xs text-slate-400">
                     Please select date and time to view floorplan
@@ -408,6 +645,23 @@ export function BookingFormPanel({ role }: Props) {
             {form.formState.errors.racksInput && (
               <p className="text-red-400 mt-1 text-xs">
                 {form.formState.errors.racksInput.message}
+              </p>
+            )}
+            {weeksCount > 1 && (
+              <p className="text-[10px] text-slate-500 mt-1">
+                {applyToAllWeeks ? (
+                  selectedPlatforms.length > 0 ? (
+                    `${selectedPlatforms.length} rack${selectedPlatforms.length !== 1 ? "s" : ""} selected for all ${weeksCount} weeks`
+                  ) : (
+                    `No racks selected (will apply to all ${weeksCount} weeks)`
+                  )
+                ) : (
+                  selectedPlatforms.length > 0 ? (
+                    `${selectedPlatforms.length} rack${selectedPlatforms.length !== 1 ? "s" : ""} selected for week ${currentWeekIndex + 1}`
+                  ) : (
+                    `No racks selected for week ${currentWeekIndex + 1}`
+                  )
+                )}
               </p>
             )}
           </div>
@@ -505,7 +759,12 @@ export function BookingFormPanel({ role }: Props) {
             <p className="text-[11px] text-emerald-400 mt-1">{submitMessage}</p>
           )}
           {submitError && (
-            <p className="text-[11px] text-red-400 mt-1">{submitError}</p>
+            <div className="mt-2 p-3 bg-red-900/20 border border-red-700/50 rounded-md">
+              <p className="text-sm text-red-300 font-medium mb-1">Error</p>
+              <pre className="text-xs text-red-400 whitespace-pre-wrap font-sans">
+                {submitError}
+              </pre>
+            </div>
           )}
         </div>
       </form>
