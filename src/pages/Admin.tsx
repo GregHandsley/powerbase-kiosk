@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { BookingFormPanel } from "../components/admin/BookingFormPanel";
 import { Clock } from "../components/Clock";
 import { useAuth } from "../context/AuthContext";
+import { AdminSidebar } from "../components/admin/AdminSidebar";
+import { CapacityManagement } from "../components/admin/CapacityManagement";
 
-export function Bookings() {
+export function Admin() {
   const { user, profile, role, loading, signOut, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const showSpinner = (
     <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center">
@@ -24,10 +26,10 @@ export function Bookings() {
         <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-xl space-y-3">
           <div>
             <h1 className="text-lg font-semibold mb-1 text-slate-100">
-              Bookings Login
+              Admin Login
             </h1>
             <p className="text-xs text-slate-300">
-              Sign in with your Supabase account to manage bookings.
+              Sign in with your Supabase account to access admin tools.
             </p>
           </div>
           <form
@@ -83,15 +85,16 @@ export function Bookings() {
     );
   }
 
-  if (!role || (role !== "admin" && role !== "coach")) {
+  // Only admins can access this page
+  if (role !== "admin") {
     return (
       <div className="p-4 space-y-4">
         <header className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold">Bookings</h1>
+            <h1 className="text-lg font-semibold">Admin Dashboard</h1>
             <p className="text-slate-300 text-sm">
               You are signed in as <span className="font-mono">{user.email}</span>,
-              but your profile does not grant admin / coach access.
+              but admin access is required for this page.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -111,28 +114,39 @@ export function Bookings() {
   const displayName = profile?.full_name || user.email || "Unknown";
 
   return (
-    <div className="p-4 space-y-4">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Bookings</h1>
-          <p className="text-slate-300 text-sm">
-            Signed in as{" "}
-            <span className="font-mono">{user.email ?? "unknown"}</span>{" "}
-            ({role}) – {displayName}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Clock />
-          <button
-            onClick={signOut}
-            className="text-xs text-slate-300 hover:text-white underline"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
+    <div className="flex h-[calc(100vh-3rem)]">
+      {/* Collapsible Sidebar */}
+      <AdminSidebar 
+        isOpen={sidebarOpen} 
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
 
-      <BookingFormPanel role={role} />
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="flex items-center justify-between px-6 py-4 border-b border-slate-700/60 bg-slate-950/70 shrink-0">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-100">Admin Dashboard</h1>
+            <p className="text-slate-300 text-sm mt-1">
+              Signed in as{" "}
+              <span className="font-mono">{user.email ?? "unknown"}</span>{" "}
+              ({role}) – {displayName}
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Clock />
+            <button
+              onClick={signOut}
+              className="text-xs text-slate-300 hover:text-white underline"
+            >
+              Sign out
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-hidden p-6">
+          <CapacityManagement />
+        </main>
+      </div>
     </div>
   );
 }
