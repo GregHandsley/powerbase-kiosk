@@ -156,7 +156,7 @@ export function Schedule() {
             <span className="mb-1 text-slate-300">Actions</span>
             <button
               type="button"
-              onClick={() => navigate("/admin")}
+              onClick={() => navigate("/bookings")}
               className="px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-medium"
             >
               Add Booking

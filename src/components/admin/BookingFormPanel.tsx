@@ -59,6 +59,7 @@ export function BookingFormPanel({ role }: Props) {
       areas: [],
       color: "#4f46e5",
       isLocked: false,
+      capacity: 1,
     },
   });
 
@@ -101,6 +102,9 @@ export function BookingFormPanel({ role }: Props) {
   const [currentWeekIndex, setCurrentWeekIndex] = useState(0);
   const [racksByWeek, setRacksByWeek] = useState<Map<number, number[]>>(new Map());
   const [applyToAllWeeks, setApplyToAllWeeks] = useState(true); // Default to true for convenience
+  
+  // Track capacity per week
+  const [capacityByWeek, setCapacityByWeek] = useState<Map<number, number>>(new Map());
 
   // Get the number of weeks from the form
   const weeksCount = form.watch("weeks") || 1;
@@ -125,16 +129,43 @@ export function BookingFormPanel({ role }: Props) {
     }
   }, [weeksCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When applyToAllWeeks changes to true, sync all weeks with current week's selection
+  // Initialize capacityByWeek when weeks count changes
+  useEffect(() => {
+    const newMap = new Map(capacityByWeek);
+    // Remove weeks that are beyond the new count
+    for (let i = weeksCount; i < 20; i++) {
+      newMap.delete(i);
+    }
+    // Initialize with form's default capacity for new weeks
+    const defaultCapacity = form.watch("capacity") || 1;
+    for (let i = 0; i < weeksCount; i++) {
+      if (!newMap.has(i)) {
+        newMap.set(i, defaultCapacity);
+      }
+    }
+    setCapacityByWeek(newMap);
+  }, [weeksCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
+  // Get capacity for current week
+  const currentWeekCapacity = useMemo(() => {
+    return capacityByWeek.get(currentWeekIndex) || form.watch("capacity") || 1;
+  }, [capacityByWeek, currentWeekIndex, form.watch("capacity")]);
+
+  // When applyToAllWeeks changes to true, sync all weeks with current week's selection (racks and capacity)
   useEffect(() => {
     if (applyToAllWeeks && weeksCount > 1) {
       const currentRacks = racksByWeek.get(currentWeekIndex) || [];
+      const currentCapacity = capacityByWeek.get(currentWeekIndex) || form.watch("capacity") || 1;
       // Always sync, even if empty (so all weeks are consistent)
-      const newMap = new Map(racksByWeek);
+      const newRacksMap = new Map(racksByWeek);
+      const newCapacityMap = new Map(capacityByWeek);
       for (let i = 0; i < weeksCount; i++) {
-        newMap.set(i, [...currentRacks]); // Create a copy to avoid reference issues
+        newRacksMap.set(i, [...currentRacks]); // Create a copy to avoid reference issues
+        newCapacityMap.set(i, currentCapacity);
       }
-      setRacksByWeek(newMap);
+      setRacksByWeek(newRacksMap);
+      setCapacityByWeek(newCapacityMap);
     }
   }, [applyToAllWeeks, weeksCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -339,6 +370,8 @@ export function BookingFormPanel({ role }: Props) {
       // 1) Insert into bookings
       // Get racks for the booking template (use first week's selection)
       const templateRacks = racksByWeek.get(0) || [];
+      // Get capacity template (use first week's capacity)
+      const templateCapacity = capacityByWeek.get(0) || values.capacity || 1;
 
       const { data: booking, error: bookingError } = await supabase
         .from("bookings")
@@ -350,6 +383,7 @@ export function BookingFormPanel({ role }: Props) {
           recurrence,
           areas: areasKeys,
           racks: templateRacks,
+          capacity_template: templateCapacity,
           color: values.color || null,
           created_by: user.id,
           is_locked: isLocked,
@@ -369,6 +403,7 @@ export function BookingFormPanel({ role }: Props) {
         end: string;
         areas: string[];
         racks: number[];
+        capacity: number;
       }[] = [];
 
       for (let i = 0; i < values.weeks; i++) {
@@ -376,6 +411,8 @@ export function BookingFormPanel({ role }: Props) {
         const end = addWeeks(endTemplate, i);
         // Get racks for this week, or use empty array if not set
         const weekRacks = racksByWeek.get(i) || [];
+        // Get capacity for this week, or use default if not set
+        const weekCapacity = capacityByWeek.get(i) || values.capacity || 1;
         
         if (weekRacks.length === 0) {
           throw new Error(`Week ${i + 1} has no racks selected. Please select at least one rack for each week.`);
@@ -388,6 +425,7 @@ export function BookingFormPanel({ role }: Props) {
           end: end.toISOString(),
           areas: areasKeys,
           racks: weekRacks,
+          capacity: weekCapacity,
         });
       }
 
@@ -412,14 +450,16 @@ export function BookingFormPanel({ role }: Props) {
         `Created booking "${values.title}" with ${instancesPayload.length} instance${instancesPayload.length !== 1 ? "s" : ""}.`
       );
       
-      // Clear rack selections to prevent red highlighting after booking creation
+      // Clear rack selections and capacity to prevent red highlighting after booking creation
       setRacksByWeek(new Map());
+      setCapacityByWeek(new Map());
       
       form.reset({
         ...form.getValues(),
         title: "",
         racksInput: "",
         areas: [],
+        capacity: 1,
       });
     } catch (err: unknown) {
       console.error("onSubmit error", err);
@@ -574,11 +614,15 @@ export function BookingFormPanel({ role }: Props) {
                         ? "border-slate-700 text-slate-600 cursor-not-allowed"
                         : "border-slate-600 text-slate-300 hover:bg-slate-800"
                     )}
+                    title={applyToAllWeeks ? "Uncheck 'Apply to all weeks' to edit individual weeks" : "Previous week"}
                   >
                     ← Previous
                   </button>
                   <span className="text-xs text-slate-400 min-w-[80px] text-center">
                     Week {currentWeekIndex + 1} of {weeksCount}
+                    {!applyToAllWeeks && (
+                      <span className="block text-[10px] text-indigo-400 mt-0.5">(Individual editing enabled)</span>
+                    )}
                   </span>
                   <button
                     type="button"
@@ -590,6 +634,7 @@ export function BookingFormPanel({ role }: Props) {
                         ? "border-slate-700 text-slate-600 cursor-not-allowed"
                         : "border-slate-600 text-slate-300 hover:bg-slate-800"
                     )}
+                    title={applyToAllWeeks ? "Uncheck 'Apply to all weeks' to edit individual weeks" : "Next week"}
                   >
                     Next →
                   </button>
@@ -597,7 +642,7 @@ export function BookingFormPanel({ role }: Props) {
               )}
             </div>
             {weeksCount > 1 && (
-              <div className="mb-2">
+              <div className="mb-2 space-y-1">
                 <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
                   <input
                     type="checkbox"
@@ -605,8 +650,13 @@ export function BookingFormPanel({ role }: Props) {
                     onChange={(e) => setApplyToAllWeeks(e.target.checked)}
                     className="h-3 w-3 rounded border-slate-600 bg-slate-950"
                   />
-                  <span>Apply rack selection to all weeks</span>
+                  <span>Apply to all weeks</span>
                 </label>
+                {!applyToAllWeeks && (
+                  <p className="text-[10px] text-slate-500 ml-5 italic">
+                    Unlocked: You can now edit platforms and number of athletes individually for each week
+                  </p>
+                )}
               </div>
             )}
             
@@ -648,22 +698,64 @@ export function BookingFormPanel({ role }: Props) {
               </p>
             )}
             {weeksCount > 1 && (
-              <p className="text-[10px] text-slate-500 mt-1">
-                {applyToAllWeeks ? (
-                  selectedPlatforms.length > 0 ? (
-                    `${selectedPlatforms.length} rack${selectedPlatforms.length !== 1 ? "s" : ""} selected for all ${weeksCount} weeks`
+              <div className="space-y-1 mt-1">
+                <p className="text-[10px] text-slate-500">
+                  {applyToAllWeeks ? (
+                    selectedPlatforms.length > 0 ? (
+                      `${selectedPlatforms.length} rack${selectedPlatforms.length !== 1 ? "s" : ""} selected for all ${weeksCount} weeks`
+                    ) : (
+                      `No racks selected (will apply to all ${weeksCount} weeks)`
+                    )
                   ) : (
-                    `No racks selected (will apply to all ${weeksCount} weeks)`
-                  )
-                ) : (
-                  selectedPlatforms.length > 0 ? (
-                    `${selectedPlatforms.length} rack${selectedPlatforms.length !== 1 ? "s" : ""} selected for week ${currentWeekIndex + 1}`
+                    selectedPlatforms.length > 0 ? (
+                      `${selectedPlatforms.length} rack${selectedPlatforms.length !== 1 ? "s" : ""} selected for week ${currentWeekIndex + 1}`
+                    ) : (
+                      `No racks selected for week ${currentWeekIndex + 1}`
+                    )
+                  )}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  {applyToAllWeeks ? (
+                    `Number of athletes: ${currentWeekCapacity} for all ${weeksCount} weeks`
                   ) : (
-                    `No racks selected for week ${currentWeekIndex + 1}`
-                  )
-                )}
-              </p>
+                    `Number of athletes: ${currentWeekCapacity} for week ${currentWeekIndex + 1}`
+                  )}
+                </p>
+              </div>
             )}
+            
+            {/* Number of Athletes input - under Platforms */}
+            <div className="mt-3">
+              <label className="block mb-1 font-medium text-xs">Number of Athletes</label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={currentWeekCapacity}
+                className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500"
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 1;
+                  form.setValue("capacity", value);
+                  // Update current week's capacity
+                  if (applyToAllWeeks && weeksCount > 1) {
+                    const newMap = new Map(capacityByWeek);
+                    for (let i = 0; i < weeksCount; i++) {
+                      newMap.set(i, value);
+                    }
+                    setCapacityByWeek(newMap);
+                  } else {
+                    const newMap = new Map(capacityByWeek);
+                    newMap.set(currentWeekIndex, value);
+                    setCapacityByWeek(newMap);
+                  }
+                }}
+              />
+              {form.formState.errors.capacity && (
+                <p className="text-red-400 mt-0.5 text-xs">
+                  {form.formState.errors.capacity.message}
+                </p>
+              )}
+            </div>
           </div>
 
           <div>

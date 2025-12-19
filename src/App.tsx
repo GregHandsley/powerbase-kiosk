@@ -4,7 +4,7 @@ import { Home } from "./pages/Home";
 import { KioskPower } from "./pages/KioskPower";
 import { KioskBase } from "./pages/KioskBase";
 import { Schedule } from "./pages/Schedule";
-import { Admin } from "./pages/Admin";
+import { Bookings } from "./pages/Bookings";
 import { TestLayout } from "./pages/TestLayout";
 import { KioskErrorScreen } from "./components/KioskErrorScreen";
 
@@ -61,7 +61,7 @@ export default function App() {
           />
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/test-layout" element={<TestLayout />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/bookings" element={<Bookings />} />
         </Routes>
       </main>
     </div>

@@ -22,6 +22,12 @@ export const BookingFormSchema = z.object({
   areas: z.array(z.string()).default([]),
   color: z.string().optional(),
   isLocked: z.boolean().optional(), // will be ignored for non-admins
+  capacity: z
+    .number()
+    .int({ message: "Number of athletes must be a whole number" })
+    .min(1, { message: "Number of athletes must be at least 1" })
+    .max(100, { message: "Number of athletes cannot exceed 100" })
+    .default(1),
 });
 
 export type BookingFormValues = z.infer<typeof BookingFormSchema>;
