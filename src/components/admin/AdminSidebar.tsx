@@ -10,8 +10,8 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
   const location = useLocation();
 
   const menuItems = [
-    { path: "/admin", label: "Capacity Management", icon: "📊" },
-    // Add more admin menu items here as needed
+    { path: "/admin?view=capacity-schedule", label: "Capacity Schedule", icon: "📊" },
+    { path: "/admin?view=period-capacity", label: "Period Capacity", icon: "👥" },
   ];
 
   return (
@@ -50,7 +50,9 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
 
         <nav className="flex-1 p-2 space-y-1">
           {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const currentView = new URLSearchParams(location.search).get("view") || "capacity-schedule";
+            const itemView = item.path.split("view=")[1];
+            const isActive = location.pathname === "/admin" && currentView === itemView;
             return (
               <Link
                 key={item.path}

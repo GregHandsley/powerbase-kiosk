@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Clock } from "../components/Clock";
 import { useAuth } from "../context/AuthContext";
 import { AdminSidebar } from "../components/admin/AdminSidebar";
 import { CapacityManagement } from "../components/admin/CapacityManagement";
+import { PeriodTypeCapacityManagement } from "../components/admin/PeriodTypeCapacityManagement";
 
 export function Admin() {
   const { user, profile, role, loading, signOut, signIn } = useAuth();
@@ -11,6 +13,10 @@ export function Admin() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const location = useLocation();
+
+  // Determine which view to show based on URL search params
+  const view = new URLSearchParams(location.search).get("view") || "capacity-schedule";
 
   const showSpinner = (
     <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center">
@@ -144,7 +150,8 @@ export function Admin() {
         </header>
 
         <main className="flex-1 overflow-hidden p-6">
-          <CapacityManagement />
+          {view === "capacity-schedule" && <CapacityManagement />}
+          {view === "period-capacity" && <PeriodTypeCapacityManagement />}
         </main>
       </div>
     </div>
