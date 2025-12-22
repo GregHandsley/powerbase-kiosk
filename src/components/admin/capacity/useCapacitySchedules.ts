@@ -31,9 +31,11 @@ export function useCapacitySchedules(sideId: number | null, currentWeek: Date, r
       const scheduleMap = new Map<number, ScheduleData>();
       data?.forEach((schedule) => {
         const excludedDates = parseExcludedDates(schedule.excluded_dates);
+        const platforms = Array.isArray(schedule.platforms) ? schedule.platforms : [];
         scheduleMap.set(schedule.id, {
           ...schedule,
           excluded_dates: excludedDates,
+          platforms: platforms as number[],
         });
       });
       setScheduleData(scheduleMap);
@@ -66,6 +68,7 @@ export function useCapacitySchedules(sideId: number | null, currentWeek: Date, r
           );
 
           if (applicableSchedule) {
+            const platforms = Array.isArray(applicableSchedule.platforms) ? applicableSchedule.platforms : [];
             capacityMap.set(key, {
               capacity: applicableSchedule.capacity,
               periodType: applicableSchedule.period_type,
@@ -73,6 +76,7 @@ export function useCapacitySchedules(sideId: number | null, currentWeek: Date, r
               startTime: applicableSchedule.start_time,
               endTime: applicableSchedule.end_time,
               recurrenceType: applicableSchedule.recurrence_type,
+              platforms: platforms as number[],
             });
           }
         }

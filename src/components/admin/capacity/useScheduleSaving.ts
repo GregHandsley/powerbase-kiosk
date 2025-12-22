@@ -9,6 +9,7 @@ type SaveCapacityData = {
   recurrenceType: RecurrenceType;
   startTime: string;
   endTime: string;
+  platforms: number[];
 };
 
 export function useScheduleSaving(sideId: number | null) {
@@ -23,6 +24,21 @@ export function useScheduleSaving(sideId: number | null) {
     const dayOfWeek = getDay(selectedDate);
     const startDate = format(selectedDate, "yyyy-MM-dd");
 
+    // If no platforms selected, try to load defaults from period_type_capacity_defaults
+    let platformsToUse = data.platforms;
+    if (platformsToUse.length === 0) {
+      const { data: defaultData } = await supabase
+        .from("period_type_capacity_defaults")
+        .select("platforms")
+        .eq("period_type", data.periodType)
+        .eq("side_id", sideId)
+        .maybeSingle();
+      
+      if (defaultData?.platforms && Array.isArray(defaultData.platforms)) {
+        platformsToUse = defaultData.platforms as number[];
+      }
+    }
+
     const schedulesToCreate: Array<{
       side_id: number;
       day_of_week: number;
@@ -32,6 +48,7 @@ export function useScheduleSaving(sideId: number | null) {
       period_type: string;
       recurrence_type: string;
       start_date: string;
+      platforms: number[];
     }> = [];
 
     if (data.recurrenceType === "single") {
@@ -44,6 +61,7 @@ export function useScheduleSaving(sideId: number | null) {
         period_type: data.periodType,
         recurrence_type: "single",
         start_date: startDate,
+        platforms: platformsToUse,
       });
     } else if (data.recurrenceType === "weekday") {
       for (let day = 1; day <= 5; day++) {
@@ -56,6 +74,7 @@ export function useScheduleSaving(sideId: number | null) {
           period_type: data.periodType,
           recurrence_type: "weekday",
           start_date: startDate,
+          platforms: platformsToUse,
         });
       }
     } else if (data.recurrenceType === "weekend") {
@@ -69,6 +88,7 @@ export function useScheduleSaving(sideId: number | null) {
           period_type: data.periodType,
           recurrence_type: "weekend",
           start_date: startDate,
+          platforms: platformsToUse,
         },
         {
           side_id: sideId,
@@ -79,6 +99,7 @@ export function useScheduleSaving(sideId: number | null) {
           period_type: data.periodType,
           recurrence_type: "weekend",
           start_date: startDate,
+          platforms: platformsToUse,
         }
       );
     } else if (data.recurrenceType === "weekly") {
@@ -91,6 +112,7 @@ export function useScheduleSaving(sideId: number | null) {
         period_type: data.periodType,
         recurrence_type: "weekly",
         start_date: startDate,
+        platforms: platformsToUse,
       });
     } else if (data.recurrenceType === "all_future") {
       schedulesToCreate.push({
@@ -102,6 +124,7 @@ export function useScheduleSaving(sideId: number | null) {
         period_type: data.periodType,
         recurrence_type: "all_future",
         start_date: startDate,
+        platforms: platformsToUse,
       });
     }
 

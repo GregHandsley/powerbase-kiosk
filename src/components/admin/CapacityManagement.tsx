@@ -63,6 +63,7 @@ export function CapacityManagement() {
     recurrenceType: RecurrenceType;
     startTime: string;
     endTime: string;
+    platforms: number[];
   }) => {
     if (!editingCell) return;
     
@@ -75,7 +76,7 @@ export function CapacityManagement() {
     const existingScheduleIds = currentSchedule ? [currentSchedule.id] : [];
     
     await saveCapacity(data, editingCell.date, () => {
-      setCurrentWeek((prev) => new Date(prev.getTime()));
+    setCurrentWeek((prev) => new Date(prev.getTime()));
       setEditingCell(null);
     }, existingScheduleIds);
   };
@@ -88,7 +89,7 @@ export function CapacityManagement() {
   const handleDeleteSuccess = () => {
     setRefreshKey((prev) => prev + 1);
     setCurrentWeek((prev) => new Date(prev.getTime()));
-    setEditingCell(null);
+      setEditingCell(null);
   };
 
   return (
@@ -106,7 +107,7 @@ export function CapacityManagement() {
         capacityData={capacityData}
         timeSlots={timeSlots}
         onCellClick={handleCellClick}
-      />
+                      />
 
       {/* Edit Modal */}
       {editingCell && sideId && (() => {
@@ -144,9 +145,11 @@ export function CapacityManagement() {
             initialTime={cellData?.startTime || editingCell.time}
             initialEndTime={cellData?.endTime}
             sideId={sideId}
+            sideKey={selectedSide}
             existingCapacity={cellData ? {
               capacity: cellData.capacity,
               periodType: cellData.periodType as PeriodType,
+              platforms: cellData.platforms,
             } : null}
             existingRecurrenceType={cellData?.recurrenceType as RecurrenceType | undefined}
           />

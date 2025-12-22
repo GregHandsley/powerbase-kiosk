@@ -12,6 +12,8 @@ type Props = {
   onClick?: () => void;
   /** Size variant - 'full' for schedule view, 'mini' for compact view */
   variant?: "full" | "mini";
+  /** Reason why the platform is unavailable - for display purposes */
+  unavailableReason?: "booked" | "not-in-schedule" | null;
 };
 
 /**
@@ -27,6 +29,7 @@ export function RackCell({
   hasConflict = false,
   onClick,
   variant = "full",
+  unavailableReason = null,
 }: Props) {
   const handleClick = () => {
     if (isClickable && onClick) {
@@ -68,9 +71,13 @@ export function RackCell({
         )}
       >
         <span className="font-semibold text-[10px]">{row.label}</span>
-        {!row.disabled && booking && (
+        {!row.disabled && isDisabled && (
           <span className="text-[8px] text-slate-400 mt-0.5 leading-none">
-            Booked
+            {unavailableReason === "booked" 
+              ? "Booked" 
+              : unavailableReason === "not-in-schedule"
+              ? "Unavailable"
+              : "Unavailable"}
           </span>
         )}
       </div>

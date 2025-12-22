@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { supabase } from "../../lib/supabaseClient";
+import { getSideIdByKeyNode, type SideKey } from "../../nodes/data/sidesNodes";
+import { useCapacityDefaults } from "./capacity/useCapacityDefaults";
+import { CapacityEditForm } from "./capacity/CapacityEditForm";
 
 type RecurrenceType = "single" | "weekday" | "weekend" | "all_future" | "weekly";
 type PeriodType = "High Hybrid" | "Low Hybrid" | "Performance" | "General User" | "Closed";
@@ -14,15 +16,18 @@ type Props = {
     recurrenceType: RecurrenceType;
     startTime: string;
     endTime: string;
+    platforms: number[];
   }) => Promise<void>;
   onDelete?: () => void;
   initialDate: Date;
   initialTime: string; // HH:mm format
   initialEndTime?: string; // HH:mm format
   sideId: number;
+  sideKey: "Power" | "Base";
   existingCapacity?: {
     capacity: number;
     periodType: PeriodType;
+    platforms?: number[];
   } | null;
   existingRecurrenceType?: RecurrenceType;
 };
@@ -35,6 +40,8 @@ export function CapacityEditModal({
   initialDate,
   initialTime,
   initialEndTime,
+  sideId,
+  sideKey,
   existingCapacity,
   existingRecurrenceType,
 }: Props) {
@@ -46,43 +53,24 @@ export function CapacityEditModal({
   const [endTime, setEndTime] = useState(initialEndTime || "23:59");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [defaultCapacity, setDefaultCapacity] = useState<number | null>(null);
   const [capacityOverride, setCapacityOverride] = useState<number | null>(existingCapacity?.capacity || null);
   const [useOverride, setUseOverride] = useState(false);
-  const [loadingDefault, setLoadingDefault] = useState(false);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<number[]>(existingCapacity?.platforms || []);
 
-  // Fetch default capacity for the selected period type
-  useEffect(() => {
-    if (isOpen && periodType) {
-      setLoadingDefault(true);
-      supabase
-        .from("period_type_capacity_defaults")
-        .select("default_capacity")
-        .eq("period_type", periodType)
-        .maybeSingle()
-        .then(({ data, error }) => {
-          if (error) {
-            console.error("Error fetching default capacity:", error);
-            setDefaultCapacity(null);
-          } else {
-            setDefaultCapacity(data?.default_capacity ?? null);
-          }
-          setLoadingDefault(false);
-        });
-    }
-  }, [isOpen, periodType]);
+  // Fetch default capacity and platforms
+  const { defaultCapacity, defaultPlatforms, loadingDefault } = useCapacityDefaults(
+    isOpen,
+    periodType,
+    sideId,
+    existingCapacity?.platforms
+  );
 
+  // Initialize selected platforms from defaults if not set
   useEffect(() => {
-    if (isOpen) {
-      setPeriodType(existingCapacity?.periodType || "General User");
-      // When editing existing, force to "single" to only edit that day
-      // When creating new, allow any recurrence type
-      setRecurrenceType(existingCapacity ? "single" : (existingRecurrenceType || "single"));
-      setStartTime(initialTime);
-      setEndTime(initialEndTime || "23:59");
-      setError(null);
+    if (isOpen && !existingCapacity?.platforms && defaultPlatforms.length > 0) {
+      setSelectedPlatforms(defaultPlatforms);
     }
-  }, [isOpen, initialTime, initialEndTime, existingCapacity, existingRecurrenceType]);
+  }, [isOpen, existingCapacity?.platforms, defaultPlatforms]);
 
   // Update capacity override when default capacity or existing capacity changes
   useEffect(() => {
@@ -100,10 +88,21 @@ export function CapacityEditModal({
     }
   }, [isOpen, existingCapacity, defaultCapacity]);
 
-  if (!isOpen) return null;
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setPeriodType(existingCapacity?.periodType || "General User");
+      // When editing existing, force to "single" to only edit that day
+      // When creating new, allow any recurrence type
+      setRecurrenceType(existingCapacity ? "single" : (existingRecurrenceType || "single"));
+      setStartTime(initialTime);
+      setEndTime(initialEndTime || "23:59");
+      setSelectedPlatforms(existingCapacity?.platforms || []);
+      setError(null);
+    }
+  }, [isOpen, initialTime, initialEndTime, existingCapacity, existingRecurrenceType]);
 
-  const dayName = format(initialDate, "EEEE");
-  const dateStr = format(initialDate, "dd/MM/yyyy");
+  if (!isOpen) return null;
 
   const handleSave = async () => {
     if (endTime <= startTime) {
@@ -133,6 +132,7 @@ export function CapacityEditModal({
         recurrenceType,
         startTime,
         endTime,
+        platforms: selectedPlatforms,
       });
       onClose();
     } catch (err) {
@@ -162,7 +162,7 @@ export function CapacityEditModal({
       onClick={onClose}
     >
       <div
-        className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-md"
+        className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -184,246 +184,27 @@ export function CapacityEditModal({
           </button>
         </div>
 
-        {/* Settings Section */}
-        <div className="space-y-4 mb-6">
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase mb-3">
-              Settings
-            </label>
-
-            {/* Period Type */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Period Type
-              </label>
-              {existingCapacity ? (
-                <div className="w-full rounded-md border border-slate-600 bg-slate-950/50 px-3 py-2 text-sm text-slate-300">
-                  {periodType}
-                </div>
-              ) : (
-                <select
-                  value={periodType}
-                  onChange={(e) => setPeriodType(e.target.value as PeriodType)}
-                  className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  <option value="High Hybrid">High Hybrid</option>
-                  <option value="Low Hybrid">Low Hybrid</option>
-                  <option value="Performance">Performance</option>
-                  <option value="General User">General User</option>
-                  <option value="Closed">Closed</option>
-                </select>
-              )}
-            </div>
-
-            {/* Capacity */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Number of Athletes
-              </label>
-              {loadingDefault ? (
-                <div className="text-sm text-slate-400">Loading...</div>
-              ) : defaultCapacity !== null ? (
-                <div className="space-y-2">
-                  {/* Only show override option when editing existing schedule */}
-                  {existingCapacity ? (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="useOverride"
-                          checked={useOverride}
-                          onChange={(e) => {
-                            setUseOverride(e.target.checked);
-                            if (e.target.checked && !capacityOverride) {
-                              setCapacityOverride(defaultCapacity);
-                            }
-                          }}
-                          className="w-4 h-4 text-indigo-600 border-slate-600 rounded focus:ring-indigo-500"
-                        />
-                        <label htmlFor="useOverride" className="text-sm text-slate-300 cursor-pointer">
-                          Override default capacity ({defaultCapacity} {defaultCapacity === 1 ? "athlete" : "athletes"})
-                        </label>
-                      </div>
-                      {useOverride && (
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={capacityOverride || defaultCapacity}
-                        onChange={(e) => setCapacityOverride(parseInt(e.target.value) || defaultCapacity)}
-                        className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      )}
-                      {!useOverride && (
-                        <div className="text-sm text-slate-200 bg-slate-800/50 px-3 py-2 rounded-md">
-                          {defaultCapacity} {defaultCapacity === 1 ? "Athlete" : "Athletes"} (default)
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    // New schedule - always use default, no override option
-                    <div className="text-sm text-slate-200 bg-slate-800/50 px-3 py-2 rounded-md">
-                      {defaultCapacity} {defaultCapacity === 1 ? "Athlete" : "Athletes"}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-sm text-amber-400">
-                  No default capacity set. Please set a default capacity for this period type first.
-                </div>
-              )}
-            </div>
-
-            {/* Time Range */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Start Time
-                </label>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  End Time
-                </label>
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Repeat Options */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase mb-3">
-              Repeat Options
-            </label>
-            {existingCapacity && (
-              <div className="mb-3 p-2 rounded-md bg-amber-900/20 border border-amber-700/50">
-                <p className="text-xs text-amber-300">
-                  You are editing an existing schedule. Changes will only apply to this specific day ({format(initialDate, "EEEE, MMM d, yyyy")}).
-                </p>
-              </div>
-            )}
-            <div className="space-y-2">
-              {existingCapacity ? (
-                // When editing existing, only show "single" option (disabled)
-                <label className="flex items-center gap-3 p-3 rounded-md border border-slate-700 bg-slate-950/50 opacity-60 cursor-not-allowed">
-                  <input
-                    type="radio"
-                    name="recurrence"
-                    value="single"
-                    checked={true}
-                    disabled
-                    className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-slate-200">
-                      This day ({dateStr})
-                    </div>
-                    <div className="text-xs text-slate-400">Editing only this specific day</div>
-                  </div>
-                </label>
-              ) : (
-                // When creating new, show all options
-                <>
-                  <label className="flex items-center gap-3 p-3 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-                    <input
-                      type="radio"
-                      name="recurrence"
-                      value="single"
-                      checked={recurrenceType === "single"}
-                      onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                      className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-slate-200">
-                        This day ({dateStr})
-                      </div>
-                      <div className="text-xs text-slate-400">Apply only to {dayName}, {dateStr}</div>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-                    <input
-                      type="radio"
-                      name="recurrence"
-                      value="weekday"
-                      checked={recurrenceType === "weekday"}
-                      onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                      className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-slate-200">
-                        Every weekday (Mon-Fri)
-                      </div>
-                      <div className="text-xs text-slate-400">Apply to all weekdays</div>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-                    <input
-                      type="radio"
-                      name="recurrence"
-                      value="weekend"
-                      checked={recurrenceType === "weekend"}
-                      onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                      className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-slate-200">
-                        Every weekend (Sat-Sun)
-                      </div>
-                      <div className="text-xs text-slate-400">Apply to all weekends</div>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-                    <input
-                      type="radio"
-                      name="recurrence"
-                      value="weekly"
-                      checked={recurrenceType === "weekly"}
-                      onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                      className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-slate-200">
-                        Every week
-                      </div>
-                      <div className="text-xs text-slate-400">Apply to this day every week</div>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-                    <input
-                      type="radio"
-                      name="recurrence"
-                      value="all_future"
-                      checked={recurrenceType === "all_future"}
-                      onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                      className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-slate-200">
-                        This and future events
-                      </div>
-                      <div className="text-xs text-slate-400">Apply to {dayName} from {dateStr} onwards</div>
-                    </div>
-                  </label>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+        <CapacityEditForm
+          periodType={periodType}
+          setPeriodType={setPeriodType}
+          recurrenceType={recurrenceType}
+          setRecurrenceType={setRecurrenceType}
+          startTime={startTime}
+          setStartTime={setStartTime}
+          endTime={endTime}
+          setEndTime={setEndTime}
+          selectedPlatforms={selectedPlatforms}
+          setSelectedPlatforms={setSelectedPlatforms}
+          defaultCapacity={defaultCapacity}
+          loadingDefault={loadingDefault}
+          existingCapacity={existingCapacity}
+          capacityOverride={capacityOverride}
+          setCapacityOverride={setCapacityOverride}
+          useOverride={useOverride}
+          setUseOverride={setUseOverride}
+          initialDate={initialDate}
+          sideKey={sideKey}
+        />
 
         {/* Error Message */}
         {error && (
@@ -466,8 +247,6 @@ export function CapacityEditModal({
           </div>
         </div>
       </div>
-
     </div>
   );
 }
-

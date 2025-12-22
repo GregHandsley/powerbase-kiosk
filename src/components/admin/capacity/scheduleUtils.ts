@@ -20,6 +20,7 @@ export type ScheduleData = {
   start_date: string;
   end_date: string | null;
   excluded_dates: string[] | null;
+  platforms: number[] | null;
 };
 
 export type CapacityData = {
@@ -29,6 +30,7 @@ export type CapacityData = {
   startTime?: string;
   endTime?: string;
   recurrenceType?: string;
+  platforms?: number[];
 };
 
 export function parseExcludedDates(excludedDates: unknown): string[] {
