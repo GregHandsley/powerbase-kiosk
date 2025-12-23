@@ -261,6 +261,7 @@ export function useBookingSubmission(
       await queryClient.invalidateQueries({ queryKey: ["booking-instances-for-time"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["booking-instances-debug"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["schedule-bookings"], exact: false });
 
       setSubmitMessage(
         `Created booking "${values.title}" with ${instancesPayload.length} instance${instancesPayload.length !== 1 ? "s" : ""}.`

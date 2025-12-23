@@ -183,6 +183,10 @@ export function useBookingEditor(
         queryKey: ["booking-series"],
         exact: false,
       });
+      await queryClient.invalidateQueries({
+        queryKey: ["schedule-bookings"],
+        exact: false,
+      });
       return true; // Success
     } catch (err) {
       console.error("Failed to update booking time", err);
@@ -242,6 +246,10 @@ export function useBookingEditor(
         queryKey: ["booking-series-racks"],
         exact: false,
       });
+      await queryClient.invalidateQueries({
+        queryKey: ["schedule-bookings"],
+        exact: false,
+      });
       await queryClient.refetchQueries({ queryKey: ["snapshot"], exact: false });
       return true;
     } catch (err) {
@@ -294,6 +302,10 @@ export function useBookingEditor(
       });
       await queryClient.invalidateQueries({
         queryKey: ["booking-series-racks"],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["schedule-bookings"],
         exact: false,
       });
       await queryClient.refetchQueries({ queryKey: ["snapshot"], exact: false });
@@ -378,6 +390,10 @@ export function useBookingEditor(
       });
       await queryClient.invalidateQueries({
         queryKey: ["booking-series-racks"],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["schedule-bookings"],
         exact: false,
       });
       await queryClient.refetchQueries({ queryKey: ["snapshot"], exact: false });

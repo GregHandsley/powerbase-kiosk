@@ -34,6 +34,8 @@ type Props = {
   ignoreBookings?: boolean;
   /** General User periods for checking platform availability during General User times */
   generalUserPeriods?: Array<{ startTime: string; endTime: string; platforms: number[] }>;
+  /** Instance IDs to exclude from booked racks (e.g., current booking being edited) */
+  excludeInstanceIds?: Set<number>;
 };
 
 /**
@@ -50,6 +52,7 @@ export function MiniScheduleFloorplan({
   showTitle = true,
   allowConflictingRacks = false,
   ignoreBookings = false,
+  excludeInstanceIds,
 }: Props) {
   const side = sideKey === "Base" ? "base" : "power";
   const selectedSet = new Set(selectedRacks);
@@ -305,18 +308,23 @@ export function MiniScheduleFloorplan({
   const isLoading = capacityLoading || instancesLoading;
 
   // Build a map of which racks are used by other bookings (empty if ignoring bookings)
+  // Exclude racks that belong to the current booking being edited
   const bookedRacks = useMemo(() => {
     if (ignoreBookings) {
       return new Set<number>();
     }
     const booked = new Set<number>();
     for (const inst of instances) {
+      // Skip instances that should be excluded (e.g., current booking being edited)
+      if (excludeInstanceIds && excludeInstanceIds.has(inst.instanceId)) {
+        continue;
+      }
       for (const rack of inst.racks) {
         booked.add(rack);
       }
     }
     return booked;
-  }, [instances, ignoreBookings]);
+  }, [instances, ignoreBookings, excludeInstanceIds]);
 
   // Build a set of selected racks that have conflicts (are booked by others OR not available in schedule)
   // If ignoreBookings is true, no conflicts should be detected
@@ -338,16 +346,20 @@ export function MiniScheduleFloorplan({
     return conflicting;
   }, [selectedRacks, bookedRacks, availablePlatforms, ignoreBookings]);
 
-  // Build a map of current instance by rack
+  // Build a map of current instance by rack (excluding current booking being edited)
   const bookingByRack = useMemo(() => {
     const map = new Map<number, ActiveInstance>();
     for (const inst of instances) {
+      // Skip instances that should be excluded (e.g., current booking being edited)
+      if (excludeInstanceIds && excludeInstanceIds.has(inst.instanceId)) {
+        continue;
+      }
       for (const rack of inst.racks) {
         map.set(rack, inst);
       }
     }
     return map;
-  }, [instances]);
+  }, [instances, excludeInstanceIds]);
 
   // Grid configuration - compact version (using shared config with custom row heights)
   const baseGridConfig = getGridConfig(side);
@@ -426,7 +438,8 @@ export function MiniScheduleFloorplan({
                 : row.rackNumber !== null && isSelected && (conflictingSelectedRacks.has(row.rackNumber) || !isAvailableInSchedule);
               // Conflicting racks are NOT clickable - only available racks can be clicked
               // If there are conflicts in the selection and clicking an available rack, it will clear the week
-              const isClickable = row.rackNumber !== null && !row.disabled && (allowConflictingRacks || !isUnavailable);
+              // Selected racks are always clickable so they can be unselected, even if marked as unavailable
+              const isClickable = row.rackNumber !== null && !row.disabled && (isSelected || allowConflictingRacks || !isUnavailable);
 
               return (
                 <RackCell

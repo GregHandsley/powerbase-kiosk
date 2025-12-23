@@ -15,9 +15,13 @@ import clsx from "clsx";
 
 type Props = {
   role: "admin" | "coach";
+  /** Optional initial values to pre-fill the form */
+  initialValues?: Partial<BookingFormValues>;
+  /** Callback when booking is successfully created */
+  onSuccess?: () => void;
 };
 
-export function BookingFormPanel({ role }: Props) {
+export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   const { user } = useAuth();
   const { areas, areasLoading, areasError } = useAreas();
 
@@ -43,8 +47,29 @@ export function BookingFormPanel({ role }: Props) {
       color: "#4f46e5",
       isLocked: false,
       capacity: 1,
+      ...initialValues,
     },
   });
+
+  // Reset form when initialValues change
+  useEffect(() => {
+    if (initialValues) {
+      form.reset({
+        title: "",
+        sideKey: "Power",
+        startDate: todayStr,
+        startTime: "07:00",
+        endTime: "08:30",
+        weeks: 1,
+        racksInput: "",
+        areas: [],
+        color: "#4f46e5",
+        isLocked: false,
+        capacity: 1,
+        ...initialValues,
+      });
+    }
+  }, [initialValues, form, todayStr]);
 
   // Get side ID for closed times check
   const [sideId, setSideId] = useState<number | null>(null);
@@ -94,6 +119,17 @@ export function BookingFormPanel({ role }: Props) {
     timeRangeIsClosed,
     weekManagement
   );
+
+  // Call onSuccess when booking is successfully created
+  useEffect(() => {
+    if (submitMessage && onSuccess) {
+      // Delay slightly to show the success message
+      const timer = setTimeout(() => {
+        onSuccess();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [submitMessage, onSuccess]);
 
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-3">

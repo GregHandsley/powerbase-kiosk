@@ -4,6 +4,7 @@ import { Home } from "./pages/Home";
 import { KioskPower } from "./pages/KioskPower";
 import { KioskBase } from "./pages/KioskBase";
 import { LiveView } from "./pages/LiveView";
+import { Schedule } from "./pages/Schedule";
 import { Bookings } from "./pages/Bookings";
 import { Admin } from "./pages/Admin";
 import { TestLayout } from "./pages/TestLayout";
@@ -31,8 +32,8 @@ export default function App() {
           <Link to="/live-view" className="hover:text-white">
             Live View
           </Link>
-          <Link to="/" className="hover:text-white">
-            Schedule Editor
+          <Link to="/schedule" className="hover:text-white">
+            Schedule
           </Link>
           <Link to="/test-layout" className="hover:text-white">
             Test
@@ -64,6 +65,7 @@ export default function App() {
             }
           />
           <Route path="/live-view" element={<LiveView />} />
+          <Route path="/schedule" element={<Schedule />} />
           <Route path="/test-layout" element={<TestLayout />} />
           <Route path="/bookings" element={<Bookings />} />
           <Route path="/admin" element={<Admin />} />
