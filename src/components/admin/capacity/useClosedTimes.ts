@@ -58,18 +58,32 @@ export function useClosedTimes(sideId: number | null, date: string | null) {
         if (appliesToDate) {
           // This closed schedule applies - mark all hours in its range as closed
           const startHour = parseInt(schedule.start_time.split(":")[0]);
+          const startMinute = parseInt(schedule.start_time.split(":")[1] || "0");
           const endHour = parseInt(schedule.end_time.split(":")[0]);
           const endMinute = parseInt(schedule.end_time.split(":")[1] || "0");
           
-          // Add all hours within the closed period
-          // Include from start hour up to (but not including) end hour if end is exactly on the hour
-          for (let h = startHour; h < endHour; h++) {
-            closedTimeSet.add(`${String(h).padStart(2, "0")}:00`);
-          }
+          // Convert times to minutes for easier comparison
+          const startMinutes = startHour * 60 + startMinute;
+          const endMinutes = endHour * 60 + endMinute;
           
-          // If end time has minutes, include the end hour as well
-          if (endMinute > 0) {
-            closedTimeSet.add(`${String(endHour).padStart(2, "0")}:00`);
+          // Mark hours as closed from start hour up to (but not including) the end hour if end is exactly on the hour
+          // If the closed period ends at 09:00, hours 00:00-08:00 are closed, but 09:00 is NOT closed (facility opens at 09:00)
+          // If the closed period ends at 09:30, hours 00:00-09:00 are closed (hour 09:00 is partially closed)
+          
+          // Loop through all hours from 0-23 to check if they overlap with the closed period
+          for (let h = 0; h < 24; h++) {
+            const hourStartMinutes = h * 60;
+            const hourEndMinutes = (h + 1) * 60;
+            
+            // An hour is closed if it overlaps with the closed period [startMinutes, endMinutes)
+            // The closed period is [startMinutes, endMinutes) - inclusive start, exclusive end
+            // An hour overlaps if: hourStart < endMinutes && hourEnd > startMinutes
+            // But we need to exclude the case where hourStart exactly equals endMinutes (period ends exactly at hour start)
+            const overlaps = hourStartMinutes < endMinutes && hourEndMinutes > startMinutes;
+            
+            if (overlaps) {
+              closedTimeSet.add(`${String(h).padStart(2, "0")}:00`);
+            }
           }
         }
       });
@@ -248,6 +262,8 @@ export function doesTimeRangeOverlapGeneralUser(
   
   for (const period of generalUserPeriods) {
     // Check if the booking time range overlaps with this General User period
+    // Period ranges are [start, end) - inclusive start, exclusive end
+    // If period ends at 09:00, a booking starting at 09:00 does NOT overlap
     const periodStart = timeToMinutes(period.startTime);
     const periodEnd = timeToMinutes(period.endTime);
     const bookingStart = timeToMinutes(startTime);

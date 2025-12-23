@@ -122,17 +122,37 @@ export function MiniScheduleFloorplan({
   });
 
   // Determine the applicable schedule first (needed for both default lookup and platform availability)
+  // For a booking starting at time T, we find the schedule where T is in [schedule.start_time, schedule.end_time)
+  // This means if a schedule ends at T, it does NOT apply (exclusive end)
+  // And if a schedule starts at T, it DOES apply (inclusive start)
   const applicableSchedule = useMemo(() => {
     if (!capacitySchedules.length || !startTimeStr || bookingDayOfWeek === null || !bookingDate) {
       return null;
     }
-    return capacitySchedules.find((schedule) => {
+    
+    // Filter schedules that could apply based on time range and day matching
+    // We want the schedule that applies at the booking start time
+    const potentiallyApplicable = capacitySchedules.filter((schedule) => {
       const scheduleData: ScheduleData = {
         ...schedule,
         excluded_dates: parseExcludedDates(schedule.excluded_dates),
       };
       return doesScheduleApply(scheduleData, bookingDayOfWeek, bookingDate, startTimeStr);
-    }) || null;
+    });
+    
+    // If multiple schedules apply (shouldn't happen with proper validation, but handle it)
+    // Prefer non-Closed schedules, then prefer the one that starts closest to the booking time
+    if (potentiallyApplicable.length > 1) {
+      // Sort: non-Closed first, then by start_time (latest first, so we get the most recent period)
+      potentiallyApplicable.sort((a, b) => {
+        if (a.period_type === "Closed" && b.period_type !== "Closed") return 1;
+        if (a.period_type !== "Closed" && b.period_type === "Closed") return -1;
+        // Both same type, prefer later start time (more specific)
+        return b.start_time.localeCompare(a.start_time);
+      });
+    }
+    
+    return potentiallyApplicable[0] || null;
   }, [capacitySchedules, startTimeStr, bookingDayOfWeek, bookingDate]);
 
   // Fetch default platforms for the applicable schedule's period type (if needed)
@@ -199,9 +219,11 @@ export function MiniScheduleFloorplan({
       return new Set(defaultPlatforms); // Empty Set if defaultPlatforms.length === 0 (no platforms available)
     }
 
-    // No defaults set, no platforms available
-    return new Set<number>();
-  }, [capacitySchedules, startTimeStr, bookingDayOfWeek, bookingDate, ignoreBookings, defaultPlatforms]);
+    // No defaults set - if schedule doesn't restrict platforms, treat as all available (null)
+    // This handles the case where a schedule exists but hasn't configured platforms yet
+    // Only return empty Set if we're explicitly told there are 0 platforms
+    return null;
+  }, [applicableSchedule, ignoreBookings, defaultPlatforms, startTimeStr]);
 
   // Determine if the applicable schedule is General User (for warning message)
   const isGeneralUserPeriod = useMemo(() => {

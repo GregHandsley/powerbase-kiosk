@@ -52,15 +52,43 @@ export function isDateExcluded(schedule: ScheduleData, dateStr: string): boolean
   return excludedDates.includes(dateStr);
 }
 
+/**
+ * Normalize time string to HH:mm format for comparison
+ */
+function normalizeTime(timeStr: string): string {
+  // Handle formats like "09:00:00" or "09:00"
+  const parts = timeStr.split(":");
+  return `${parts[0].padStart(2, "0")}:${parts[1]?.padStart(2, "0") || "00"}`;
+}
+
+/**
+ * Compare two time strings (HH:mm format)
+ * Returns: -1 if time1 < time2, 0 if equal, 1 if time1 > time2
+ */
+function compareTimes(time1: string, time2: string): number {
+  const t1 = normalizeTime(time1);
+  const t2 = normalizeTime(time2);
+  if (t1 < t2) return -1;
+  if (t1 > t2) return 1;
+  return 0;
+}
+
 export function doesScheduleApply(
   schedule: ScheduleData,
   dayOfWeek: number,
   dayDate: string,
   timeStr: string
 ): boolean {
+  // Normalize times for comparison (handle both "09:00" and "09:00:00" formats)
+  const normalizedTimeStr = normalizeTime(timeStr);
+  const normalizedStartTime = normalizeTime(schedule.start_time);
+  const normalizedEndTime = normalizeTime(schedule.end_time);
+  
   // Check if the schedule's start_time matches or is before this time
-  if (schedule.start_time > timeStr) return false;
-  if (schedule.end_time <= timeStr) return false;
+  if (compareTimes(normalizedStartTime, normalizedTimeStr) > 0) return false;
+  // Schedule applies if timeStr is in [start_time, end_time) - inclusive start, exclusive end
+  // So if schedule ends at 09:00, time 09:00 is NOT included (facility opens at 09:00)
+  if (compareTimes(normalizedEndTime, normalizedTimeStr) <= 0) return false;
 
   // Check if this date is excluded
   if (isDateExcluded(schedule, dayDate)) {

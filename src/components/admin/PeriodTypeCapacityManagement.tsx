@@ -198,7 +198,7 @@ export function PeriodTypeCapacityManagement() {
       {errorMessage && (
         <div className="bg-red-900/20 border border-red-700 rounded-md p-3 flex items-center justify-between">
           <p className="text-sm text-red-400">{errorMessage}</p>
-          <button
+                      <button
             onClick={() => setErrorMessage(null)}
             className="text-red-400 hover:text-red-300"
             aria-label="Dismiss"
@@ -206,7 +206,7 @@ export function PeriodTypeCapacityManagement() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+                  </button>
         </div>
       )}
 
@@ -231,13 +231,13 @@ export function PeriodTypeCapacityManagement() {
         onDeleteSelectedInstances={handleDeleteSelectedInstances}
         onDeleteSeries={handleDeleteSeries}
         onAddOverride={() => {
-          setEditingOverride(null);
-          setOverrideDate(format(new Date(), "yyyy-MM-dd"));
-          setOverridePeriodType("High Hybrid");
-          setOverrideCapacity(0);
-          setOverrideNotes("");
-          setShowOverrideModal(true);
-        }}
+              setEditingOverride(null);
+              setOverrideDate(format(new Date(), "yyyy-MM-dd"));
+              setOverridePeriodType("High Hybrid");
+              setOverrideCapacity(0);
+              setOverrideNotes("");
+              setShowOverrideModal(true);
+            }}
         loading={deletingBookingLoading}
       />
 
