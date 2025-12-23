@@ -178,6 +178,8 @@ export function Schedule() {
         <RackListEditor
           side={sideMode}
           snapshot={sideMode === "power" ? power.snapshot ?? null : base.snapshot ?? null}
+          date={date}
+          time={time}
         />
       </section>
     </div>

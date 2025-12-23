@@ -8,9 +8,13 @@ import {
 } from "./shared/layouts";
 import { BASE_GRID_CONFIG } from "./shared/gridConfig";
 
-type Props = { snapshot: SideSnapshot | null };
+type Props = { 
+  snapshot: SideSnapshot | null;
+  date: string;
+  time: string;
+};
 
-export function RackListEditorBase({ snapshot }: Props) {
+export function RackListEditorBase({ snapshot, date, time }: Props) {
   const layout = useMemo(() => {
     if (!snapshot) return [];
     const withColSpacer = addColumnSpacer(makeBaseLayout());
@@ -28,6 +32,8 @@ export function RackListEditorBase({ snapshot }: Props) {
       numRows={BASE_GRID_CONFIG.numRows}
       spacerRow={BASE_GRID_CONFIG.spacerRow}
       side="base"
+      date={date}
+      time={time}
     />
   );
 }

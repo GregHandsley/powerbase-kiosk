@@ -169,17 +169,17 @@ export function BookingFormPanel({ role }: Props) {
             firstAvailableTime={firstAvailableTime}
             endTimeManuallyChanged={endTimeManuallyChanged}
             onEndTimeChange={() => setEndTimeManuallyChanged(true)}
-          />
+              />
         </div>
 
         {/* Middle column: platforms */}
         <div className="space-y-2">
           <BookingPlatformSelection
             form={form}
-            sideKey={form.watch("sideKey")}
+                sideKey={form.watch("sideKey")}
             weekManagement={weekManagement}
           />
-        </div>
+          </div>
 
         {/* Right column: areas, color, lock, submit */}
         <div className="space-y-2">
@@ -225,7 +225,7 @@ export function BookingFormPanel({ role }: Props) {
             <p className="text-[10px] text-slate-500 mt-1 italic">
               Area selection will be available in a later update
             </p>
-          </div>
+        </div>
 
           {/* Colour */}
           <div>

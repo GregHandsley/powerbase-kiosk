@@ -13,6 +13,7 @@ type Props = {
   isSelected?: boolean;
   isDisabled?: boolean;
   isClickable?: boolean;
+  unavailableReason?: "booked" | "not-in-schedule" | "closed" | null;
   onRackClick?: () => void;
 };
 
@@ -25,16 +26,18 @@ export function RackRowDroppable({
   isSelected = false,
   isDisabled = false,
   isClickable = false,
+  unavailableReason = null,
   onRackClick,
 }: Props) {
   // Use a regular ref when selecting racks to avoid droppable interference
   const clickRef = useRef<HTMLDivElement>(null);
   
   // Only use droppable when not in selection mode
+  // Also disable if the rack is unavailable due to capacity schedules (e.g., General User)
   const droppableResult = useDroppable({
     id: row.id,
     data: { rackNumber: row.rackNumber },
-    disabled: row.disabled || row.rackNumber === null || isSelectingRacks,
+    disabled: row.disabled || row.rackNumber === null || isSelectingRacks || (unavailableReason === "not-in-schedule"),
   });
   
   const setNodeRef = isSelectingRacks 
@@ -45,26 +48,10 @@ export function RackRowDroppable({
   const isOver = isSelectingRacks ? false : droppableResult.isOver;
 
   const handleClick = (e: React.MouseEvent) => {
-    console.log("RackRowDroppable clicked", {
-      isSelectingRacks,
-      isClickable,
-      hasOnRackClick: !!onRackClick,
-      rackNumber: row.rackNumber,
-      target: e.target,
-      currentTarget: e.currentTarget,
-    });
-    
     if (isSelectingRacks && isClickable && onRackClick) {
       e.preventDefault();
       e.stopPropagation();
-      console.log("Calling onRackClick for rack", row.rackNumber);
       onRackClick();
-    } else {
-      console.log("Click not handled", {
-        isSelectingRacks,
-        isClickable,
-        hasOnRackClick: !!onRackClick,
-      });
     }
   };
 
@@ -78,44 +65,46 @@ export function RackRowDroppable({
 
   const getBorderColor = () => {
     if (isSelectingRacks) {
-      if (isSelected) {
-        console.log(`Rack ${row.rackNumber} border: indigo (selected)`);
-        return "border-indigo-500";
-      }
+      if (isSelected) return "border-indigo-500";
       if (isDisabled) return "border-slate-600";
       return "border-slate-700";
     }
+
     if (row.disabled) return "border-slate-800";
+    // When not selecting racks, visually indicate racks that are reserved or closed
+    // This applies even when there's no booking - check unavailableReason directly
+    if (unavailableReason === "closed") {
+      return "border-red-700";
+    }
+    if (unavailableReason === "not-in-schedule") {
+      return "border-slate-700";
+    }
     if (isOver) return "border-indigo-500/70";
     return "border-slate-800";
   };
 
   const getBackgroundColor = () => {
     if (isSelectingRacks) {
-      if (isSelected) {
-        console.log(`Rack ${row.rackNumber} background: indigo (selected)`);
-        return "bg-indigo-600/20";
-      }
+      if (isSelected) return "bg-indigo-600/20";
       if (isDisabled) return "bg-slate-900/40 opacity-50";
       return "bg-slate-900/80";
     }
+
     if (row.disabled) return "bg-slate-850";
+    // For coach view, dim racks that are reserved for General User or Closed (not in schedule)
+    // This applies even when there's no booking - check unavailableReason directly
+    if (unavailableReason === "closed") {
+      return "bg-red-950/40";
+    }
+    if (unavailableReason === "not-in-schedule") {
+      return "bg-slate-900/40 opacity-60";
+    }
     if (isOver) return "bg-slate-850";
     return "bg-slate-900/80";
   };
 
   const borderColor = getBorderColor();
   const backgroundColor = getBackgroundColor();
-  
-  if (isSelectingRacks && row.rackNumber !== null) {
-    console.log(`RackRowDroppable render for rack ${row.rackNumber}:`, {
-      isSelected,
-      isDisabled,
-      isClickable,
-      borderColor,
-      backgroundColor,
-    });
-  }
 
   return (
     <div
@@ -134,7 +123,17 @@ export function RackRowDroppable({
       <div className="flex flex-col min-w-[100px] lg:min-w-[120px] flex-shrink-0">
         <span className="font-semibold tracking-wide text-base sm:text-lg">{row.label}</span>
         <span className="text-sm sm:text-base text-slate-400">
-          {row.disabled ? "Not bookable" : booking ? "Assigned" : "Available"}
+          {row.disabled
+            ? "Not bookable"
+            : unavailableReason === "closed"
+            ? "Closed"
+            : unavailableReason === "not-in-schedule"
+            ? "General User"
+            : unavailableReason === "booked"
+            ? "Assigned"
+            : booking
+            ? "Assigned"
+            : "Available"}
         </span>
       </div>
       <div 

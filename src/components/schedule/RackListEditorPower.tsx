@@ -8,9 +8,13 @@ import {
 } from "./shared/layouts";
 import { POWER_GRID_CONFIG } from "./shared/gridConfig";
 
-type Props = { snapshot: SideSnapshot | null };
+type Props = { 
+  snapshot: SideSnapshot | null;
+  date: string;
+  time: string;
+};
 
-export function RackListEditorPower({ snapshot }: Props) {
+export function RackListEditorPower({ snapshot, date, time }: Props) {
   const layout = useMemo(() => {
     if (!snapshot) return [];
     const withCols = addDoubleColumnSpacers(makePowerLayout());
@@ -28,6 +32,8 @@ export function RackListEditorPower({ snapshot }: Props) {
       numRows={POWER_GRID_CONFIG.numRows}
       spacerRow={POWER_GRID_CONFIG.spacerRow}
       side="power"
+      date={date}
+      time={time}
     />
   );
 }

@@ -7,6 +7,8 @@ type UseDragHandlersProps = {
   setAssignments: React.Dispatch<React.SetStateAction<Map<number, number[]>>>;
   initialAssignments: Map<number, number[]>;
   bookingById: Map<number, ActiveInstance>;
+  /** Set of available platform numbers based on capacity schedules (null = all available) */
+  availablePlatforms?: Set<number> | null;
 };
 
 export function useDragHandlers({ 
@@ -14,6 +16,7 @@ export function useDragHandlers({
   setAssignments, 
   initialAssignments,
   bookingById,
+  availablePlatforms = null,
 }: UseDragHandlersProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragError, setDragError] = useState<string | null>(null);
@@ -46,6 +49,18 @@ export function useDragHandlers({
     if (!overRackNumber) {
       setDragError(null);
       return; // only drop on bookable racks
+    }
+
+    // Check if the target rack is available in the capacity schedule
+    // If availablePlatforms is null, all platforms are available (no restriction)
+    // If availablePlatforms is a Set, only racks in that Set are available
+    if (availablePlatforms !== null && !availablePlatforms.has(overRackNumber)) {
+      setDragError(
+        `Cannot move booking: Rack ${overRackNumber} is not available for booking (reserved for General User)`
+      );
+      // Clear error after 5 seconds
+      setTimeout(() => setDragError(null), 5000);
+      return;
     }
 
     // Get the booking being moved

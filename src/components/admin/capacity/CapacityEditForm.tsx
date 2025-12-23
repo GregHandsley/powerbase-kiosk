@@ -224,128 +224,17 @@ export function CapacityEditForm({
         </div>
       </div>
 
-      {/* Repeat Options - Full Width */}
-      <div>
-        <label className="block text-xs font-semibold text-slate-400 uppercase mb-3">
-          Repeat Options
-        </label>
-        {existingCapacity && (
-          <div className="mb-3 p-2 rounded-md bg-amber-900/20 border border-amber-700/50">
-            <p className="text-xs text-amber-300">
-              You are editing an existing schedule. Changes will only apply to this specific day ({format(initialDate, "EEEE, MMM d, yyyy")}).
-            </p>
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-2">
-          {existingCapacity ? (
-            // When editing existing, only show "single" option (disabled)
-            <label className="flex items-center gap-2 p-2 rounded-md border border-slate-700 bg-slate-950/50 opacity-60 cursor-not-allowed">
-              <input
-                type="radio"
-                name="recurrence"
-                value="single"
-                checked={true}
-                disabled
-                className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-              />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-slate-200">
-                  This day ({dateStr})
-                </div>
-                <div className="text-xs text-slate-400">Editing only this specific day</div>
-              </div>
-            </label>
-          ) : (
-            // When creating new, show all options
-            <>
-              <label className="flex items-center gap-2 p-2 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-                <input
-                  type="radio"
-                  name="recurrence"
-                  value="single"
-                  checked={recurrenceType === "single"}
-                  onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                  className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-slate-200">
-                    This day ({dateStr})
-                  </div>
-                  <div className="text-xs text-slate-400">Apply only to {dayName}</div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-2 p-2 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-                <input
-                  type="radio"
-                  name="recurrence"
-                  value="weekday"
-                  checked={recurrenceType === "weekday"}
-                  onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                  className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-slate-200">
-                    Every weekday
-                  </div>
-                  <div className="text-xs text-slate-400">Mon-Fri</div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-2 p-2 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-                <input
-                  type="radio"
-                  name="recurrence"
-                  value="weekend"
-                  checked={recurrenceType === "weekend"}
-                  onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                  className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-slate-200">
-                    Every weekend
-                  </div>
-                  <div className="text-xs text-slate-400">Sat-Sun</div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-2 p-2 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-                <input
-                  type="radio"
-                  name="recurrence"
-                  value="weekly"
-                  checked={recurrenceType === "weekly"}
-                  onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                  className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-slate-200">
-                    Every week
-                  </div>
-                  <div className="text-xs text-slate-400">Same day weekly</div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-2 p-2 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-                <input
-                  type="radio"
-                  name="recurrence"
-                  value="all_future"
-                  checked={recurrenceType === "all_future"}
-                  onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                  className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-slate-200">
-                    This and future
-                  </div>
-                  <div className="text-xs text-slate-400">From {dateStr} onwards</div>
-                </div>
-              </label>
-            </>
-          )}
+      {/* Info Banner - Only show when editing existing schedule */}
+      {existingCapacity && (
+        <div className="p-3 rounded-md bg-amber-900/20 border border-amber-700/50">
+          <p className="text-sm text-amber-300 font-medium">
+            Editing individual day
+          </p>
+          <p className="text-xs text-amber-300/80 mt-1">
+            Changes will only apply to {format(initialDate, "EEEE, MMM d, yyyy")}. The rest of the series will remain unchanged.
+          </p>
         </div>
-      </div>
+      )}
     </>
   );
 }

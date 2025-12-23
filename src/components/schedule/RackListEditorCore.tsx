@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
-import clsx from "clsx";
 import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
 import { supabase } from "../../lib/supabaseClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +12,8 @@ import { useRackEditorDimensions } from "./rack-editor/hooks/useRackEditorDimens
 import { useRackAssignments } from "./rack-editor/hooks/useRackAssignments";
 import { useDragSensors } from "./rack-editor/hooks/useDragSensors";
 import { useDragHandlers } from "./rack-editor/hooks/useDragHandlers";
+import { RackSelectionPanel } from "./rack-editor/RackSelectionPanel";
+import { useScheduleViewCapacity } from "./hooks/useScheduleViewCapacity";
 
 export type RackRow = {
   id: string; // rack-<number> or platform-<number>
@@ -36,6 +37,10 @@ export type RackListEditorCoreProps = {
   spacerRow?: number;
   /** Side mode for the floorplan */
   side: "power" | "base";
+  /** Date for checking capacity schedules (YYYY-MM-DD) */
+  date: string;
+  /** Time for checking capacity schedules (HH:mm) */
+  time: string;
 };
 
 
@@ -49,10 +54,19 @@ export function RackListEditorCore({
   numRows = 6,
   spacerRow,
   side,
+  date,
+  time,
 }: RackListEditorCoreProps) {
-  void side; // Kept for interface compatibility but not used (floorplan removed)
   const bookings = useMemo(() => snapshot?.currentInstances ?? [], [snapshot]);
   const queryClient = useQueryClient();
+
+  // Capacity / availability state for the schedule view
+  const { availablePlatforms, isClosedPeriod } = useScheduleViewCapacity({
+    side,
+    date,
+    time,
+  });
+
   const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(null);
   const [isSelectingRacks, setIsSelectingRacks] = useState(false);
   const [selectedRacks, setSelectedRacks] = useState<number[]>([]);
@@ -74,22 +88,15 @@ export function RackListEditorCore({
     // Only clear editingBooking if we're not entering selection mode
     // Use a ref to track when we're about to enter selection mode
     if (!isSelectingRacks && !isEnteringSelectionMode.current) {
-      console.log("handleCloseModal: Clearing editingBooking");
       setEditingBooking(null);
     } else {
-      console.log("handleCloseModal: Not clearing editingBooking", { 
-        isSelectingRacks, 
-        isEnteringSelectionMode: isEnteringSelectionMode.current 
-      });
       isEnteringSelectionMode.current = false; // Reset the flag
     }
   };
 
   const handleEditRacks = (selectedInstancesFromModal?: Set<number>) => {
-    console.log("handleEditRacks called", { editingBooking: !!editingBooking, bookingRacks: editingBooking?.racks, selectedInstancesFromModal });
     if (editingBooking) {
       const initialRacks = [...editingBooking.racks];
-      console.log("Setting isSelectingRacks to true, initial racks:", initialRacks);
       // Save selected instances from modal for later restoration
       if (selectedInstancesFromModal && selectedInstancesFromModal.size > 0) {
         setSavedSelectedInstances(new Set(selectedInstancesFromModal));
@@ -339,18 +346,7 @@ export function RackListEditorCore({
   };
 
   const handleRackClick = (rackNumber: number) => {
-    console.log("handleRackClick called", { 
-      rackNumber, 
-      editingBooking: editingBooking ? { id: editingBooking.instanceId, title: editingBooking.title } : null, 
-      isSelectingRacks,
-      currentSelected: selectedRacks 
-    });
-    
     if (!editingBooking || !isSelectingRacks) {
-      console.log("Early return: no booking or not selecting", { 
-        hasEditingBooking: !!editingBooking, 
-        isSelectingRacks 
-      });
       return;
     }
 
@@ -359,16 +355,13 @@ export function RackListEditorCore({
       (b) => b.instanceId !== editingBooking.instanceId && b.racks.includes(rackNumber)
     );
     if (rackUsedByOther) {
-      console.log("Rack used by other booking");
       return; // Can't select racks used by others
     }
 
-    console.log("Updating selectedRacks state");
     setSelectedRacks((prev) => {
       const newRacks = prev.includes(rackNumber)
         ? prev.filter((n) => n !== rackNumber).sort((a, b) => a - b)
         : [...prev, rackNumber].sort((a, b) => a - b);
-      console.log("New selectedRacks:", newRacks);
       // Clear validation error when racks change
       setRackValidationError(null);
       return newRacks;
@@ -423,9 +416,23 @@ export function RackListEditorCore({
     return weekMap;
   }, [seriesInstancesForRacks]);
 
-  const weeksForRacks = useMemo(() => Array.from(instancesByWeekForRacks.keys()).sort((a, b) => a - b), [instancesByWeekForRacks]);
-  const currentWeekForRacks = weeksForRacks[rackSelectionWeekIndex] ?? weeksForRacks[0] ?? null;
-  const currentWeekInstancesForRacks = currentWeekForRacks ? instancesByWeekForRacks.get(currentWeekForRacks) ?? [] : [];
+  const weeksForRacks = useMemo(
+    () => Array.from(instancesByWeekForRacks.keys()).sort((a, b) => a - b),
+    [instancesByWeekForRacks]
+  );
+
+  const currentWeekForRacks = useMemo(
+    () => weeksForRacks[rackSelectionWeekIndex] ?? weeksForRacks[0] ?? null,
+    [weeksForRacks, rackSelectionWeekIndex]
+  );
+
+  const currentWeekInstancesForRacks = useMemo(
+    () =>
+      currentWeekForRacks
+        ? instancesByWeekForRacks.get(currentWeekForRacks) ?? []
+        : [],
+    [currentWeekForRacks, instancesByWeekForRacks]
+  );
 
   // Calculate time range for current week to fetch overlapping bookings
   const currentWeekTimeRange = useMemo(() => {
@@ -508,9 +515,7 @@ export function RackListEditorCore({
 
   // Initialize selected racks when entering selection mode (only on initial entry)
   useEffect(() => {
-    console.log("useEffect for isSelectingRacks", { isSelectingRacks, hasEditingBooking: !!editingBooking, hasInitialized: hasInitializedRacks.current, selectedInstancesSize: selectedInstancesForRacks.size });
     if (isSelectingRacks && editingBooking && !hasInitializedRacks.current) {
-      console.log("Initializing selectedRacks from booking", editingBooking.racks);
       setSelectedRacks([...editingBooking.racks]);
       // selectedInstancesForRacks should already be set by handleEditRacks
       // Only set default if it's still empty (wasn't set by handleEditRacks)
@@ -528,6 +533,7 @@ export function RackListEditorCore({
       setApplyRacksToAll(false);
       setRackSelectionWeekIndex(0);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSelectingRacks, editingBooking]);
 
   // Update selected instances when applyRacksToAll changes or when seriesInstancesForRacks loads
@@ -557,14 +563,14 @@ export function RackListEditorCore({
     }
   }, [applyRacksToAll, editingBooking, seriesInstancesForRacks, selectedInstancesForRacks]);
 
-  const {
+         const {
     containerRef,
     BASE_WIDTH,
     BASE_HEIGHT,
     zoomLevel,
     renderedHeight,
     renderedWidth,
-  } = useRackEditorDimensions();
+         } = useRackEditorDimensions();
 
   const sensors = useDragSensors();
 
@@ -591,189 +597,54 @@ export function RackListEditorCore({
     setAssignments,
     initialAssignments,
     bookingById,
+    availablePlatforms,
   });
 
   return (
     <div className="space-y-2">
-      {!isSelectingRacks && (
-        <>
-          <RackEditorHeader saving={saving} savedAt={savedAt} onSave={handleSave} />
-          {dragError && (
-            <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-md">
-              <p className="text-sm text-red-300 font-medium">{dragError}</p>
-            </div>
-          )}
-        </>
-      )}
+             {!isSelectingRacks && (
+               <>
+                 <RackEditorHeader saving={saving} savedAt={savedAt} onSave={handleSave} />
+                 {dragError && (
+                   <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-md">
+                     <p className="text-sm text-red-300 font-medium">{dragError}</p>
+                   </div>
+                 )}
+                 {isClosedPeriod && (
+                   <div className="mt-2 px-3 py-2 rounded-md bg-slate-900/60 border border-slate-700 flex items-center gap-2">
+                     <span className="inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+                     <p className="text-xs text-slate-200">
+                       Facility closed for this time — platforms are unavailable.
+                     </p>
+                   </div>
+                 )}
+               </>
+             )}
 
       {isSelectingRacks && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-100">
-                Select Platforms for {editingBooking?.title}
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Click racks to select or deselect. Selected racks ({selectedRacks.length}) are highlighted. Racks used by other bookings are grayed out.
-              </p>
-              {rackValidationError && (
-                <div className="mt-2 p-2 bg-red-900/20 border border-red-700 rounded-md">
-                  <p className="text-xs text-red-300 font-medium whitespace-pre-line">
-                    {rackValidationError}
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleCancelRackSelection}
-                disabled={savingRacks}
-                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-slate-100 disabled:opacity-50 rounded-md border border-slate-600"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveRacks}
-                disabled={savingRacks || selectedRacks.length === 0 || selectedInstancesForRacks.size === 0 || !!rackValidationError}
-                className={clsx(
-                  "px-3 py-1.5 text-sm font-medium rounded-md",
-                  rackValidationError
-                    ? "bg-red-600 hover:bg-red-500 text-white"
-                    : "bg-indigo-600 hover:bg-indigo-500 text-white",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
-              >
-                {savingRacks ? "Saving..." : rackValidationError ? "Conflicts Detected" : `Save${selectedInstancesForRacks.size > 1 ? ` (${selectedInstancesForRacks.size})` : ""}`}
-              </button>
-            </div>
-          </div>
-          
-          {/* Series Instance Selection for Racks */}
-          {seriesInstancesForRacks.length > 1 && (
-            <div className="border border-slate-700 rounded-md bg-slate-950/60 p-2">
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-medium text-slate-300">
-                  Apply to Sessions ({seriesInstancesForRacks.length})
-                </label>
-                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={applyRacksToAll}
-                    onChange={(e) => {
-                      setApplyRacksToAll(e.target.checked);
-                      // Clear validation error when selection changes
-                      setRackValidationError(null);
-                    }}
-                    disabled={savingRacks}
-                    className="h-3 w-3 rounded border-slate-600 bg-slate-950"
-                  />
-                  <span>Apply to all</span>
-                </label>
-              </div>
-              
-              {/* Week Navigation for Rack Selection */}
-              {weeksForRacks.length > 1 && (
-                <div className="flex items-center justify-between mb-2">
-                  <button
-                    type="button"
-                    onClick={() => setRackSelectionWeekIndex((prev) => Math.max(0, prev - 1))}
-                    disabled={rackSelectionWeekIndex === 0 || savingRacks}
-                    className={clsx(
-                      "px-2 py-1 text-xs rounded border",
-                      rackSelectionWeekIndex === 0 || savingRacks
-                        ? "border-slate-700 text-slate-600 cursor-not-allowed"
-                        : "border-slate-600 text-slate-300 hover:bg-slate-800"
-                    )}
-                  >
-                    ← Previous Week
-                  </button>
-                  <span className="text-xs text-slate-400">
-                    Week {rackSelectionWeekIndex + 1} of {weeksForRacks.length}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setRackSelectionWeekIndex((prev) => Math.min(weeksForRacks.length - 1, prev + 1))}
-                    disabled={rackSelectionWeekIndex === weeksForRacks.length - 1 || savingRacks}
-                    className={clsx(
-                      "px-2 py-1 text-xs rounded border",
-                      rackSelectionWeekIndex === weeksForRacks.length - 1 || savingRacks
-                        ? "border-slate-700 text-slate-600 cursor-not-allowed"
-                        : "border-slate-600 text-slate-300 hover:bg-slate-800"
-                    )}
-                  >
-                    Next Week →
-                  </button>
-                </div>
-              )}
-
-              <div className="max-h-24 overflow-auto">
-                <div className="space-y-1">
-                  {currentWeekInstancesForRacks.map((inst) => {
-                    const isSelected = selectedInstancesForRacks.has(inst.id);
-                    const isCurrent = inst.id === editingBooking?.instanceId;
-                    const formatDateTime = (isoString: string) => {
-                      const date = new Date(isoString);
-                      return date.toLocaleString([], {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      });
-                    };
-                    return (
-                      <label
-                        key={inst.id}
-                        className={clsx(
-                          "flex items-center gap-2 text-xs px-2 py-1 rounded cursor-pointer",
-                          isCurrent
-                            ? "bg-indigo-900/30 border border-indigo-700 text-indigo-200"
-                            : isSelected
-                              ? "bg-slate-800/50 border border-slate-600 text-slate-200"
-                              : "text-slate-400 hover:bg-slate-800/30"
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            const newSelected = new Set(selectedInstancesForRacks);
-                            if (e.target.checked) {
-                              newSelected.add(inst.id);
-                            } else {
-                              newSelected.delete(inst.id);
-                            }
-                            setSelectedInstancesForRacks(newSelected);
-                            if (newSelected.size === seriesInstancesForRacks.length) {
-                              setApplyRacksToAll(true);
-                            } else if (newSelected.size < seriesInstancesForRacks.length) {
-                              setApplyRacksToAll(false);
-                            }
-                            // Clear validation error when selection changes
-                            setRackValidationError(null);
-                          }}
-                          disabled={savingRacks}
-                          className="h-3 w-3 rounded border-slate-600 bg-slate-950"
-                        />
-                        <span className="flex-1">
-                          {formatDateTime(inst.start)} - {formatDateTime(inst.end)}
-                          {isCurrent && (
-                            <span className="ml-2 text-indigo-400">(Current)</span>
-                          )}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-500 mt-1">
-                {selectedInstancesForRacks.size} of {seriesInstancesForRacks.length} sessions selected
-              </p>
-            </div>
-          )}
-        </div>
+        <RackSelectionPanel
+          editingBooking={editingBooking}
+          selectedRacks={selectedRacks}
+          rackValidationError={rackValidationError}
+          savingRacks={savingRacks}
+          applyRacksToAll={applyRacksToAll}
+          setApplyRacksToAll={(value) => {
+            setApplyRacksToAll(value);
+            // Clear validation error when selection changes
+            if (rackValidationError) {
+              setRackValidationError(null);
+            }
+          }}
+          seriesInstancesForRacks={seriesInstancesForRacks}
+          weeksForRacks={weeksForRacks}
+          rackSelectionWeekIndex={rackSelectionWeekIndex}
+          setRackSelectionWeekIndex={setRackSelectionWeekIndex}
+          currentWeekInstancesForRacks={currentWeekInstancesForRacks}
+          selectedInstancesForRacks={selectedInstancesForRacks}
+          setSelectedInstancesForRacks={setSelectedInstancesForRacks}
+          handleCancelRackSelection={handleCancelRackSelection}
+          handleSaveRacks={handleSaveRacks}
+        />
       )}
       <div
           ref={containerRef}
@@ -789,7 +660,7 @@ export function RackListEditorCore({
                 className="relative overflow-hidden"
                 style={{ width: renderedWidth, height: renderedHeight }}
               >
-                <RackEditorGrid
+                         <RackEditorGrid
                   layout={layout}
                   assignments={assignments}
                   bookingById={bookingById}
@@ -808,7 +679,9 @@ export function RackListEditorCore({
                   selectedRacks={selectedRacks}
                   editingBookingId={editingBooking?.instanceId ?? null}
                   onRackClick={handleRackClick}
-                  bookings={bookingsForDisplay}
+                           bookings={bookingsForDisplay}
+                           availablePlatforms={availablePlatforms}
+                           isClosedPeriod={isClosedPeriod}
                 />
               </div>
             </div>
@@ -824,7 +697,7 @@ export function RackListEditorCore({
                   className="relative overflow-hidden"
                   style={{ width: renderedWidth, height: renderedHeight }}
                 >
-                  <RackEditorGrid
+                         <RackEditorGrid
                     layout={layout}
                     assignments={assignments}
                     bookingById={bookingById}
@@ -843,7 +716,9 @@ export function RackListEditorCore({
                     selectedRacks={selectedRacks}
                     editingBookingId={editingBooking?.instanceId ?? null}
                     onRackClick={handleRackClick}
-                    bookings={bookingsForDisplay}
+                           bookings={bookingsForDisplay}
+                           availablePlatforms={availablePlatforms}
+                           isClosedPeriod={isClosedPeriod}
                   />
                 </div>
               </div>
