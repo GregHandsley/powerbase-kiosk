@@ -257,7 +257,7 @@ export function useBookingSubmission(
         );
       }
 
-      // Invalidate queries to refresh the floorplan and schedule views
+      // Invalidate queries to refresh the floorplan and live view
       await queryClient.invalidateQueries({ queryKey: ["booking-instances-for-time"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["booking-instances-debug"], exact: false });

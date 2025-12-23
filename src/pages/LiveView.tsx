@@ -1,4 +1,4 @@
-// src/pages/Schedule.tsx
+// src/pages/LiveView.tsx
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSnapshotFromSearchParams } from "../hooks/useSnapshotFromSearchParams";
@@ -7,7 +7,7 @@ import { RackListEditor } from "../components/schedule/RackListEditor";
 
 type SideMode = "power" | "base";
 
-export function Schedule() {
+export function LiveView() {
   const navigate = useNavigate();
   const {
     date,
@@ -73,7 +73,7 @@ export function Schedule() {
       {/* Header / Controls */}
       <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">Coach Schedule View</h1>
+          <h1 className="text-lg font-semibold">Live View</h1>
           <p className="text-sm text-slate-300">
             Read-only snapshot of platform allocations for a specific date and time.
           </p>
@@ -185,3 +185,4 @@ export function Schedule() {
     </div>
   );
 }
+

@@ -38,7 +38,7 @@ type Props = {
 
 /**
  * Mini schedule-style floorplan selector for booking creation.
- * Shows a compact grid layout matching the schedule view, with clickable racks,
+ * Shows a compact grid layout matching the live view, with clickable racks,
  * highlighting selected ones and graying out racks that are booked at the requested time.
  */
 export function MiniScheduleFloorplan({

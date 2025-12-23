@@ -13,7 +13,7 @@ import { useRackAssignments } from "./rack-editor/hooks/useRackAssignments";
 import { useDragSensors } from "./rack-editor/hooks/useDragSensors";
 import { useDragHandlers } from "./rack-editor/hooks/useDragHandlers";
 import { RackSelectionPanel } from "./rack-editor/RackSelectionPanel";
-import { useScheduleViewCapacity } from "./hooks/useScheduleViewCapacity";
+import { useLiveViewCapacity } from "./hooks/useLiveViewCapacity";
 
 export type RackRow = {
   id: string; // rack-<number> or platform-<number>
@@ -60,8 +60,8 @@ export function RackListEditorCore({
   const bookings = useMemo(() => snapshot?.currentInstances ?? [], [snapshot]);
   const queryClient = useQueryClient();
 
-  // Capacity / availability state for the schedule view
-  const { availablePlatforms, isClosedPeriod } = useScheduleViewCapacity({
+  // Capacity / availability state for the live view
+  const { availablePlatforms, isClosedPeriod } = useLiveViewCapacity({
     side,
     date,
     time,

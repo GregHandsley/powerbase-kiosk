@@ -15,7 +15,7 @@ type Args = {
   time: string;
 };
 
-export function useScheduleViewCapacity({ side, date, time }: Args) {
+export function useLiveViewCapacity({ side, date, time }: Args) {
   const [sideId, setSideId] = useState<number | null>(null);
 
   // Resolve sideId from side key (Power/Base)
@@ -24,7 +24,7 @@ export function useScheduleViewCapacity({ side, date, time }: Args) {
     getSideIdByKeyNode(sideKey)
       .then(setSideId)
       .catch((err) => {
-        console.error("[Schedule View] Error fetching sideId:", err);
+        console.error("[Live View] Error fetching sideId:", err);
         setSideId(null);
       });
   }, [side]);
@@ -38,7 +38,7 @@ export function useScheduleViewCapacity({ side, date, time }: Args) {
 
   // Fetch capacity schedules for the surrounding week
   const { data: capacitySchedules = [], isLoading: schedulesLoading } = useQuery({
-    queryKey: ["capacity-schedules-for-schedule-view", sideId, date, bookingDayOfWeek],
+    queryKey: ["capacity-schedules-for-live-view", sideId, date, bookingDayOfWeek],
     queryFn: async () => {
       if (!sideId || !date || bookingDayOfWeek === null) {
         return [];
@@ -64,7 +64,7 @@ export function useScheduleViewCapacity({ side, date, time }: Args) {
         .or(`end_date.is.null,end_date.gte.${weekStartStr}`);
 
       if (error) {
-        console.error("[Schedule View] Error fetching capacity schedules:", error);
+        console.error("[Live View] Error fetching capacity schedules:", error);
         return [];
       }
 
@@ -101,7 +101,7 @@ export function useScheduleViewCapacity({ side, date, time }: Args) {
 
   // Fetch default platforms for the applicable schedule's period type (if needed)
   const { data: defaultPlatforms } = useQuery({
-    queryKey: ["default-platforms-schedule-view", sideId, applicableSchedule?.period_type],
+    queryKey: ["default-platforms-live-view", sideId, applicableSchedule?.period_type],
     queryFn: async () => {
       if (!sideId || !applicableSchedule) {
         return null;
@@ -119,7 +119,7 @@ export function useScheduleViewCapacity({ side, date, time }: Args) {
         .maybeSingle();
 
       if (error) {
-        console.error("[Schedule View] Error fetching default platforms:", error);
+        console.error("[Live View] Error fetching default platforms:", error);
         return null;
       }
 
@@ -166,5 +166,4 @@ export function useScheduleViewCapacity({ side, date, time }: Args) {
     isClosedPeriod,
   };
 }
-
 

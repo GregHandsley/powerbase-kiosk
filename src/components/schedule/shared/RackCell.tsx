@@ -10,7 +10,7 @@ type Props = {
   isClickable?: boolean;
   hasConflict?: boolean;
   onClick?: () => void;
-  /** Size variant - 'full' for schedule view, 'mini' for compact view */
+  /** Size variant - 'full' for live view, 'mini' for compact view */
   variant?: "full" | "mini";
   /** Reason why the platform is unavailable - for display purposes */
   unavailableReason?: "booked" | "not-in-schedule" | null;
@@ -18,7 +18,7 @@ type Props = {
 
 /**
  * Shared component for rendering a rack cell.
- * Can be styled differently for full schedule view or mini compact view.
+ * Can be styled differently for full live view or mini compact view.
  */
 export function RackCell({
   row,
