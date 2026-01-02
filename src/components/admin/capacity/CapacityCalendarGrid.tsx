@@ -47,10 +47,16 @@ function getMergedBlocks(
       } else {
         // Close previous block if it exists
         if (currentBlock) {
-          const endTime = formatTimeSlot(timeSlots[slotIndex - 1]);
+          // The block ends at the previous slot (slotIndex - 1)
+          // The end time should be the time of the next slot after the block ends
+          // If the block ends at slotIndex - 1, the end time is the time of slotIndex
+          const endSlotIndex = slotIndex - 1;
+          const endTime = endSlotIndex < timeSlots.length - 1
+            ? formatTimeSlot(timeSlots[endSlotIndex + 1])
+            : formatTimeSlot(timeSlots[endSlotIndex]);
           blocks.push({
             startSlot: currentBlock.startSlot,
-            endSlot: slotIndex - 1,
+            endSlot: endSlotIndex,
             rowSpan: slotIndex - currentBlock.startSlot,
             capacity: currentBlock.capacity,
             periodType: currentBlock.periodType,
@@ -70,10 +76,15 @@ function getMergedBlocks(
     } else {
       // No data for this slot, close previous block if it exists
       if (currentBlock) {
-        const endTime = formatTimeSlot(timeSlots[slotIndex - 1]);
+        // The block ends at the previous slot (slotIndex - 1)
+        // The end time should be the time of the next slot after the block ends
+        const endSlotIndex = slotIndex - 1;
+        const endTime = endSlotIndex < timeSlots.length - 1
+          ? formatTimeSlot(timeSlots[endSlotIndex + 1])
+          : formatTimeSlot(timeSlots[endSlotIndex]);
         blocks.push({
           startSlot: currentBlock.startSlot,
-          endSlot: slotIndex - 1,
+          endSlot: endSlotIndex,
           rowSpan: slotIndex - currentBlock.startSlot,
           capacity: currentBlock.capacity,
           periodType: currentBlock.periodType,
@@ -87,11 +98,18 @@ function getMergedBlocks(
 
   // Close any remaining block at the end
   if (currentBlock !== null) {
-    const lastSlot = timeSlots[timeSlots.length - 1];
-    const endTime = formatTimeSlot(lastSlot);
+    const lastSlotIndex = timeSlots.length - 1;
+    // For the last block, calculate the end time as the next slot after the last slot
+    // Since we're at the end, we'll use the last slot's time + 30 minutes
+    const lastSlot = timeSlots[lastSlotIndex];
+    const endHour = lastSlot.minute === 30 ? lastSlot.hour + 1 : lastSlot.hour;
+    const endMinute = lastSlot.minute === 30 ? 0 : 30;
+    const endTime = endHour < 24 
+      ? formatTimeSlot({ hour: endHour, minute: endMinute })
+      : formatTimeSlot(lastSlot);
     blocks.push({
       startSlot: currentBlock.startSlot,
-      endSlot: timeSlots.length - 1,
+      endSlot: lastSlotIndex,
       rowSpan: timeSlots.length - currentBlock.startSlot,
       capacity: currentBlock.capacity,
       periodType: currentBlock.periodType,

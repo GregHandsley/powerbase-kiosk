@@ -6,10 +6,18 @@ export const BookingFormSchema = z.object({
   startDate: z.string().min(1, "Start date is required"), // yyyy-mm-dd
   startTime: z
     .string()
-    .regex(/^\d{2}:\d{2}$/, "Start time must be HH:MM"),
+    .regex(/^\d{2}:\d{2}$/, "Start time must be HH:MM")
+    .refine((time) => {
+      const [, minutes] = time.split(":").map(Number);
+      return minutes === 0 || minutes === 30;
+    }, "Start time must be on the hour or half hour (00 or 30 minutes)"),
   endTime: z
     .string()
-    .regex(/^\d{2}:\d{2}$/, "End time must be HH:MM"),
+    .regex(/^\d{2}:\d{2}$/, "End time must be HH:MM")
+    .refine((time) => {
+      const [, minutes] = time.split(":").map(Number);
+      return minutes === 0 || minutes === 30;
+    }, "End time must be on the hour or half hour (00 or 30 minutes)"),
   weeks: z
     .number()
     .refine((val) => !Number.isNaN(val), { message: "Weeks is required" })

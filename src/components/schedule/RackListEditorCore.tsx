@@ -13,6 +13,7 @@ import { useRackAssignments } from "./rack-editor/hooks/useRackAssignments";
 import { useDragSensors } from "./rack-editor/hooks/useDragSensors";
 import { useDragHandlers } from "./rack-editor/hooks/useDragHandlers";
 import { RackSelectionPanel } from "./rack-editor/RackSelectionPanel";
+import { UpdateRacksConfirmationDialog } from "./booking-editor/UpdateRacksConfirmationDialog";
 import { useLiveViewCapacity } from "./hooks/useLiveViewCapacity";
 
 export type RackRow = {
@@ -75,6 +76,7 @@ export function RackListEditorCore({
   const [applyRacksToAll, setApplyRacksToAll] = useState(false);
   const [rackValidationError, setRackValidationError] = useState<string | null>(null);
   const [savedSelectedInstances, setSavedSelectedInstances] = useState<Set<number>>(new Set());
+  const [showUpdateRacksConfirm, setShowUpdateRacksConfirm] = useState(false);
   const [rackSelectionWeekIndex, setRackSelectionWeekIndex] = useState(0);
   const hasInitializedRacks = useRef(false);
   const isEnteringSelectionMode = useRef(false);
@@ -305,11 +307,16 @@ export function RackListEditorCore({
 
     // Show confirmation if updating multiple instances
     if (selectedInstancesForRacks.size > 1) {
-      const confirmed = window.confirm(
-        `Update ${selectedInstancesForRacks.size} selected sessions with the new racks?\n\nRacks: ${selectedRacks.join(", ")}`
-      );
-      if (!confirmed) return;
+      setShowUpdateRacksConfirm(true);
+      return; // Wait for confirmation
     }
+
+    // If only one session, proceed directly
+    await performRackUpdate();
+  };
+
+  const performRackUpdate = async () => {
+    if (!editingBooking || selectedRacks.length === 0) return;
 
     setSavingRacks(true);
     try {
@@ -337,6 +344,7 @@ export function RackListEditorCore({
       setIsSelectingRacks(false);
       setEditingBooking(null);
       setRackValidationError(null);
+      setShowUpdateRacksConfirm(false);
     } catch (err) {
       console.error("Failed to save racks", err);
       setRackValidationError(err instanceof Error ? err.message : "Failed to save racks");
@@ -742,6 +750,18 @@ export function RackListEditorCore({
         onSaveTime={handleSaveTime}
         initialSelectedInstances={savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined}
       />
+
+      {/* Update Racks Confirmation Dialog */}
+      {isSelectingRacks && (
+        <UpdateRacksConfirmationDialog
+          isOpen={showUpdateRacksConfirm}
+          sessionCount={selectedInstancesForRacks.size}
+          racks={selectedRacks}
+          onCancel={() => setShowUpdateRacksConfirm(false)}
+          onConfirm={performRackUpdate}
+          saving={savingRacks}
+        />
+      )}
     </div>
   );
 }

@@ -10,9 +10,9 @@ type Props = {
     endTime: string;
     periodType: string;
   } | null;
-  deleteMode: "single" | "future";
+  deleteMode: "single" | "future" | "all";
   deleting: boolean;
-  onDeleteModeChange: (mode: "single" | "future") => void;
+  onDeleteModeChange: (mode: "single" | "future" | "all") => void;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -69,24 +69,44 @@ export function DeleteScheduleDialog({
           </label>
 
           {scheduleInfo.recurrenceType !== "single" && (
-            <label className="flex items-center gap-3 p-3 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
-              <input
-                type="radio"
-                name="deleteMode"
-                value="future"
-                checked={deleteMode === "future"}
-                onChange={() => onDeleteModeChange("future")}
-                className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
-              />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-slate-200">
-                  This and future events
+            <>
+              <label className="flex items-center gap-3 p-3 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
+                <input
+                  type="radio"
+                  name="deleteMode"
+                  value="future"
+                  checked={deleteMode === "future"}
+                  onChange={() => onDeleteModeChange("future")}
+                  className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-slate-200">
+                    This and future events
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Delete {format(selectedDate, "EEEE, MMM d, yyyy")} and all future occurrences. Past events will remain.
+                  </div>
                 </div>
-                <div className="text-xs text-slate-400">
-                  Delete {format(selectedDate, "EEEE, MMM d, yyyy")} and all future occurrences. Past events will remain.
+              </label>
+              <label className="flex items-center gap-3 p-3 rounded-md border border-slate-700 bg-slate-950/50 cursor-pointer hover:bg-slate-800/50">
+                <input
+                  type="radio"
+                  name="deleteMode"
+                  value="all"
+                  checked={deleteMode === "all"}
+                  onChange={() => onDeleteModeChange("all")}
+                  className="w-4 h-4 text-indigo-600 border-slate-600 focus:ring-indigo-500"
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-slate-200">
+                    All events in the series
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Delete all occurrences of this schedule, including past events.
+                  </div>
                 </div>
-              </div>
-            </label>
+              </label>
+            </>
           )}
         </div>
 

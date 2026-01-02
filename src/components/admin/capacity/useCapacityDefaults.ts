@@ -31,12 +31,18 @@ export function useCapacityDefaults(
             setDefaultCapacity(null);
             setDefaultPlatforms([]);
           } else {
-            setDefaultCapacity(data?.default_capacity ?? null);
-            // If no existing platforms set and we have defaults, use them
-            if (!existingPlatforms && data?.platforms && Array.isArray(data.platforms)) {
-              setDefaultPlatforms(data.platforms as number[]);
+            // For "Closed" period type, always set capacity to 0 and platforms to empty array
+            if (periodType === "Closed") {
+              setDefaultCapacity(0);
+              setDefaultPlatforms([]);
             } else {
-              setDefaultPlatforms(existingPlatforms || []);
+              setDefaultCapacity(data?.default_capacity ?? null);
+              // If no existing platforms set and we have defaults, use them
+              if (!existingPlatforms && data?.platforms && Array.isArray(data.platforms)) {
+                setDefaultPlatforms(data.platforms as number[]);
+              } else {
+                setDefaultPlatforms(existingPlatforms || []);
+              }
             }
           }
           setLoadingDefault(false);

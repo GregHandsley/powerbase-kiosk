@@ -2,6 +2,13 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { addDays, format } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { generateTimeSlots, type TimeSlot } from "../components/admin/capacity/scheduleUtils";
+
+type SlotCapacityData = {
+  availablePlatforms: Set<number> | null;
+  isClosed: boolean;
+  periodType: string | null;
+  periodEndTime?: string;
+};
 import { ScheduleGrid } from "../components/schedule/ScheduleGrid";
 import { DayNavigationHeader } from "../components/schedule/DayNavigationHeader";
 import { makeBaseLayout, makePowerLayout } from "../components/schedule/shared/layouts";
@@ -10,6 +17,7 @@ import { BookingEditorModal } from "../components/schedule/BookingEditorModal";
 import { MiniScheduleFloorplan } from "../components/shared/MiniScheduleFloorplan";
 import { RackSelectionPanel } from "../components/schedule/rack-editor/RackSelectionPanel";
 import { CreateBookingModal } from "../components/schedule/CreateBookingModal";
+import { UpdateRacksConfirmationDialog } from "../components/schedule/booking-editor/UpdateRacksConfirmationDialog";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
 import type { ActiveInstance } from "../types/snapshot";
@@ -19,6 +27,8 @@ type NewBookingContext = {
   timeSlot: TimeSlot;
   rack: number;
   side: "Power" | "Base";
+  selectedRacks?: number[]; // For drag selection
+  endTimeSlot?: TimeSlot; // For drag selection end time
 } | null;
 
 export function Schedule() {
@@ -35,17 +45,51 @@ export function Schedule() {
   const [rackValidationError, setRackValidationError] = useState<string | null>(null);
   const [savedSelectedInstances, setSavedSelectedInstances] = useState<Set<number>>(new Set());
   const [rackSelectionWeekIndex, setRackSelectionWeekIndex] = useState(0);
+  const [showUpdateRacksConfirm, setShowUpdateRacksConfirm] = useState(false);
   const isEnteringSelectionMode = useRef(false);
   const queryClient = useQueryClient();
-  const timeSlots = generateTimeSlots();
+  const allTimeSlots = generateTimeSlots();
   const sideKey = selectedSide === "Power" ? "power" : "base";
 
   // Get capacity data for the day
   const { sideId, slotCapacityData, isLoading: capacityLoading } = useScheduleDayCapacity({
     side: sideKey,
     date: currentDate,
-    timeSlots,
+    timeSlots: allTimeSlots,
   });
+
+  // Filter time slots to only show available ones (exclude closed periods)
+  // Also create a mapping from filtered index to original index for capacity data lookups
+  const { timeSlots, slotIndexMap } = useMemo(() => {
+    const availableSlots: typeof allTimeSlots = [];
+    const indexMap = new Map<number, number>(); // filtered index -> original index
+
+    allTimeSlots.forEach((slot, originalIndex) => {
+      const capacityData = slotCapacityData.get(originalIndex);
+      const isClosed = capacityData?.isClosed ?? false;
+
+      // Only include slots that are not closed
+      if (!isClosed) {
+        const filteredIndex = availableSlots.length;
+        availableSlots.push(slot);
+        indexMap.set(filteredIndex, originalIndex);
+      }
+    });
+
+    return { timeSlots: availableSlots, slotIndexMap: indexMap };
+  }, [allTimeSlots, slotCapacityData]);
+
+  // Create a filtered slotCapacityData map using filtered indices
+  const filteredSlotCapacityData = useMemo(() => {
+    const filtered = new Map<number, SlotCapacityData>();
+    slotIndexMap.forEach((originalIndex, filteredIndex) => {
+      const capacityData = slotCapacityData.get(originalIndex);
+      if (capacityData) {
+        filtered.set(filteredIndex, capacityData);
+      }
+    });
+    return filtered;
+  }, [slotIndexMap, slotCapacityData]);
 
   // Get racks from layout definitions (same approach as LiveView)
   const rackNumbers = useMemo(() => {
@@ -147,6 +191,24 @@ export function Schedule() {
       timeSlot,
       rack,
       side: selectedSide,
+    });
+  };
+
+  const handleDragSelection = (selection: {
+    startTimeSlot: TimeSlot;
+    endTimeSlot: TimeSlot;
+    racks: number[];
+  }) => {
+    // Open the create booking modal with the drag selection
+    // Use the first rack and start time for the initial context
+    // The form will be pre-filled with all selected racks
+    setNewBookingContext({
+      date: currentDate,
+      timeSlot: selection.startTimeSlot,
+      rack: selection.racks[0], // Use first rack for context
+      side: selectedSide,
+      selectedRacks: selection.racks, // Pass all selected racks
+      endTimeSlot: selection.endTimeSlot, // Pass end time
     });
   };
 
@@ -538,11 +600,16 @@ export function Schedule() {
 
     // Show confirmation if updating multiple instances
     if (selectedInstancesForRacks.size > 1) {
-      const confirmed = window.confirm(
-        `Update ${selectedInstancesForRacks.size} selected sessions with the new racks?\n\nRacks: ${selectedRacks.join(", ")}`
-      );
-      if (!confirmed) return;
+      setShowUpdateRacksConfirm(true);
+      return; // Wait for confirmation
     }
+
+    // If only one session, proceed directly
+    await performRackUpdate();
+  };
+
+  const performRackUpdate = async () => {
+    if (!editingBooking || selectedRacks.length === 0) return;
 
     setSavingRacks(true);
     try {
@@ -570,6 +637,7 @@ export function Schedule() {
       setIsSelectingRacks(false);
       setEditingBooking(null);
       setRackValidationError(null);
+      setShowUpdateRacksConfirm(false);
     } catch (err) {
       console.error("Failed to save racks", err);
       setRackValidationError(err instanceof Error ? err.message : "Failed to save racks");
@@ -698,9 +766,10 @@ export function Schedule() {
           selectedSide={selectedSide}
           bookings={bookings}
           currentDate={currentDate}
-          slotCapacityData={slotCapacityData}
+          slotCapacityData={filteredSlotCapacityData}
           onCellClick={handleCellClick}
           onBookingClick={handleEditBooking}
+          onDragSelection={handleDragSelection}
         />
       ))}
 
@@ -723,7 +792,21 @@ export function Schedule() {
           initialRack={newBookingContext.rack}
           initialSide={newBookingContext.side}
           role={role || "coach"}
+          selectedRacks={newBookingContext.selectedRacks}
+          endTimeSlot={newBookingContext.endTimeSlot}
           onSuccess={handleCloseNewBookingModal}
+        />
+      )}
+
+      {/* Update Racks Confirmation Dialog */}
+      {isSelectingRacks && (
+        <UpdateRacksConfirmationDialog
+          isOpen={showUpdateRacksConfirm}
+          sessionCount={selectedInstancesForRacks.size}
+          racks={selectedRacks}
+          onCancel={() => setShowUpdateRacksConfirm(false)}
+          onConfirm={performRackUpdate}
+          saving={savingRacks}
         />
       )}
     </div>

@@ -51,33 +51,35 @@ export function useCapacitySchedules(sideId: number | null, currentWeek: Date, r
         const dayOfWeek = getDay(day);
         const dayDate = format(day, "yyyy-MM-dd");
 
-        // Generate time slots for this day
+        // Generate time slots for this day (30-minute increments)
         for (let hour = 0; hour < 24; hour++) {
-          const slot: TimeSlot = { hour, minute: 0 };
-          const timeStr = formatTimeSlot(slot);
-          const key = getCapacityKey(day, slot);
+          for (const minute of [0, 30]) {
+            const slot: TimeSlot = { hour, minute };
+            const timeStr = formatTimeSlot(slot);
+            const key = getCapacityKey(day, slot);
 
-          // Find the most specific schedule that applies
-          const applicableSchedule = data?.find((schedule) =>
-            doesScheduleApply(
-              { ...schedule, excluded_dates: parseExcludedDates(schedule.excluded_dates) } as ScheduleData,
-              dayOfWeek,
-              dayDate,
-              timeStr
-            )
-          );
+            // Find the most specific schedule that applies
+            const applicableSchedule = data?.find((schedule) =>
+              doesScheduleApply(
+                { ...schedule, excluded_dates: parseExcludedDates(schedule.excluded_dates) } as ScheduleData,
+                dayOfWeek,
+                dayDate,
+                timeStr
+              )
+            );
 
-          if (applicableSchedule) {
-            const platforms = Array.isArray(applicableSchedule.platforms) ? applicableSchedule.platforms : [];
-            capacityMap.set(key, {
-              capacity: applicableSchedule.capacity,
-              periodType: applicableSchedule.period_type,
-              scheduleId: applicableSchedule.id,
-              startTime: applicableSchedule.start_time,
-              endTime: applicableSchedule.end_time,
-              recurrenceType: applicableSchedule.recurrence_type,
-              platforms: platforms as number[],
-            });
+            if (applicableSchedule) {
+              const platforms = Array.isArray(applicableSchedule.platforms) ? applicableSchedule.platforms : [];
+              capacityMap.set(key, {
+                capacity: applicableSchedule.capacity,
+                periodType: applicableSchedule.period_type,
+                scheduleId: applicableSchedule.id,
+                startTime: applicableSchedule.start_time,
+                endTime: applicableSchedule.end_time,
+                recurrenceType: applicableSchedule.recurrence_type,
+                platforms: platforms as number[],
+              });
+            }
           }
         }
       });

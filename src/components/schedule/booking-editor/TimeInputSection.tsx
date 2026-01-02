@@ -1,9 +1,15 @@
+import { TimePicker } from "../../shared/TimePicker";
+import type { ClosedPeriod } from "../../admin/capacity/useClosedTimes";
+
 type TimeInputSectionProps = {
   startTime: string;
   endTime: string;
   onStartTimeChange: (time: string) => void;
   onEndTimeChange: (time: string) => void;
   disabled?: boolean;
+  closedTimes?: Set<string>; // Set of closed times in "HH:00" format
+  closedPeriods?: ClosedPeriod[]; // Array of closed periods for minute-level checking
+  disableAutoAdjust?: boolean; // If true, don't auto-adjust times (useful when editing existing bookings)
 };
 
 /**
@@ -15,6 +21,9 @@ export function TimeInputSection({
   onStartTimeChange,
   onEndTimeChange,
   disabled = false,
+  closedTimes = new Set(),
+  closedPeriods = [],
+  disableAutoAdjust = true, // Default to true for editing existing bookings
 }: TimeInputSectionProps) {
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -22,24 +31,28 @@ export function TimeInputSection({
         <label className="block text-sm font-medium text-slate-300 mb-2">
           Start Time
         </label>
-        <input
-          type="time"
+        <TimePicker
           value={startTime}
-          onChange={(e) => onStartTimeChange(e.target.value)}
+          onChange={onStartTimeChange}
           disabled={disabled}
-          className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          closedTimes={closedTimes}
+          closedPeriods={closedPeriods}
+          disableAutoAdjust={disableAutoAdjust}
+          isEndTime={false}
         />
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-2">
           End Time
         </label>
-        <input
-          type="time"
+        <TimePicker
           value={endTime}
-          onChange={(e) => onEndTimeChange(e.target.value)}
+          onChange={onEndTimeChange}
           disabled={disabled}
-          className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          closedTimes={closedTimes}
+          closedPeriods={closedPeriods}
+          disableAutoAdjust={disableAutoAdjust}
+          isEndTime={true}
         />
       </div>
     </div>

@@ -21,6 +21,7 @@ type SlotCapacityData = {
   availablePlatforms: Set<number> | null; // null = all available, Set = only these available
   isClosed: boolean;
   periodType: string | null;
+  periodEndTime?: string; // The actual end time of the closed period (HH:mm format)
 };
 
 export function useScheduleDayCapacity({ side, date, timeSlots }: Args) {
@@ -151,6 +152,7 @@ export function useScheduleDayCapacity({ side, date, timeSlots }: Args) {
           availablePlatforms: new Set<number>(),
           isClosed: true,
           periodType: "Closed",
+          periodEndTime: applicableSchedule.end_time, // Store the actual end time
         });
         return;
       }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import type { BookingFormValues } from "../../../schemas/bookingForm";
 
@@ -71,6 +71,46 @@ export function useWeekManagement(form: UseFormReturn<BookingFormValues>) {
       setCapacityByWeek(newCapacityMap);
     }
   }, [applyToAllWeeks, weeksCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Initialize racksByWeek from racksInput when form is reset with initial values
+  // This handles the case when the form is pre-filled (e.g., from drag selection)
+  // Only initialize when racksByWeek is empty (initial state) to avoid conflicts with user selections
+  const racksInput = form.watch("racksInput");
+  const hasInitializedFromInputRef = useRef(false);
+  
+  useEffect(() => {
+    // Check if racksByWeek is empty (all weeks have no racks selected)
+    const allWeeksEmpty = Array.from({ length: weeksCount }, (_, i) => racksByWeek.get(i) || [])
+      .every((racks) => racks.length === 0);
+    
+    if (racksInput && racksInput.trim() && allWeeksEmpty && !hasInitializedFromInputRef.current) {
+      // Parse racksInput (can be comma or space separated, e.g., "3, 4, 5" or "3 4 5")
+      const parsedRacks = racksInput
+        .split(/[,\s]+/)
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !isNaN(n) && n > 0)
+        .sort((a, b) => a - b);
+
+      if (parsedRacks.length > 0) {
+        // Update week 0 (and all weeks if applyToAllWeeks is true)
+        const newMap = new Map(racksByWeek);
+        if (applyToAllWeeks && weeksCount > 1) {
+          for (let i = 0; i < weeksCount; i++) {
+            newMap.set(i, [...parsedRacks]);
+          }
+        } else {
+          newMap.set(0, [...parsedRacks]);
+        }
+        setRacksByWeek(newMap);
+        hasInitializedFromInputRef.current = true;
+      }
+    }
+    
+    // Reset the flag when racksByWeek becomes empty again (form was reset)
+    if (allWeeksEmpty && hasInitializedFromInputRef.current) {
+      hasInitializedFromInputRef.current = false;
+    }
+  }, [racksInput, racksByWeek, applyToAllWeeks, weeksCount]);
 
   // Get selected racks for current week
   const selectedPlatforms = useMemo(() => {

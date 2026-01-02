@@ -37,6 +37,7 @@ export function useBookingEditor(
   const [showExtendDialog, setShowExtendDialog] = useState(false);
   const [extendWeeks, setExtendWeeks] = useState(1);
   const [extending, setExtending] = useState(false);
+  const [showUpdateTimeConfirm, setShowUpdateTimeConfirm] = useState(false);
 
   // Fetch all instances in the series (same booking_id)
   const { data: seriesInstances = [] } = useQuery<SeriesInstance[]>({
@@ -111,25 +112,34 @@ export function useBookingEditor(
   }, [booking, startTime, endTime]);
 
   const handleSaveTime = async (): Promise<boolean> => {
-    if (!booking || !hasTimeChanges) return false;
+    if (!booking || !hasTimeChanges) {
+      // No time changes, so no need to update or show confirmation
+      return true; // Return true to indicate "success" (nothing to do)
+    }
 
     const timeRegex = /^\d{2}:\d{2}$/;
     if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
       setError("Time must be in HH:mm format");
-      return;
+      return false;
     }
 
     if (selectedInstances.size === 0) {
       setError("Please select at least one session to update");
-      return;
+      return false;
     }
 
     if (selectedInstances.size > 1) {
-      const confirmed = window.confirm(
-        `Update ${selectedInstances.size} selected sessions with the new times?\n\nStart: ${startTime}\nEnd: ${endTime}`
-      );
-      if (!confirmed) return;
+      // Show confirmation modal only if times have changed
+      setShowUpdateTimeConfirm(true);
+      return false; // Return false to indicate we need confirmation
     }
+
+    // If only one session, proceed directly
+    return await performTimeUpdate();
+  };
+
+  const performTimeUpdate = async (): Promise<boolean> => {
+    if (!booking) return false;
 
     setSaving(true);
     setError(null);
@@ -140,28 +150,182 @@ export function useBookingEditor(
       const startDiff = getTimeDifference(originalStartTime, startTime);
       const endDiff = getTimeDifference(originalEndTime, endTime);
 
-      const updates = Array.from(selectedInstances).map(async (instanceId) => {
-        const instance = seriesInstances.find((inst) => inst.id === instanceId);
-        if (!instance) return;
+      // Calculate new times for all instances being updated
+      const instancesToUpdate = Array.from(selectedInstances)
+        .map((instanceId) => {
+          const instance = seriesInstances.find((inst) => inst.id === instanceId);
+          if (!instance) return null;
 
-        const instanceStart = new Date(instance.start);
-        const instanceEnd = new Date(instance.end);
+          const instanceStart = new Date(instance.start);
+          const instanceEnd = new Date(instance.end);
 
-        const newStart = new Date(instanceStart);
-        newStart.setHours(newStart.getHours() + startDiff.hours);
-        newStart.setMinutes(newStart.getMinutes() + startDiff.minutes);
+          const newStart = new Date(instanceStart);
+          newStart.setHours(newStart.getHours() + startDiff.hours);
+          newStart.setMinutes(newStart.getMinutes() + startDiff.minutes);
 
-        const newEnd = new Date(instanceEnd);
-        newEnd.setHours(newEnd.getHours() + endDiff.hours);
-        newEnd.setMinutes(newEnd.getMinutes() + endDiff.minutes);
+          const newEnd = new Date(instanceEnd);
+          newEnd.setHours(newEnd.getHours() + endDiff.hours);
+          newEnd.setMinutes(newEnd.getMinutes() + endDiff.minutes);
 
+          return {
+            instanceId,
+            instance,
+            newStart,
+            newEnd,
+            racks: instance.racks,
+            sideId: instance.sideId,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+
+      // Check for conflicts before updating
+      const conflicts: Array<{
+        instanceId: number;
+        instanceTime: string;
+        rack: number;
+        conflictingBooking: string;
+        conflictTime: string;
+      }> = [];
+
+      for (const instanceToUpdate of instancesToUpdate) {
+        // Fetch all booking instances that overlap with the new time range
+        // and use any of the instance's racks
+        const { data: overlappingInstances, error: overlapError } = await supabase
+          .from("booking_instances")
+          .select(
+            `
+            id,
+            booking_id,
+            start,
+            "end",
+            racks,
+            booking:bookings (
+              title
+            )
+          `
+          )
+          .eq("side_id", instanceToUpdate.sideId)
+          .lt("start", instanceToUpdate.newEnd.toISOString()) // Other booking starts before our new end
+          .gt("end", instanceToUpdate.newStart.toISOString()) // Other booking ends after our new start
+          .neq("booking_id", booking.bookingId); // Exclude instances from the same booking
+
+        if (overlapError) {
+          console.error("Error checking for conflicts:", overlapError);
+          throw new Error(`Error checking for conflicts: ${overlapError.message}`);
+        }
+
+        // Check each rack for conflicts
+        for (const rack of instanceToUpdate.racks) {
+          const conflictingInstance = overlappingInstances?.find((inst) => {
+            const instRacks = Array.isArray(inst.racks) ? inst.racks : [];
+            return instRacks.includes(rack);
+          });
+
+          if (conflictingInstance) {
+            const formatDateTime = (isoString: string) => {
+              const date = new Date(isoString);
+              return date.toLocaleString([], {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+            };
+
+            conflicts.push({
+              instanceId: instanceToUpdate.instanceId,
+              instanceTime: `${formatDateTime(instanceToUpdate.newStart.toISOString())} - ${formatDateTime(instanceToUpdate.newEnd.toISOString())}`,
+              rack,
+              conflictingBooking:
+                (conflictingInstance.booking as { title?: string })?.title ?? "Unknown",
+              conflictTime: `${formatDateTime(conflictingInstance.start)} - ${formatDateTime(conflictingInstance.end)}`,
+            });
+          }
+        }
+      }
+
+      // If conflicts found, show detailed error and abort
+      if (conflicts.length > 0) {
+        // Group conflicts by instance for better error message
+        const conflictsByInstance = new Map<
+          number,
+          Array<{ rack: number; conflictingBooking: string; conflictTime: string }>
+        >();
+
+        conflicts.forEach((conflict) => {
+          if (!conflictsByInstance.has(conflict.instanceId)) {
+            conflictsByInstance.set(conflict.instanceId, []);
+          }
+          conflictsByInstance.get(conflict.instanceId)!.push({
+            rack: conflict.rack,
+            conflictingBooking: conflict.conflictingBooking,
+            conflictTime: conflict.conflictTime,
+          });
+        });
+
+        // Build detailed error message
+        const errorParts: string[] = [];
+        errorParts.push("⚠️ Booking conflicts detected:\n");
+
+        conflictsByInstance.forEach((rackConflicts, instanceId) => {
+          const instance = instancesToUpdate.find((inst) => inst.instanceId === instanceId);
+          if (!instance) return;
+
+          const formatDate = (date: Date) => {
+            return date.toLocaleDateString([], {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            });
+          };
+
+          const formatTime = (date: Date) => {
+            return date.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+          };
+
+          const dateStr = formatDate(instance.newStart);
+          const timeRange = `${formatTime(instance.newStart)} - ${formatTime(instance.newEnd)}`;
+
+          errorParts.push(`\n${dateStr} (${timeRange}):`);
+
+          // Group by conflicting booking
+          const byBooking = new Map<string, { racks: number[]; conflictTime: string }>();
+          rackConflicts.forEach((conflict) => {
+            if (!byBooking.has(conflict.conflictingBooking)) {
+              byBooking.set(conflict.conflictingBooking, {
+                racks: [],
+                conflictTime: conflict.conflictTime,
+              });
+            }
+            byBooking.get(conflict.conflictingBooking)!.racks.push(conflict.rack);
+          });
+
+          byBooking.forEach((details, bookingTitle) => {
+            const racksList = details.racks.sort((a, b) => a - b).join(", ");
+            errorParts.push(
+              `  • Rack${details.racks.length > 1 ? "s" : ""} ${racksList} conflict with "${bookingTitle}" (${details.conflictTime})`
+            );
+          });
+        });
+
+        setError(errorParts.join("\n"));
+        setSaving(false);
+        return false;
+      }
+
+      // No conflicts, proceed with updates
+      const updates = instancesToUpdate.map(async (instanceToUpdate) => {
         const { error: updateError } = await supabase
           .from("booking_instances")
           .update({
-            start: newStart.toISOString(),
-            end: newEnd.toISOString(),
+            start: instanceToUpdate.newStart.toISOString(),
+            end: instanceToUpdate.newEnd.toISOString(),
           })
-          .eq("id", instanceId);
+          .eq("id", instanceToUpdate.instanceId);
 
         if (updateError) {
           throw new Error(updateError.message);
@@ -345,6 +509,118 @@ export function useBookingEditor(
       const areas = firstInstance.areas || [];
       const sideId = firstInstance.sideId;
 
+      // Check for conflicts before creating new instances
+      const conflicts: Array<{
+        week: number;
+        rack: number;
+        conflictingBooking: string;
+        conflictTime: string;
+        newInstanceTime: string;
+      }> = [];
+
+      for (let i = 1; i <= extendWeeks; i++) {
+        const newStart = addWeeks(lastStart, weekOffset * i);
+        const newEnd = addWeeks(lastEnd, weekOffset * i);
+
+        // Fetch all bookings that overlap with this new instance's time range
+        const { data: overlappingInstances, error: overlapError } = await supabase
+          .from("booking_instances")
+          .select(
+            `
+            id,
+            start,
+            "end",
+            racks,
+            booking:bookings (
+              title
+            )
+          `
+          )
+          .eq("side_id", sideId)
+          .lt("start", newEnd.toISOString()) // Other booking starts before our new end
+          .gt("end", newStart.toISOString()) // Other booking ends after our new start
+          .neq("booking_id", booking.bookingId); // Exclude instances from the same booking
+
+        if (overlapError) {
+          console.error("Error checking for conflicts:", overlapError);
+          throw new Error(`Error checking for conflicts: ${overlapError.message}`);
+        }
+
+        // Check each rack for conflicts
+        for (const rack of racks) {
+          const conflictingInstance = overlappingInstances?.find((inst) => {
+            const instRacks = Array.isArray(inst.racks) ? inst.racks : [];
+            return instRacks.includes(rack);
+          });
+
+          if (conflictingInstance) {
+            const formatDateTime = (isoString: string) => {
+              const date = new Date(isoString);
+              return date.toLocaleString([], {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+            };
+
+            conflicts.push({
+              week: i,
+              rack,
+              conflictingBooking:
+                (conflictingInstance.booking as { title?: string })?.title ?? "Unknown",
+              conflictTime: `${formatDateTime(conflictingInstance.start)} - ${formatDateTime(conflictingInstance.end)}`,
+              newInstanceTime: `${formatDateTime(newStart.toISOString())} - ${formatDateTime(newEnd.toISOString())}`,
+            });
+          }
+        }
+      }
+
+      // If conflicts found, show detailed error and abort
+      if (conflicts.length > 0) {
+        // Group conflicts by week for better error message
+        const conflictsByWeek = new Map<
+          number,
+          Map<string, { racks: number[]; conflictTime: string; newInstanceTime: string }>
+        >();
+
+        conflicts.forEach((conflict) => {
+          if (!conflictsByWeek.has(conflict.week)) {
+            conflictsByWeek.set(conflict.week, new Map());
+          }
+          const weekMap = conflictsByWeek.get(conflict.week)!;
+          if (!weekMap.has(conflict.conflictingBooking)) {
+            weekMap.set(conflict.conflictingBooking, {
+              racks: [],
+              conflictTime: conflict.conflictTime,
+              newInstanceTime: conflict.newInstanceTime,
+            });
+          }
+          weekMap.get(conflict.conflictingBooking)!.racks.push(conflict.rack);
+        });
+
+        const errorParts: string[] = [];
+        errorParts.push("⚠️ Extension conflicts detected:\n");
+        errorParts.push("The following weeks cannot be extended due to overlapping bookings:\n");
+
+        conflictsByWeek.forEach((weekConflicts, week) => {
+          errorParts.push(`\nWeek ${week} (${weekConflicts.values().next().value.newInstanceTime}):`);
+
+          weekConflicts.forEach((details, bookingTitle) => {
+            const racksList = details.racks.sort((a, b) => a - b).join(", ");
+            errorParts.push(
+              `  • Rack${details.racks.length > 1 ? "s" : ""} ${racksList} conflict with "${bookingTitle}" (${details.conflictTime})`
+            );
+          });
+        });
+
+        setError(errorParts.join("\n"));
+        setExtending(false);
+        return false;
+      }
+
+      // No conflicts, proceed with creating new instances
       const instancesPayload: {
         booking_id: number;
         side_id: number;
@@ -425,7 +701,7 @@ export function useBookingEditor(
     }
   };
 
-  return {
+    return {
     // State
     startTime,
     endTime,
@@ -441,6 +717,7 @@ export function useBookingEditor(
     extending,
     seriesInstances,
     hasTimeChanges,
+    showUpdateTimeConfirm,
     // Setters
     setStartTime,
     setEndTime,
@@ -451,8 +728,10 @@ export function useBookingEditor(
     setShowExtendDialog,
     setExtendWeeks,
     setSelectedInstances,
+    setShowUpdateTimeConfirm,
     // Handlers
     handleSaveTime,
+    performTimeUpdate,
     handleDeleteSelected,
     handleDeleteSeries,
     handleExtendBooking,

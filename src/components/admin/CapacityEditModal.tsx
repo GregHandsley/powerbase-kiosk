@@ -66,11 +66,14 @@ export function CapacityEditModal({
   );
 
   // Initialize selected platforms from defaults if not set
+  // For "Closed" period type, always use empty array (no platforms)
   useEffect(() => {
-    if (isOpen && !existingCapacity?.platforms && defaultPlatforms.length > 0) {
+    if (periodType === "Closed") {
+      setSelectedPlatforms([]);
+    } else if (isOpen && !existingCapacity?.platforms && defaultPlatforms.length > 0) {
       setSelectedPlatforms(defaultPlatforms);
     }
-  }, [isOpen, existingCapacity?.platforms, defaultPlatforms]);
+  }, [isOpen, existingCapacity?.platforms, defaultPlatforms, periodType]);
 
   // Update capacity override when default capacity or existing capacity changes
   useEffect(() => {
@@ -97,10 +100,24 @@ export function CapacityEditModal({
       setRecurrenceType(existingCapacity ? "single" : (existingRecurrenceType || "single"));
       setStartTime(initialTime);
       setEndTime(initialEndTime || "23:59");
-      setSelectedPlatforms(existingCapacity?.platforms || []);
+      // For "Closed" period type, always use empty array (no platforms)
+      if (existingCapacity?.periodType === "Closed") {
+        setSelectedPlatforms([]);
+      } else {
+        setSelectedPlatforms(existingCapacity?.platforms || []);
+      }
       setError(null);
     }
   }, [isOpen, initialTime, initialEndTime, existingCapacity, existingRecurrenceType]);
+
+  // When period type changes to "Closed", enforce no platforms and capacity 0
+  useEffect(() => {
+    if (periodType === "Closed") {
+      setSelectedPlatforms([]);
+      setCapacityOverride(0);
+      setUseOverride(false);
+    }
+  }, [periodType]);
 
   if (!isOpen) return null;
 
@@ -110,15 +127,29 @@ export function CapacityEditModal({
       return;
     }
 
-    const capacityToUse = useOverride && capacityOverride !== null ? capacityOverride : defaultCapacity;
+    // For "Closed" period type, enforce capacity 0 and no platforms
+    const finalCapacity = periodType === "Closed" ? 0 : (useOverride && capacityOverride !== null ? capacityOverride : defaultCapacity);
+    const finalPlatforms = periodType === "Closed" ? [] : selectedPlatforms;
 
-    if (capacityToUse === null) {
+    if (finalCapacity === null) {
       setError("No default capacity set for this period type. Please set a default capacity first.");
       return;
     }
 
-    if (capacityToUse < 0) {
+    if (finalCapacity < 0) {
       setError("Capacity cannot be negative");
+      return;
+    }
+
+    // Validate that closed periods have no platforms
+    if (periodType === "Closed" && finalPlatforms.length > 0) {
+      setError("Closed periods cannot have platforms selected.");
+      return;
+    }
+
+    // Validate that closed periods have capacity 0
+    if (periodType === "Closed" && finalCapacity !== 0) {
+      setError("Closed periods must have capacity of 0.");
       return;
     }
 
@@ -127,12 +158,12 @@ export function CapacityEditModal({
 
     try {
       await onSave({
-        capacity: capacityToUse,
+        capacity: finalCapacity,
         periodType,
         recurrenceType,
         startTime,
         endTime,
-        platforms: selectedPlatforms,
+        platforms: finalPlatforms,
       });
       onClose();
     } catch (err) {

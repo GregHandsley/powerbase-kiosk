@@ -24,7 +24,7 @@ export function useScheduleDeletion(sideId: number | null) {
     scheduleInfo: null,
   });
   const [deleting, setDeleting] = useState(false);
-  const [deleteMode, setDeleteMode] = useState<"single" | "future">("single");
+  const [deleteMode, setDeleteMode] = useState<"single" | "future" | "all">("single");
 
   const confirmDeleteSchedule = async (
     onSuccess: () => void
@@ -105,7 +105,7 @@ export function useScheduleDeletion(sideId: number | null) {
         } else {
           throw new Error("No matching schedule found to exclude date from");
         }
-      } else {
+      } else if (deleteMode === "future") {
         // For "future" mode, we need to handle schedules that started in the past differently:
         // - If schedule starts on or after selected date → delete it
         // - If schedule started before selected date → set end_date to day before selected date (to keep past events)
@@ -131,7 +131,7 @@ export function useScheduleDeletion(sideId: number | null) {
         const selectedDate = new Date(deleteConfirm.selectedDate!);
         selectedDate.setDate(selectedDate.getDate() - 1);
         const endDateStr = format(selectedDate, "yyyy-MM-dd");
-
+        const selectedDateStr = format(deleteConfirm.selectedDate!, "yyyy-MM-dd");
         const selectedDayOfWeek = getDay(deleteConfirm.selectedDate!);
 
         for (const schedule of matchingSchedules) {
@@ -214,6 +214,20 @@ export function useScheduleDeletion(sideId: number | null) {
 
         // Delete schedules that start on or after selected date
         idsToDelete = schedulesToDelete;
+      } else if (deleteMode === "all") {
+        // For "all" mode, delete all matching schedules regardless of date
+        const matchingSchedules = (freshSchedules || []).filter((schedule) => {
+          return schedule.start_time === deleteConfirm.scheduleInfo!.startTime &&
+                 schedule.end_time === deleteConfirm.scheduleInfo!.endTime &&
+                 schedule.period_type === deleteConfirm.scheduleInfo!.periodType &&
+                 schedule.recurrence_type === deleteConfirm.scheduleInfo!.recurrenceType;
+        });
+
+        if (matchingSchedules.length === 0) {
+          throw new Error(`No schedules found matching the pattern. Looking for: ${deleteConfirm.scheduleInfo!.recurrenceType}, ${deleteConfirm.scheduleInfo!.startTime}-${deleteConfirm.scheduleInfo!.endTime}, ${deleteConfirm.scheduleInfo!.periodType}`);
+        }
+
+        idsToDelete = matchingSchedules.map(s => s.id);
       }
 
       if (idsToDelete.length === 0 && deleteMode === "single") {

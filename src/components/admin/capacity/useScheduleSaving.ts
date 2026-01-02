@@ -25,19 +25,29 @@ export function useScheduleSaving(sideId: number | null) {
     const dayOfWeek = getDay(selectedDate);
     const startDate = format(selectedDate, "yyyy-MM-dd");
 
-    // If no platforms selected, try to load defaults from period_type_capacity_defaults
-    let platformsToUse = data.platforms;
-    if (platformsToUse.length === 0) {
-      const { data: defaultData } = await supabase
-        .from("period_type_capacity_defaults")
-        .select("platforms")
-        .eq("period_type", data.periodType)
-        .eq("side_id", sideId)
-        .maybeSingle();
-      
-      if (defaultData?.platforms && Array.isArray(defaultData.platforms)) {
-        platformsToUse = defaultData.platforms as number[];
+    // For "Closed" period type, always use empty platforms array and capacity 0
+    let platformsToUse: number[] = [];
+    let capacityToUse = data.capacity;
+    
+    if (data.periodType === "Closed") {
+      platformsToUse = [];
+      capacityToUse = 0;
+    } else {
+      // If no platforms selected, try to load defaults from period_type_capacity_defaults
+      platformsToUse = data.platforms;
+      if (platformsToUse.length === 0) {
+        const { data: defaultData } = await supabase
+          .from("period_type_capacity_defaults")
+          .select("platforms")
+          .eq("period_type", data.periodType)
+          .eq("side_id", sideId)
+          .maybeSingle();
+        
+        if (defaultData?.platforms && Array.isArray(defaultData.platforms)) {
+          platformsToUse = defaultData.platforms as number[];
+        }
       }
+      capacityToUse = data.capacity;
     }
 
     const schedulesToCreate: Array<{
@@ -58,7 +68,7 @@ export function useScheduleSaving(sideId: number | null) {
         day_of_week: dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,
-        capacity: data.capacity,
+        capacity: capacityToUse,
         period_type: data.periodType,
         recurrence_type: "single",
         start_date: startDate,
@@ -71,7 +81,7 @@ export function useScheduleSaving(sideId: number | null) {
           day_of_week: day,
           start_time: data.startTime,
           end_time: data.endTime,
-          capacity: data.capacity,
+          capacity: capacityToUse,
           period_type: data.periodType,
           recurrence_type: "weekday",
           start_date: startDate,
@@ -85,7 +95,7 @@ export function useScheduleSaving(sideId: number | null) {
           day_of_week: 6,
           start_time: data.startTime,
           end_time: data.endTime,
-          capacity: data.capacity,
+          capacity: capacityToUse,
           period_type: data.periodType,
           recurrence_type: "weekend",
           start_date: startDate,
@@ -96,7 +106,7 @@ export function useScheduleSaving(sideId: number | null) {
           day_of_week: 0,
           start_time: data.startTime,
           end_time: data.endTime,
-          capacity: data.capacity,
+          capacity: capacityToUse,
           period_type: data.periodType,
           recurrence_type: "weekend",
           start_date: startDate,
@@ -109,7 +119,7 @@ export function useScheduleSaving(sideId: number | null) {
         day_of_week: dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,
-        capacity: data.capacity,
+        capacity: capacityToUse,
         period_type: data.periodType,
         recurrence_type: "weekly",
         start_date: startDate,
@@ -121,7 +131,7 @@ export function useScheduleSaving(sideId: number | null) {
         day_of_week: dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,
-        capacity: data.capacity,
+        capacity: capacityToUse,
         period_type: data.periodType,
         recurrence_type: "all_future",
         start_date: startDate,
@@ -326,7 +336,7 @@ export function useScheduleSaving(sideId: number | null) {
         // Update existing override
         await supabase
           .from("period_type_capacity_overrides")
-          .update({ capacity: data.capacity })
+          .update({ capacity: capacityToUse })
           .eq("id", existingOverride.id);
       } else {
         // Create new override
@@ -335,7 +345,7 @@ export function useScheduleSaving(sideId: number | null) {
           .insert({
             date: scheduleDate,
             period_type: data.periodType,
-            capacity: data.capacity,
+            capacity: capacityToUse,
             notes: null,
             booking_id: null,
           });

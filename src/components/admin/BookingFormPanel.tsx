@@ -54,7 +54,8 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   // Reset form when initialValues change
   useEffect(() => {
     if (initialValues) {
-      form.reset({
+      // Use a deep comparison or stringify to ensure we detect changes
+      const valuesToSet = {
         title: "",
         sideKey: "Power",
         startDate: todayStr,
@@ -67,7 +68,8 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
         isLocked: false,
         capacity: 1,
         ...initialValues,
-      });
+      };
+      form.reset(valuesToSet, { keepDefaultValues: false });
     }
   }, [initialValues, form, todayStr]);
 
@@ -83,7 +85,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   }, [sideKey]);
 
   // Get closed times for the selected date and side
-  const { closedTimes, isLoading: closedTimesLoading } = useClosedTimes(sideId, startDate || null);
+  const { closedTimes, closedPeriods, isLoading: closedTimesLoading } = useClosedTimes(sideId, startDate || null);
   
   // Check if selected times are closed
     const startTime = form.watch("startTime");
@@ -92,8 +94,8 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   // Check if any time in the range is closed
   const timeRangeIsClosed = useMemo(() => {
     if (!startTime || !endTime) return false;
-    return isTimeRangeClosed(closedTimes, startTime, endTime);
-  }, [startTime, endTime, closedTimes]);
+    return isTimeRangeClosed(closedTimes, startTime, endTime, closedPeriods);
+  }, [startTime, endTime, closedTimes, closedPeriods]);
 
   // Time defaults management
   const {
@@ -101,7 +103,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
     setEndTimeManuallyChanged,
     availableRanges,
     firstAvailableTime,
-  } = useTimeDefaults(form, sideId, startDate, closedTimes, closedTimesLoading);
+  } = useTimeDefaults(form, sideId, startDate, closedTimes, closedTimesLoading, closedPeriods);
 
   // Week-by-week management
   const weekManagement = useWeekManagement(form);
@@ -201,6 +203,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
           <BookingTimeInputs
             form={form}
             closedTimes={closedTimes}
+            closedPeriods={closedPeriods}
             availableRanges={availableRanges}
             firstAvailableTime={firstAvailableTime}
             endTimeManuallyChanged={endTimeManuallyChanged}

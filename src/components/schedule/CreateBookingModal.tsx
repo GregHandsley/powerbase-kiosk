@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { Modal } from "../shared/Modal";
 import { BookingFormPanel } from "../admin/BookingFormPanel";
@@ -14,6 +14,10 @@ type Props = {
   initialSide: "Power" | "Base";
   role: "admin" | "coach";
   onSuccess?: () => void;
+  /** Selected racks from drag selection */
+  selectedRacks?: number[];
+  /** End time slot from drag selection */
+  endTimeSlot?: TimeSlot;
 };
 
 /**
@@ -29,28 +33,51 @@ export function CreateBookingModal({
   initialSide,
   role,
   onSuccess,
+  selectedRacks,
+  endTimeSlot,
 }: Props) {
   // Calculate values for display and form
   const dateStr = format(initialDate, "yyyy-MM-dd");
   const timeStr = formatTimeSlot(initialTimeSlot);
   
-  // Calculate end time (default to 1.5 hours after start)
-  const endHour = initialTimeSlot.hour;
-  const endMinute = initialTimeSlot.minute + 30;
-  const adjustedEndHour = endMinute >= 60 ? endHour + 1 : endHour;
-  const adjustedEndMinute = endMinute >= 60 ? endMinute - 60 : endMinute;
-  const endTimeStr = `${String(adjustedEndHour).padStart(2, "0")}:${String(adjustedEndMinute).padStart(2, "0")}`;
+  // Calculate end time - use endTimeSlot if provided from drag selection, otherwise default to 1.5 hours after start
+  const endTimeStr = useMemo(() => {
+    if (endTimeSlot) {
+      return formatTimeSlot(endTimeSlot);
+    }
+    // Default to 1.5 hours after start
+    const endHour = initialTimeSlot.hour;
+    const endMinute = initialTimeSlot.minute + 30;
+    const adjustedEndHour = endMinute >= 60 ? endHour + 1 : endHour;
+    const adjustedEndMinute = endMinute >= 60 ? endMinute - 60 : endMinute;
+    return `${String(adjustedEndHour).padStart(2, "0")}:${String(adjustedEndMinute).padStart(2, "0")}`;
+  }, [endTimeSlot, initialTimeSlot]);
+
+  // Calculate racks input - use selectedRacks if provided from drag selection, otherwise use initialRack
+  const racksInput = useMemo(() => {
+    if (selectedRacks && selectedRacks.length > 0) {
+      return selectedRacks.join(", ");
+    }
+    return String(initialRack);
+  }, [selectedRacks, initialRack]);
 
   // Calculate initial form values
+  // Include selectedRacks and endTimeSlot in dependencies to ensure recalculation when they change
   const initialFormValues = useMemo<Partial<BookingFormValues>>(() => {
     return {
       sideKey: initialSide,
       startDate: dateStr,
       startTime: timeStr,
       endTime: endTimeStr,
-      racksInput: String(initialRack),
+      racksInput: racksInput,
     };
-  }, [initialDate, initialTimeSlot, initialRack, initialSide, dateStr, timeStr, endTimeStr]);
+  }, [initialSide, dateStr, timeStr, endTimeStr, racksInput, selectedRacks, endTimeSlot]);
+
+  // Create a unique key that changes when the modal opens with new values
+  // This forces BookingFormPanel to remount and reset the form
+  const formKey = useMemo(() => {
+    return `${isOpen}-${dateStr}-${timeStr}-${racksInput}-${endTimeStr}`;
+  }, [isOpen, dateStr, timeStr, racksInput, endTimeStr]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="5xl">
@@ -75,6 +102,7 @@ export function CreateBookingModal({
         </div>
         
         <BookingFormPanel 
+          key={formKey}
           role={role} 
           initialValues={initialFormValues}
           onSuccess={() => {

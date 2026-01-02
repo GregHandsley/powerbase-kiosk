@@ -114,6 +114,7 @@ export function generateTimeSlots(): TimeSlot[] {
   const slots: TimeSlot[] = [];
   for (let hour = 0; hour < 24; hour++) {
     slots.push({ hour, minute: 0 });
+    slots.push({ hour, minute: 30 });
   }
   return slots;
 }

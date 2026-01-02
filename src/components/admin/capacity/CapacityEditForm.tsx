@@ -81,7 +81,14 @@ export function CapacityEditForm({
             ) : (
               <select
                 value={periodType}
-                onChange={(e) => setPeriodType(e.target.value as PeriodType)}
+                onChange={(e) => {
+                  const newType = e.target.value as PeriodType;
+                  setPeriodType(newType);
+                  // When changing to "Closed", clear platforms
+                  if (newType === "Closed") {
+                    setSelectedPlatforms([]);
+                  }
+                }}
                 className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="High Hybrid">High Hybrid</option>
@@ -93,12 +100,44 @@ export function CapacityEditForm({
             )}
           </div>
 
+          {/* Recurrence Type - Only show when creating new schedule (not editing existing) */}
+          {!existingCapacity && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Recurrence
+              </label>
+              <select
+                value={recurrenceType}
+                onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
+                className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="single">Single Day ({dayName})</option>
+                <option value="weekday">Every Weekday (Mon-Fri)</option>
+                <option value="weekend">Every Weekend (Sat-Sun)</option>
+                <option value="weekly">Every {dayName}</option>
+                <option value="all_future">All Future {dayName}s</option>
+              </select>
+              <p className="text-xs text-slate-400 mt-1">
+                {recurrenceType === "single" && `Applies only to ${dateStr}`}
+                {recurrenceType === "weekday" && "Applies to all weekdays (Monday-Friday)"}
+                {recurrenceType === "weekend" && "Applies to all weekends (Saturday-Sunday)"}
+                {recurrenceType === "weekly" && `Applies to every ${dayName}`}
+                {recurrenceType === "all_future" && `Applies to all future ${dayName}s`}
+              </p>
+            </div>
+          )}
+
           {/* Capacity */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Number of Athletes
             </label>
-            {loadingDefault ? (
+            {periodType === "Closed" ? (
+              // For "Closed" period type, always show 0 and disable editing
+              <div className="text-sm text-slate-200 bg-slate-800/50 px-3 py-2 rounded-md border border-slate-600">
+                0 Athletes (Closed periods have no capacity)
+              </div>
+            ) : loadingDefault ? (
               <div className="text-sm text-slate-400">Loading...</div>
             ) : defaultCapacity !== null ? (
               <div className="space-y-2">
@@ -184,7 +223,14 @@ export function CapacityEditForm({
           <label className="block text-xs font-semibold text-slate-400 uppercase mb-3">
             Platforms
           </label>
-          {startTime && endTime ? (
+          {periodType === "Closed" ? (
+            // For "Closed" period type, show disabled message
+            <div className="border border-slate-700 rounded-md bg-slate-950/60 p-4 text-center">
+              <p className="text-xs text-slate-400">
+                Closed periods have no platforms available for booking
+              </p>
+            </div>
+          ) : startTime && endTime ? (
             <MiniScheduleFloorplan
               sideKey={sideKey}
               selectedRacks={selectedPlatforms}

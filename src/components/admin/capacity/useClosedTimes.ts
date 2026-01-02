@@ -4,11 +4,20 @@ import { supabase } from "../../../lib/supabaseClient";
 import { doesScheduleApply, parseExcludedDates, type ScheduleData } from "./scheduleUtils";
 
 /**
+ * Closed period with start and end times
+ */
+export type ClosedPeriod = {
+  startTime: string; // HH:mm format
+  endTime: string;   // HH:mm format
+};
+
+/**
  * Hook to check which times are closed for a given date and side
- * Returns an object with closedTimes Set and isLoading boolean
+ * Returns an object with closedTimes Set, closedPeriods array, and isLoading boolean
  */
 export function useClosedTimes(sideId: number | null, date: string | null) {
   const [closedTimes, setClosedTimes] = useState<Set<string>>(new Set());
+  const [closedPeriods, setClosedPeriods] = useState<ClosedPeriod[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -44,6 +53,7 @@ export function useClosedTimes(sideId: number | null, date: string | null) {
       }
 
       const closedTimeSet = new Set<string>();
+      const periods: ClosedPeriod[] = [];
 
       // For each closed schedule, check if it applies to this date
       data?.forEach((schedule) => {
@@ -56,6 +66,12 @@ export function useClosedTimes(sideId: number | null, date: string | null) {
         const appliesToDate = doesScheduleApply(scheduleData, dayOfWeek, date, schedule.start_time);
         
         if (appliesToDate) {
+          // Store the period for minute-level checking
+          periods.push({
+            startTime: schedule.start_time,
+            endTime: schedule.end_time,
+          });
+
           // This closed schedule applies - mark all hours in its range as closed
           const startHour = parseInt(schedule.start_time.split(":")[0]);
           const startMinute = parseInt(schedule.start_time.split(":")[1] || "0");
@@ -89,19 +105,56 @@ export function useClosedTimes(sideId: number | null, date: string | null) {
       });
 
       setClosedTimes(closedTimeSet);
+      setClosedPeriods(periods);
       setIsLoading(false);
     }
 
     fetchClosedTimes();
   }, [sideId, date]);
 
-  return { closedTimes, isLoading };
+  return { closedTimes, closedPeriods, isLoading };
 }
 
 /**
  * Check if a specific time is closed
+ * @param closedTimes Set of closed hours (HH:00 format) - for backward compatibility
+ * @param time Time to check (HH:mm format)
+ * @param closedPeriods Optional array of closed periods for minute-level checking
+ * @param isEndTime If true, allow times that are exactly at the start of a closed period (for end times)
  */
-export function isTimeClosed(closedTimes: Set<string>, time: string): boolean {
+export function isTimeClosed(
+  closedTimes: Set<string>,
+  time: string,
+  closedPeriods?: ClosedPeriod[],
+  isEndTime?: boolean
+): boolean {
+  // If closedPeriods are provided, use minute-level checking
+  if (closedPeriods && closedPeriods.length > 0) {
+    const [timeHour, timeMinute] = time.split(":").map(Number);
+    const timeMinutes = timeHour * 60 + timeMinute;
+
+    for (const period of closedPeriods) {
+      const [startHour, startMinute] = period.startTime.split(":").map(Number);
+      const [endHour, endMinute] = period.endTime.split(":").map(Number);
+      const startMinutes = startHour * 60 + startMinute;
+      const endMinutes = endHour * 60 + endMinute;
+
+      // For end times, allow times that are exactly at the start of a closed period
+      // (because a booking can end exactly when the gym closes)
+      if (isEndTime && timeMinutes === startMinutes) {
+        return false; // Allow this time as an end time
+      }
+
+      // Check if time falls within the closed period [startMinutes, endMinutes)
+      // Period is inclusive start, exclusive end
+      if (timeMinutes >= startMinutes && timeMinutes < endMinutes) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Fallback to hour-level checking for backward compatibility
   const [hours] = time.split(":").map(Number);
   const timeStr = `${String(hours).padStart(2, "0")}:00`;
   return closedTimes.has(timeStr);
@@ -109,12 +162,41 @@ export function isTimeClosed(closedTimes: Set<string>, time: string): boolean {
 
 /**
  * Check if a time range overlaps with any closed periods
+ * @param closedTimes Set of closed hours (HH:00 format) - for backward compatibility
+ * @param startTime Start time (HH:mm format)
+ * @param endTime End time (HH:mm format)
+ * @param closedPeriods Optional array of closed periods for minute-level checking
  */
 export function isTimeRangeClosed(
   closedTimes: Set<string>,
   startTime: string,
-  endTime: string
+  endTime: string,
+  closedPeriods?: ClosedPeriod[]
 ): boolean {
+  // If closedPeriods are provided, use minute-level checking
+  if (closedPeriods && closedPeriods.length > 0) {
+    const [startHour, startMinute] = startTime.split(":").map(Number);
+    const [endHour, endMinute] = endTime.split(":").map(Number);
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = endHour * 60 + endMinute;
+
+    // Check if the time range [startMinutes, endMinutes) overlaps with any closed period
+    for (const period of closedPeriods) {
+      const [periodStartHour, periodStartMinute] = period.startTime.split(":").map(Number);
+      const [periodEndHour, periodEndMinute] = period.endTime.split(":").map(Number);
+      const periodStartMinutes = periodStartHour * 60 + periodStartMinute;
+      const periodEndMinutes = periodEndHour * 60 + periodEndMinute;
+
+      // Two ranges overlap if: startMinutes < periodEndMinutes && endMinutes > periodStartMinutes
+      // Closed period is [periodStartMinutes, periodEndMinutes) - inclusive start, exclusive end
+      if (startMinutes < periodEndMinutes && endMinutes > periodStartMinutes) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Fallback to hour-level checking for backward compatibility
   const [startHour] = startTime.split(":").map(Number);
   const [endHour, endMinute] = endTime.split(":").map(Number);
   
@@ -136,10 +218,96 @@ export function isTimeRangeClosed(
 /**
  * Calculate available time ranges (gaps between closed periods)
  * Returns an array of { start: string, end: string } in HH:mm format
+ * @param closedTimes Set of closed hours (HH:00 format) - for backward compatibility
+ * @param closedPeriods Optional array of closed periods for minute-level accuracy
  */
-export function getAvailableTimeRanges(closedTimes: Set<string>): Array<{ start: string; end: string }> {
+export function getAvailableTimeRanges(
+  closedTimes: Set<string>,
+  closedPeriods?: ClosedPeriod[]
+): Array<{ start: string; end: string }> {
+  // If closedPeriods are provided, use minute-level calculation
+  if (closedPeriods && closedPeriods.length > 0) {
+    // Sort periods by start time
+    const sortedPeriods = [...closedPeriods].sort((a, b) => {
+      const [aHour, aMin] = a.startTime.split(":").map(Number);
+      const [bHour, bMin] = b.startTime.split(":").map(Number);
+      return aHour * 60 + aMin - (bHour * 60 + bMin);
+    });
+
+    const ranges: Array<{ start: string; end: string }> = [];
+    let currentStart = 0; // Start from midnight (00:00)
+
+    for (const period of sortedPeriods) {
+      const [startHour, startMin] = period.startTime.split(":").map(Number);
+      const [endHour, endMin] = period.endTime.split(":").map(Number);
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+
+      // If there's a gap before this closed period, add it as an available range
+      if (currentStart < startMinutes) {
+        const gapStartHour = Math.floor(currentStart / 60);
+        const gapStartMin = currentStart % 60;
+        const gapEndHour = Math.floor(startMinutes / 60);
+        const gapEndMin = startMinutes % 60;
+        ranges.push({
+          start: `${String(gapStartHour).padStart(2, "0")}:${String(gapStartMin).padStart(2, "0")}`,
+          end: `${String(gapEndHour).padStart(2, "0")}:${String(gapEndMin).padStart(2, "0")}`,
+        });
+      }
+
+      // Move current start to the end of this closed period
+      currentStart = endMinutes;
+    }
+
+    // Add final range if there's time after the last closed period
+    // The end time should be the last available 30-minute slot before the closed period starts
+    // Since we only allow 30-minute intervals, we need to round appropriately
+    if (currentStart < 24 * 60) {
+      const finalStartHour = Math.floor(currentStart / 60);
+      const finalStartMin = currentStart % 60;
+      
+      // Round down to the nearest 30-minute interval for the start
+      const roundedStartMin = finalStartMin < 30 ? 0 : 30;
+      const finalStartMinutes = finalStartHour * 60 + roundedStartMin;
+      
+      // Find the last closed period to determine the actual end time
+      const lastPeriod = sortedPeriods[sortedPeriods.length - 1];
+      if (lastPeriod) {
+        const [lastStartHour, lastStartMin] = lastPeriod.startTime.split(":").map(Number);
+        const lastStartMinutes = lastStartHour * 60 + lastStartMin;
+        
+        // The end time should be the closed period's start time (last available time)
+        // But only if there's actually time available before it
+        // Also check if the closed period extends to end of day (23:59 or later)
+        const [lastEndHour, lastEndMin] = lastPeriod.endTime.split(":").map(Number);
+        const lastEndMinutes = lastEndHour * 60 + lastEndMin;
+        const isClosedToEndOfDay = lastEndMinutes >= 23 * 60 + 30; // 23:30 or later
+        
+        if (finalStartMinutes < lastStartMinutes && !isClosedToEndOfDay) {
+          const finalStartHourFormatted = Math.floor(finalStartMinutes / 60);
+          const finalStartMinFormatted = finalStartMinutes % 60;
+          ranges.push({
+            start: `${String(finalStartHourFormatted).padStart(2, "0")}:${String(finalStartMinFormatted).padStart(2, "0")}`,
+            end: lastPeriod.startTime, // Use the actual closing time
+          });
+        }
+      } else {
+        // No closed periods, so available until 23:30 (last 30-minute slot)
+        const finalStartHourFormatted = Math.floor(finalStartMinutes / 60);
+        const finalStartMinFormatted = finalStartMinutes % 60;
+        ranges.push({
+          start: `${String(finalStartHourFormatted).padStart(2, "0")}:${String(finalStartMinFormatted).padStart(2, "0")}`,
+          end: "23:30",
+        });
+      }
+    }
+
+    return ranges.length > 0 ? ranges : [{ start: "00:00", end: "23:30" }];
+  }
+
+  // Fallback to hour-level calculation for backward compatibility
   if (closedTimes.size === 0) {
-    return [{ start: "00:00", end: "23:59" }];
+    return [{ start: "00:00", end: "23:30" }];
   }
 
   const closedHours = Array.from(closedTimes)
@@ -160,10 +328,11 @@ export function getAvailableTimeRanges(closedTimes: Set<string>): Array<{ start:
   }
 
   // Add final range if there's time after the last closed hour
+  // Since we only allow 30-minute intervals, the last available time is 23:30
   if (currentStart < 24) {
     ranges.push({
       start: `${String(currentStart).padStart(2, "0")}:00`,
-      end: "23:59",
+      end: "23:30",
     });
   }
 

@@ -21,7 +21,8 @@
     "react-dom": "^19.2.0",
     "react-error-boundary": "^6.0.0",
     "react-hook-form": "^7.68.0",
-    "react-router-dom": "^7.10.1"
+    "react-router-dom": "^7.10.1",
+    "react-time-picker": "^8.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
