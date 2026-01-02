@@ -119,16 +119,34 @@ export function useDragSelection(
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || !dragStart || !gridRef.current) return;
 
-    const rect = gridRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    // Find the scrollable container and the grid content container
+    const scrollableContainer = gridRef.current.querySelector('.overflow-auto') as HTMLElement;
+    const gridContent = scrollableContainer?.querySelector('[style*="min-width"]') as HTMLElement;
+    if (!scrollableContainer || !gridContent) return;
+
+    const containerRect = scrollableContainer.getBoundingClientRect();
+    const scrollLeft = scrollableContainer.scrollLeft;
+    const scrollTop = scrollableContainer.scrollTop;
+    
+    // Calculate position relative to the scrollable container, accounting for scroll
+    const x = e.clientX - containerRect.left + scrollLeft;
+    const y = e.clientY - containerRect.top + scrollTop;
 
     // Calculate which cell we're over
     // Time column is 120px, each rack column is 120px
     const timeColumnWidth = 120;
     const rackColumnWidth = 120;
 
-    if (x < timeColumnWidth) return; // Over time column
+    if (x < timeColumnWidth) {
+      // Over time column - keep the same rack as drag start
+      const rowHeight = 50;
+      const headerHeight = 50;
+      const slotIndex = Math.floor((y - headerHeight) / rowHeight);
+      if (slotIndex >= 0 && slotIndex < timeSlots.length) {
+        setDragEnd({ slotIndex, rackIndex: dragStart.rackIndex });
+      }
+      return;
+    }
 
     const rackIndex = Math.floor((x - timeColumnWidth) / rackColumnWidth);
     if (rackIndex < 0 || rackIndex >= racks.length) return;

@@ -9,6 +9,7 @@ export interface ActiveInstance {
   color: string | null;
   isLocked: boolean;
   createdBy: string | null;
+  capacity?: number; // Number of athletes in this booking instance
 }
 
 export interface NextUseInfo {

@@ -3,6 +3,7 @@ type UpdateTimeConfirmationDialogProps = {
   sessionCount: number;
   startTime: string;
   endTime: string;
+  capacity?: number;
   onCancel: () => void;
   onConfirm: () => void;
   saving: boolean;
@@ -17,6 +18,7 @@ export function UpdateTimeConfirmationDialog({
   sessionCount,
   startTime,
   endTime,
+  capacity,
   onCancel,
   onConfirm,
   saving,
@@ -27,18 +29,27 @@ export function UpdateTimeConfirmationDialog({
   return (
     <div className="rounded-md bg-indigo-900/20 border border-indigo-700/50 p-4 space-y-3">
       <p className="text-sm font-medium text-indigo-300">
-        Update {sessionCount} selected session{sessionCount !== 1 ? "s" : ""} with the new times?
+        Update {sessionCount} selected session{sessionCount !== 1 ? "s" : ""}?
       </p>
       <div className="text-xs text-indigo-400/80 space-y-1">
-        <p>
-          <span className="font-medium">Start:</span> {startTime}
-        </p>
-        <p>
-          <span className="font-medium">End:</span> {endTime}
-        </p>
+        {startTime && endTime && (
+          <>
+            <p>
+              <span className="font-medium">Start:</span> {startTime}
+            </p>
+            <p>
+              <span className="font-medium">End:</span> {endTime}
+            </p>
+          </>
+        )}
+        {capacity !== undefined && (
+          <p>
+            <span className="font-medium">Athletes:</span> {capacity}
+          </p>
+        )}
       </div>
       <p className="text-xs text-indigo-400/70">
-        This will update the start and end times for {sessionCount} selected session{sessionCount !== 1 ? "s" : ""}.
+        This will update {startTime && endTime ? "the times" : ""}{startTime && endTime && capacity !== undefined ? " and " : ""}{capacity !== undefined ? "the number of athletes" : ""} for {sessionCount} selected session{sessionCount !== 1 ? "s" : ""}.
       </p>
       <div className="flex gap-2">
         <button

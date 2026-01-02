@@ -48,6 +48,16 @@ export function BookingBlock({ block, onClick }: Props) {
         {format(new Date(block.booking.start), "HH:mm")} -{" "}
         {format(new Date(block.booking.end), "HH:mm")}
       </div>
+      {block.booking.capacity !== undefined && block.booking.capacity > 0 && (
+        <div
+          className="text-[10px] mt-0.5 text-center px-1 opacity-90"
+          style={{
+            color: block.booking.color || "rgb(199, 210, 254)",
+          }}
+        >
+          {block.booking.capacity} athlete{block.booking.capacity !== 1 ? "s" : ""}
+        </div>
+      )}
     </div>
   );
 }

@@ -46,7 +46,7 @@ export function Modal({
     >
       <div
         className={clsx(
-          "bg-slate-900 border border-slate-700 rounded-xl p-6 w-full",
+          "bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-h-[90vh] overflow-y-auto",
           maxWidthClasses[maxWidth],
           className
         )}

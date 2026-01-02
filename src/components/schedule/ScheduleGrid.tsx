@@ -15,6 +15,7 @@ export function ScheduleGrid({
   bookings,
   currentDate,
   slotCapacityData,
+  capacityExceededBySlot,
   onCellClick,
   onBookingClick,
   onDragSelection,
@@ -71,7 +72,11 @@ export function ScheduleGrid({
       <div className="flex-1 overflow-auto overflow-x-auto relative">
         {/* Current Time Indicator Line - Only show if viewing today */}
         {currentTimePosition && isToday && (
-          <CurrentTimeIndicator position={currentTimePosition} isToday={isToday} />
+          <CurrentTimeIndicator 
+            position={currentTimePosition} 
+            isToday={isToday}
+            numRacks={numRacks}
+          />
         )}
         
         <div style={{ minWidth: "max-content" }}>
@@ -88,6 +93,10 @@ export function ScheduleGrid({
               gridTemplateColumns={gridTemplateColumns}
               bookingBlocksByRack={bookingBlocksByRack}
               unavailableBlocksByRack={unavailableBlocksByRack}
+              capacityExceededBySlot={capacityExceededBySlot}
+              bookings={bookings}
+              currentDate={currentDate}
+              timeSlots={timeSlots}
               isSelectionValid={isSelectionValid}
               isCellSelected={isCellSelected}
               onCellClick={onCellClick}

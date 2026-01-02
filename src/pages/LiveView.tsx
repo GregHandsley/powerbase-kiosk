@@ -1,9 +1,12 @@
 // src/pages/LiveView.tsx
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useSnapshotFromSearchParams } from "../hooks/useSnapshotFromSearchParams";
 import { Clock } from "../components/Clock";
 import { RackListEditor } from "../components/schedule/RackListEditor";
+import { useLiveViewCapacity } from "../components/schedule/hooks/useLiveViewCapacity";
+import { supabase } from "../lib/supabaseClient";
 
 type SideMode = "power" | "base";
 
@@ -67,6 +70,53 @@ export function LiveView() {
   };
 
   const selectedSnapshot = sideMode === "power" ? power : base;
+
+  // Get capacity information for the selected date/time
+  const { applicableSchedule, sideId } = useLiveViewCapacity({
+    side: sideMode,
+    date,
+    time,
+  });
+
+  // Calculate current capacity usage at the selected time
+  const { data: currentCapacityUsage } = useQuery({
+    queryKey: ["live-view-capacity-usage", sideId, date, time],
+    queryFn: async () => {
+      if (!sideId || !date || !time) return { used: 0, limit: null };
+
+      // Combine date and time to get the exact datetime
+      const [year, month, day] = date.split("-").map(Number);
+      const [hour, minute] = time.split(":").map(Number);
+      const selectedDateTime = new Date(year, month - 1, day, hour, minute, 0, 0);
+
+      // Fetch all booking instances that overlap with this time
+      const { data: instances, error } = await supabase
+        .from("booking_instances")
+        .select("id, start, end, capacity")
+        .eq("side_id", sideId)
+        .lte("start", selectedDateTime.toISOString())
+        .gt("end", selectedDateTime.toISOString());
+
+      if (error) {
+        console.error("Error fetching capacity usage:", error);
+        return { used: 0, limit: null };
+      }
+
+      // Sum up the capacity from all overlapping instances
+      const used = (instances ?? []).reduce((sum, inst) => {
+        return sum + ((inst as { capacity?: number }).capacity || 0);
+      }, 0);
+
+      const limit = applicableSchedule?.capacity ?? null;
+
+      return { used, limit };
+    },
+    enabled: !!sideId && !!date && !!time,
+  });
+
+  const periodType = applicableSchedule?.period_type ?? null;
+  const capacityLimit = currentCapacityUsage?.limit ?? null;
+  const capacityUsed = currentCapacityUsage?.used ?? 0;
 
   return (
     <div className="p-4 space-y-4">
@@ -164,6 +214,37 @@ export function LiveView() {
           </div>
         </div>
       </header>
+
+      {/* Period Type and Capacity Info */}
+      {(periodType || capacityLimit !== null) && (
+        <div className="rounded-md bg-slate-800/50 border border-slate-700 p-3">
+          <div className="flex items-center justify-between gap-4">
+            {periodType && (
+              <div>
+                <span className="text-xs text-slate-400">Period Type:</span>
+                <span className="ml-2 text-sm font-medium text-slate-200">
+                  {periodType}
+                </span>
+              </div>
+            )}
+            {capacityLimit !== null && (
+              <div>
+                <span className="text-xs text-slate-400">Capacity:</span>
+                <span
+                  className={(() => {
+                    const percentage = (capacityUsed / capacityLimit) * 100;
+                    if (percentage >= 100) return "ml-2 text-sm font-medium text-red-400";
+                    if (percentage >= 80) return "ml-2 text-sm font-medium text-yellow-400";
+                    return "ml-2 text-sm font-medium text-green-400";
+                  })()}
+                >
+                  {capacityUsed} / {capacityLimit} athletes
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Rack list editor */}
       <section className="space-y-3">

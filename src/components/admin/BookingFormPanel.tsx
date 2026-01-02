@@ -9,8 +9,10 @@ import { useAreas } from "./booking/useAreas";
 import { useTimeDefaults } from "./booking/useTimeDefaults";
 import { useWeekManagement } from "./booking/useWeekManagement";
 import { useBookingSubmission } from "./booking/useBookingSubmission";
+import { useCapacityValidation } from "./booking/useCapacityValidation";
 import { BookingTimeInputs } from "./booking/BookingTimeInputs";
 import { BookingPlatformSelection } from "./booking/BookingPlatformSelection";
+import { CapacityDisplay } from "./booking/CapacityDisplay";
 import clsx from "clsx";
 
 type Props = {
@@ -108,6 +110,18 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   // Week-by-week management
   const weekManagement = useWeekManagement(form);
 
+  // Capacity validation
+  const capacityValidation = useCapacityValidation(
+    sideKey as "Power" | "Base",
+    startDate || null,
+    startTime || null,
+    endTime || null,
+    form.watch("capacity") || 1,
+    form.watch("weeks") || 1,
+    weekManagement.racksByWeek,
+    weekManagement.capacityByWeek
+  );
+
   // Booking submission
   const {
     onSubmit,
@@ -119,7 +133,8 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
     role,
     user?.id || null,
     timeRangeIsClosed,
-    weekManagement
+    weekManagement,
+    capacityValidation
   );
 
   // Call onSuccess when booking is successfully created
@@ -218,6 +233,14 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
                 sideKey={form.watch("sideKey")}
             weekManagement={weekManagement}
           />
+          
+          {/* Capacity validation display */}
+          {startDate && startTime && endTime && (
+            <CapacityDisplay
+              validationResult={capacityValidation}
+              proposedCapacity={weekManagement.currentWeekCapacity}
+            />
+          )}
           </div>
 
         {/* Right column: areas, color, lock, submit */}
@@ -302,13 +325,18 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
           <div className="pt-2">
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || (!capacityValidation.isValid && !capacityValidation.isLoading)}
               className={clsx(
                 "w-full inline-flex items-center justify-center rounded-md py-1.5 text-xs font-medium",
-                "bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                "bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed",
+                !capacityValidation.isValid && !capacityValidation.isLoading && "bg-red-600 hover:bg-red-500"
               )}
             >
-              {submitting ? "Creating booking..." : "Create booking"}
+              {submitting
+                ? "Creating booking..."
+                : !capacityValidation.isValid && !capacityValidation.isLoading
+                  ? "Cannot create: Capacity exceeded"
+                  : "Create booking"}
             </button>
           </div>
 

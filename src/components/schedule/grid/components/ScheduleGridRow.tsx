@@ -4,6 +4,9 @@ import type { BookingBlock, UnavailableBlock } from "../types";
 import type { ActiveInstance } from "../../../../types/snapshot";
 import { BookingBlock as BookingBlockComponent } from "./BookingBlock";
 import { UnavailableBlock as UnavailableBlockComponent } from "./UnavailableBlock";
+import { isRackAtCapacity } from "../utils/capacityExceeded";
+import { format } from "date-fns";
+import { combineDateAndTime } from "../../../admin/booking/utils";
 
 type Props = {
   slot: TimeSlot;
@@ -12,6 +15,10 @@ type Props = {
   gridTemplateColumns: string;
   bookingBlocksByRack: Map<number, BookingBlock[]>;
   unavailableBlocksByRack: Map<number, UnavailableBlock[]>;
+  capacityExceededBySlot?: Map<number, Set<number>>;
+  bookings: ActiveInstance[];
+  currentDate: Date;
+  timeSlots: TimeSlot[];
   isSelectionValid: boolean;
   isCellSelected: (slotIndex: number, rackIndex: number) => boolean;
   onCellClick: (rack: number, timeSlot: TimeSlot) => void;
@@ -27,6 +34,10 @@ export function ScheduleGridRow({
   gridTemplateColumns,
   bookingBlocksByRack,
   unavailableBlocksByRack,
+  capacityExceededBySlot,
+  bookings,
+  currentDate,
+  timeSlots,
   isSelectionValid,
   isCellSelected,
   onCellClick,
@@ -71,6 +82,11 @@ export function ScheduleGridRow({
         const isInBlock = isInBookingBlock || isInUnavailableBlock;
 
         const isSelected = isCellSelected(slotIndex, rackIndex);
+        
+        // Check if this rack is at capacity (not already booked)
+        const isAtCapacity = capacityExceededBySlot
+          ? isRackAtCapacity(slotIndex, rack, capacityExceededBySlot, bookings, currentDate, timeSlots)
+          : false;
 
         return (
           <div
@@ -78,8 +94,10 @@ export function ScheduleGridRow({
             className={clsx(
               "relative border-r border-slate-800 last:border-r-0 min-h-[50px] min-w-[120px]",
               isSelected && isSelectionValid && "bg-indigo-500/20",
-              isSelected && !isSelectionValid && "bg-red-500/10"
+              isSelected && !isSelectionValid && "bg-red-500/10",
+              isAtCapacity && !isInBookingBlock && "bg-red-950/20"
             )}
+            title={isAtCapacity && !isInBookingBlock ? "Capacity exceeded - cannot book additional sessions" : undefined}
           >
             {/* Booking Block */}
             {isBookingBlockStart && bookingBlockForThisSlot && (
@@ -99,14 +117,20 @@ export function ScheduleGridRow({
                 "h-full w-full transition-colors",
                 isInBlock && !isBlockStart
                   ? "pointer-events-none"
-                  : "cursor-pointer hover:bg-slate-800/30"
+                  : isAtCapacity && !isInBookingBlock
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer hover:bg-slate-800/30"
               )}
               onMouseDown={(e) => {
-                if (!isInBlock && !isBlockStart) {
+                if (!isInBlock && !isBlockStart && !isAtCapacity) {
                   onMouseDown(e, slotIndex, rackIndex);
                 }
               }}
               onClick={() => {
+                if (isAtCapacity && !isInBookingBlock) {
+                  // Show a message or prevent action
+                  return;
+                }
                 if (!isDragging && (!isInBlock || isBlockStart)) {
                   onCellClick(rack, slot);
                 }

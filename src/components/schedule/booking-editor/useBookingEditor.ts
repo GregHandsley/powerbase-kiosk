@@ -2,9 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../../lib/supabaseClient";
 import { useQueryClient } from "@tanstack/react-query";
-import { addWeeks } from "date-fns";
+import { addWeeks, format } from "date-fns";
 import { formatTimeForInput, getTimeDifference } from "../../shared/dateUtils";
 import type { ActiveInstance } from "../../../types/snapshot";
+import { checkCapacityViolations } from "../../admin/booking/useCapacityValidation";
+import type { ScheduleData } from "../../admin/capacity/scheduleUtils";
+import { parseExcludedDates } from "../../admin/capacity/scheduleUtils";
 
 type SeriesInstance = {
   id: number;
@@ -13,6 +16,7 @@ type SeriesInstance = {
   racks: number[];
   areas: string[];
   sideId: number;
+  capacity?: number;
 };
 
 export function useBookingEditor(
@@ -23,6 +27,7 @@ export function useBookingEditor(
   const queryClient = useQueryClient();
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [capacity, setCapacity] = useState<number>(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<
@@ -47,7 +52,7 @@ export function useBookingEditor(
 
       const { data, error } = await supabase
         .from("booking_instances")
-        .select("id, start, end, racks, areas, side_id")
+        .select("id, start, end, racks, areas, side_id, capacity")
         .eq("booking_id", booking.bookingId)
         .order("start", { ascending: true });
 
@@ -63,16 +68,20 @@ export function useBookingEditor(
         racks: Array.isArray(inst.racks) ? inst.racks : [],
         areas: Array.isArray(inst.areas) ? inst.areas : [],
         sideId: inst.side_id,
+        capacity: typeof (inst as { capacity?: number }).capacity === "number" 
+          ? (inst as { capacity: number }).capacity 
+          : undefined,
       }));
     },
     enabled: !!booking && isOpen,
   });
 
-  // Initialize times and selected instances when booking changes
+  // Initialize times, capacity, and selected instances when booking changes
   useEffect(() => {
     if (booking) {
       setStartTime(formatTimeForInput(booking.start));
       setEndTime(formatTimeForInput(booking.end));
+      setCapacity(booking.capacity || 1);
       if (initialSelectedInstances && initialSelectedInstances.size > 0) {
         setSelectedInstances(new Set(initialSelectedInstances));
       } else {
@@ -85,6 +94,7 @@ export function useBookingEditor(
     } else {
       setStartTime("");
       setEndTime("");
+      setCapacity(1);
       setSelectedInstances(new Set());
       setApplyToAll(false);
       setCurrentWeekIndex(0);
@@ -111,15 +121,29 @@ export function useBookingEditor(
     );
   }, [booking, startTime, endTime]);
 
+  const hasCapacityChanges = useMemo(() => {
+    if (!booking) return false;
+    return capacity !== (booking.capacity || 1);
+  }, [booking, capacity]);
+
+  const hasChanges = hasTimeChanges || hasCapacityChanges;
+
   const handleSaveTime = async (): Promise<boolean> => {
-    if (!booking || !hasTimeChanges) {
-      // No time changes, so no need to update or show confirmation
+    if (!booking || !hasChanges) {
+      // No changes, so no need to update or show confirmation
       return true; // Return true to indicate "success" (nothing to do)
     }
 
-    const timeRegex = /^\d{2}:\d{2}$/;
-    if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
-      setError("Time must be in HH:mm format");
+    if (hasTimeChanges) {
+      const timeRegex = /^\d{2}:\d{2}$/;
+      if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+        setError("Time must be in HH:mm format");
+        return false;
+      }
+    }
+
+    if (capacity < 1 || capacity > 100) {
+      setError("Number of athletes must be between 1 and 100");
       return false;
     }
 
@@ -129,16 +153,16 @@ export function useBookingEditor(
     }
 
     if (selectedInstances.size > 1) {
-      // Show confirmation modal only if times have changed
+      // Show confirmation modal if there are changes
       setShowUpdateTimeConfirm(true);
       return false; // Return false to indicate we need confirmation
     }
 
     // If only one session, proceed directly
-    return await performTimeUpdate();
+    return await performUpdate();
   };
 
-  const performTimeUpdate = async (): Promise<boolean> => {
+  const performUpdate = async (): Promise<boolean> => {
     if (!booking) return false;
 
     setSaving(true);
@@ -150,7 +174,7 @@ export function useBookingEditor(
       const startDiff = getTimeDifference(originalStartTime, startTime);
       const endDiff = getTimeDifference(originalEndTime, endTime);
 
-      // Calculate new times for all instances being updated
+      // Calculate new times and capacity for all instances being updated
       const instancesToUpdate = Array.from(selectedInstances)
         .map((instanceId) => {
           const instance = seriesInstances.find((inst) => inst.id === instanceId);
@@ -159,24 +183,144 @@ export function useBookingEditor(
           const instanceStart = new Date(instance.start);
           const instanceEnd = new Date(instance.end);
 
-          const newStart = new Date(instanceStart);
-          newStart.setHours(newStart.getHours() + startDiff.hours);
-          newStart.setMinutes(newStart.getMinutes() + startDiff.minutes);
+          let newStart = instanceStart;
+          let newEnd = instanceEnd;
 
-          const newEnd = new Date(instanceEnd);
-          newEnd.setHours(newEnd.getHours() + endDiff.hours);
-          newEnd.setMinutes(newEnd.getMinutes() + endDiff.minutes);
+          if (hasTimeChanges) {
+            newStart = new Date(instanceStart);
+            newStart.setHours(newStart.getHours() + startDiff.hours);
+            newStart.setMinutes(newStart.getMinutes() + startDiff.minutes);
+
+            newEnd = new Date(instanceEnd);
+            newEnd.setHours(newEnd.getHours() + endDiff.hours);
+            newEnd.setMinutes(newEnd.getMinutes() + endDiff.minutes);
+          }
 
           return {
             instanceId,
             instance,
             newStart,
             newEnd,
+            newCapacity: hasCapacityChanges ? capacity : (instance.capacity || 1),
             racks: instance.racks,
             sideId: instance.sideId,
           };
         })
         .filter((item): item is NonNullable<typeof item> => item !== null);
+
+      // Check for capacity violations if capacity is being changed
+      if (hasCapacityChanges) {
+        // Fetch capacity schedules for validation
+        const sideIds = new Set(instancesToUpdate.map((inst) => inst.sideId));
+        const allSchedules: ScheduleData[] = [];
+
+        for (const sideId of sideIds) {
+          // Get date range for all instances
+          const earliestDate = instancesToUpdate
+            .filter((inst) => inst.sideId === sideId)
+            .reduce((earliest, inst) => (inst.newStart < earliest ? inst.newStart : earliest), instancesToUpdate[0].newStart);
+          const latestDate = instancesToUpdate
+            .filter((inst) => inst.sideId === sideId)
+            .reduce((latest, inst) => (inst.newEnd > latest ? inst.newEnd : latest), instancesToUpdate[0].newEnd);
+
+          const weekStartStr = format(earliestDate, "yyyy-MM-dd");
+          const weekEndStr = format(latestDate, "yyyy-MM-dd");
+
+          const { data: schedules, error: schedulesError } = await supabase
+            .from("capacity_schedules")
+            .select("*")
+            .eq("side_id", sideId)
+            .lte("start_date", weekEndStr)
+            .or(`end_date.is.null,end_date.gte.${weekStartStr}`);
+
+          if (schedulesError) {
+            console.error("Error fetching capacity schedules:", schedulesError);
+          } else {
+            allSchedules.push(...(schedules ?? []).map((s) => ({
+              ...s,
+              excluded_dates: parseExcludedDates(s.excluded_dates),
+              platforms: Array.isArray(s.platforms) ? s.platforms : [],
+            })) as ScheduleData[]);
+          }
+        }
+
+        // Fetch existing instances for capacity calculation (excluding the ones we're updating)
+        const instanceIdsToExclude = instancesToUpdate.map((inst) => inst.instanceId);
+        const existingInstances: Array<{ id: number; start: string; end: string; capacity: number }> = [];
+
+        for (const sideId of sideIds) {
+          const { data: instances, error: instancesError } = await supabase
+            .from("booking_instances")
+            .select("id, start, end, capacity")
+            .eq("side_id", sideId)
+            .not("id", "in", `(${instanceIdsToExclude.join(",")})`);
+
+          if (instancesError) {
+            console.error("Error fetching existing instances:", instancesError);
+          } else {
+            existingInstances.push(
+              ...(instances ?? []).map((inst) => ({
+                id: inst.id,
+                start: inst.start,
+                end: inst.end,
+                capacity: (inst as { capacity?: number }).capacity || 0,
+              }))
+            );
+          }
+        }
+
+        // Validate capacity for each instance being updated
+        for (const instanceToUpdate of instancesToUpdate) {
+          const schedulesForSide = allSchedules.filter((s) => s.side_id === instanceToUpdate.sideId);
+          const existingForSide = existingInstances.filter((inst) => {
+            const instStart = new Date(inst.start);
+            const instEnd = new Date(inst.end);
+            return instStart < instanceToUpdate.newEnd && instEnd > instanceToUpdate.newStart;
+          });
+
+          const result = checkCapacityViolations(
+            instanceToUpdate.sideId,
+            instanceToUpdate.newStart,
+            instanceToUpdate.newEnd,
+            instanceToUpdate.newCapacity,
+            existingForSide,
+            schedulesForSide
+          );
+
+          if (!result.isValid) {
+            const formatDate = (date: Date) => {
+              return date.toLocaleDateString([], {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              });
+            };
+
+            const formatTime = (date: Date) => {
+              return date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+            };
+
+            const dateStr = formatDate(instanceToUpdate.newStart);
+            const timeRange = `${formatTime(instanceToUpdate.newStart)} - ${formatTime(instanceToUpdate.newEnd)}`;
+
+            const errorParts: string[] = [];
+            errorParts.push(`⚠️ Capacity exceeded for ${dateStr} (${timeRange}):\n`);
+            errorParts.push(`This change would exceed capacity by ${result.maxUsed - result.maxLimit} athlete${result.maxUsed - result.maxLimit !== 1 ? "s" : ""} at peak times.\n`);
+
+            if (result.violations.length > 0) {
+              const maxViolation = result.violations.reduce((max, v) => (v.used > max.used ? v : max), result.violations[0]);
+              errorParts.push(`Peak violation at ${maxViolation.timeStr}: ${maxViolation.used} / ${maxViolation.limit} athletes (${maxViolation.periodType})`);
+            }
+
+            setError(errorParts.join("\n"));
+            setSaving(false);
+            return false;
+          }
+        }
+      }
 
       // Check for conflicts before updating
       const conflicts: Array<{
@@ -319,12 +463,24 @@ export function useBookingEditor(
 
       // No conflicts, proceed with updates
       const updates = instancesToUpdate.map(async (instanceToUpdate) => {
+        const updateData: {
+          start?: string;
+          end?: string;
+          capacity?: number;
+        } = {};
+
+        if (hasTimeChanges) {
+          updateData.start = instanceToUpdate.newStart.toISOString();
+          updateData.end = instanceToUpdate.newEnd.toISOString();
+        }
+
+        if (hasCapacityChanges) {
+          updateData.capacity = instanceToUpdate.newCapacity;
+        }
+
         const { error: updateError } = await supabase
           .from("booking_instances")
-          .update({
-            start: instanceToUpdate.newStart.toISOString(),
-            end: instanceToUpdate.newEnd.toISOString(),
-          })
+          .update(updateData)
           .eq("id", instanceToUpdate.instanceId);
 
         if (updateError) {
@@ -508,6 +664,60 @@ export function useBookingEditor(
       const racks = firstInstance.racks || [];
       const areas = firstInstance.areas || [];
       const sideId = firstInstance.sideId;
+      // Use the capacity from the first instance (or last if first doesn't have it)
+      const originalCapacity = firstInstance.capacity || lastInstance.capacity || 1;
+
+      // Fetch capacity schedules for validation
+      const earliestDate = addWeeks(lastStart, weekOffset);
+      const latestDate = addWeeks(lastEnd, weekOffset * extendWeeks);
+      const weekStartStr = format(earliestDate, "yyyy-MM-dd");
+      const weekEndStr = format(latestDate, "yyyy-MM-dd");
+
+      const { data: schedules, error: schedulesError } = await supabase
+        .from("capacity_schedules")
+        .select("*")
+        .eq("side_id", sideId)
+        .lte("start_date", weekEndStr)
+        .or(`end_date.is.null,end_date.gte.${weekStartStr}`);
+
+      if (schedulesError) {
+        console.error("Error fetching capacity schedules:", schedulesError);
+        throw new Error(`Error fetching capacity schedules: ${schedulesError.message}`);
+      }
+
+      const allSchedules: ScheduleData[] = (schedules ?? []).map((s) => ({
+        ...s,
+        excluded_dates: parseExcludedDates(s.excluded_dates),
+        platforms: Array.isArray(s.platforms) ? s.platforms : [],
+      })) as ScheduleData[];
+
+      // Fetch existing instances for capacity calculation
+      const { data: existingInstancesData, error: existingInstancesError } = await supabase
+        .from("booking_instances")
+        .select("id, start, end, capacity")
+        .eq("side_id", sideId)
+        .lt("start", latestDate.toISOString())
+        .gt("end", earliestDate.toISOString());
+
+      if (existingInstancesError) {
+        console.error("Error fetching existing instances:", existingInstancesError);
+        throw new Error(`Error fetching existing instances: ${existingInstancesError.message}`);
+      }
+
+      const existingInstances: Array<{ id: number; start: string; end: string; capacity: number }> = 
+        (existingInstancesData ?? []).map((inst) => ({
+          id: inst.id,
+          start: inst.start,
+          end: inst.end,
+          capacity: (inst as { capacity?: number }).capacity || 0,
+        }));
+
+      // Check for capacity violations before creating new instances
+      const capacityViolations: Array<{
+        week: number;
+        newInstanceTime: string;
+        violation: string;
+      }> = [];
 
       // Check for conflicts before creating new instances
       const conflicts: Array<{
@@ -518,9 +728,59 @@ export function useBookingEditor(
         newInstanceTime: string;
       }> = [];
 
+      // Track instances we're about to create for cumulative capacity checking
+      const newInstancesForCapacity: Array<{ start: string; end: string; capacity: number }> = [];
+
       for (let i = 1; i <= extendWeeks; i++) {
         const newStart = addWeeks(lastStart, weekOffset * i);
         const newEnd = addWeeks(lastEnd, weekOffset * i);
+
+        // Combine existing instances with instances we're creating in previous weeks
+        const allInstancesForCapacity = [
+          ...existingInstances,
+          ...newInstancesForCapacity.map((inst) => ({
+            id: -1, // Temporary ID for instances not yet created
+            start: inst.start,
+            end: inst.end,
+            capacity: inst.capacity,
+          })),
+        ];
+
+        // Validate capacity for this new instance
+        const result = checkCapacityViolations(
+          sideId,
+          newStart,
+          newEnd,
+          originalCapacity,
+          allInstancesForCapacity,
+          allSchedules
+        );
+
+        if (!result.isValid) {
+          const formatDateTime = (date: Date) => {
+            return date.toLocaleString([], {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+          };
+
+          const maxViolation = result.violations.reduce((max, v) => (v.used > max.used ? v : max), result.violations[0]);
+          capacityViolations.push({
+            week: i,
+            newInstanceTime: `${formatDateTime(newStart)} - ${formatDateTime(newEnd)}`,
+            violation: `Exceeds capacity by ${result.maxUsed - result.maxLimit} athlete${result.maxUsed - result.maxLimit !== 1 ? "s" : ""} at ${maxViolation.timeStr} (${maxViolation.used} / ${maxViolation.limit}, ${maxViolation.periodType})`,
+          });
+        } else {
+          // If capacity is valid, add this instance to the list for next week's check
+          newInstancesForCapacity.push({
+            start: newStart.toISOString(),
+            end: newEnd.toISOString(),
+            capacity: originalCapacity,
+          });
+        }
 
         // Fetch all bookings that overlap with this new instance's time range
         const { data: overlappingInstances, error: overlapError } = await supabase
@@ -577,6 +837,22 @@ export function useBookingEditor(
         }
       }
 
+      // If capacity violations found, show detailed error and abort
+      if (capacityViolations.length > 0) {
+        const errorParts: string[] = [];
+        errorParts.push("⚠️ Capacity exceeded for extension:\n");
+        errorParts.push("The following weeks cannot be extended due to capacity limits:\n");
+
+        capacityViolations.forEach((violation) => {
+          errorParts.push(`\nWeek ${violation.week} (${violation.newInstanceTime}):`);
+          errorParts.push(`  • ${violation.violation}`);
+        });
+
+        setError(errorParts.join("\n"));
+        setExtending(false);
+        return false;
+      }
+
       // If conflicts found, show detailed error and abort
       if (conflicts.length > 0) {
         // Group conflicts by week for better error message
@@ -605,7 +881,9 @@ export function useBookingEditor(
         errorParts.push("The following weeks cannot be extended due to overlapping bookings:\n");
 
         conflictsByWeek.forEach((weekConflicts, week) => {
-          errorParts.push(`\nWeek ${week} (${weekConflicts.values().next().value.newInstanceTime}):`);
+          const firstConflict = weekConflicts.values().next().value;
+          const newInstanceTime = firstConflict?.newInstanceTime ?? "unknown time";
+          errorParts.push(`\nWeek ${week} (${newInstanceTime}):`);
 
           weekConflicts.forEach((details, bookingTitle) => {
             const racksList = details.racks.sort((a, b) => a - b).join(", ");
@@ -628,6 +906,7 @@ export function useBookingEditor(
         end: string;
         areas: string[];
         racks: number[];
+        capacity: number;
       }[] = [];
 
       for (let i = 1; i <= extendWeeks; i++) {
@@ -640,6 +919,7 @@ export function useBookingEditor(
           end: end.toISOString(),
           areas,
           racks,
+          capacity: originalCapacity,
         });
       }
 
@@ -705,6 +985,7 @@ export function useBookingEditor(
     // State
     startTime,
     endTime,
+    capacity,
     saving,
     error,
     showDeleteConfirm,
@@ -717,10 +998,13 @@ export function useBookingEditor(
     extending,
     seriesInstances,
     hasTimeChanges,
+    hasCapacityChanges,
+    hasChanges,
     showUpdateTimeConfirm,
     // Setters
     setStartTime,
     setEndTime,
+    setCapacity,
     setError,
     setShowDeleteConfirm,
     setApplyToAll,
@@ -731,7 +1015,7 @@ export function useBookingEditor(
     setShowUpdateTimeConfirm,
     // Handlers
     handleSaveTime,
-    performTimeUpdate,
+    performUpdate,
     handleDeleteSelected,
     handleDeleteSeries,
     handleExtendBooking,

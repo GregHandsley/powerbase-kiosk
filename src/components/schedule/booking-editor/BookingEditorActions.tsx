@@ -9,7 +9,7 @@ type BookingEditorActionsProps = {
   onExtend: () => void;
   saving: boolean;
   deleting: boolean;
-  hasTimeChanges: boolean;
+  hasChanges: boolean;
   selectedInstancesCount: number;
   seriesInstancesCount: number;
   showDeleteConfirm: boolean;
@@ -29,7 +29,7 @@ export function BookingEditorActions({
   onExtend,
   saving,
   deleting,
-  hasTimeChanges,
+  hasChanges,
   selectedInstancesCount,
   seriesInstancesCount,
   showDeleteConfirm,
@@ -63,7 +63,7 @@ export function BookingEditorActions({
           <button
             type="button"
             onClick={onSave}
-            disabled={saving || deleting || isLocked || !hasTimeChanges}
+            disabled={saving || deleting || isLocked || !hasChanges}
             className={clsx(
               "px-4 py-2 text-sm font-medium rounded-md",
               "bg-indigo-600 hover:bg-indigo-500 text-white",

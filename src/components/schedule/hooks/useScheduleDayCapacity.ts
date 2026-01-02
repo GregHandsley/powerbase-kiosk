@@ -199,6 +199,7 @@ export function useScheduleDayCapacity({ side, date, timeSlots }: Args) {
     sideId,
     slotCapacityData,
     isLoading: schedulesLoading,
+    capacitySchedules,
   };
 }
 

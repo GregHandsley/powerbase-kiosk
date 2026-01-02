@@ -13,6 +13,8 @@ import { ScheduleGrid } from "../components/schedule/ScheduleGrid";
 import { DayNavigationHeader } from "../components/schedule/DayNavigationHeader";
 import { makeBaseLayout, makePowerLayout } from "../components/schedule/shared/layouts";
 import { useScheduleDayCapacity } from "../components/schedule/hooks/useScheduleDayCapacity";
+import { calculateCapacityExceededSlots } from "../components/schedule/grid/utils/capacityExceeded";
+import type { ScheduleData } from "../components/admin/capacity/scheduleUtils";
 import { BookingEditorModal } from "../components/schedule/BookingEditorModal";
 import { MiniScheduleFloorplan } from "../components/shared/MiniScheduleFloorplan";
 import { RackSelectionPanel } from "../components/schedule/rack-editor/RackSelectionPanel";
@@ -52,7 +54,7 @@ export function Schedule() {
   const sideKey = selectedSide === "Power" ? "power" : "base";
 
   // Get capacity data for the day
-  const { sideId, slotCapacityData, isLoading: capacityLoading } = useScheduleDayCapacity({
+  const { sideId, slotCapacityData, isLoading: capacityLoading, capacitySchedules } = useScheduleDayCapacity({
     side: sideKey,
     date: currentDate,
     timeSlots: allTimeSlots,
@@ -133,6 +135,7 @@ export function Schedule() {
           "end",
           racks,
           areas,
+          capacity,
           booking:bookings (
             title,
             color,
@@ -160,6 +163,7 @@ export function Schedule() {
           end: string;
           racks: number[] | unknown;
           areas: string[] | unknown;
+          capacity?: number;
           booking?: {
             title?: string;
             color?: string;
@@ -178,11 +182,27 @@ export function Schedule() {
           color: r.booking?.color ?? null,
           isLocked: r.booking?.is_locked ?? false,
           createdBy: r.booking?.created_by ?? null,
+          capacity: typeof r.capacity === "number" ? r.capacity : undefined,
         };
       }) as ActiveInstance[];
     },
     enabled: !!sideId,
   });
+
+  // Calculate capacity-exceeded slots (after bookings are fetched)
+  const capacityExceededBySlot = useMemo(() => {
+    if (!sideId || !capacitySchedules || capacitySchedules.length === 0 || bookings.length === 0) {
+      return new Map<number, Set<number>>();
+    }
+
+    return calculateCapacityExceededSlots(
+      timeSlots,
+      currentDate,
+      bookings,
+      capacitySchedules as ScheduleData[],
+      sideId
+    );
+  }, [sideId, capacitySchedules, timeSlots, currentDate, bookings]);
 
   const handleCellClick = (rack: number, timeSlot: TimeSlot) => {
     // Open the create booking modal with pre-filled values
@@ -698,6 +718,7 @@ export function Schedule() {
           onNavigateDay={navigateDay}
           onGoToToday={goToToday}
           onSideChange={setSelectedSide}
+          onDateChange={setCurrentDate}
           lockedSide={isSelectingRacks && bookingSide ? bookingSide : undefined}
         />
       </header>
@@ -767,6 +788,7 @@ export function Schedule() {
           bookings={bookings}
           currentDate={currentDate}
           slotCapacityData={filteredSlotCapacityData}
+          capacityExceededBySlot={capacityExceededBySlot}
           onCellClick={handleCellClick}
           onBookingClick={handleEditBooking}
           onDragSelection={handleDragSelection}

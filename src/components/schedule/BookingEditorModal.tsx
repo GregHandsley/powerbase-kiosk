@@ -40,6 +40,7 @@ export function BookingEditorModal({
   const {
     startTime,
     endTime,
+    capacity,
     saving,
     error,
     showDeleteConfirm,
@@ -52,9 +53,12 @@ export function BookingEditorModal({
     extending,
     seriesInstances,
     hasTimeChanges,
+    hasCapacityChanges,
+    hasChanges,
     showUpdateTimeConfirm,
     setStartTime,
     setEndTime,
+    setCapacity,
     setError,
     setShowDeleteConfirm,
     setApplyToAll,
@@ -63,7 +67,7 @@ export function BookingEditorModal({
     setExtendWeeks,
     setShowUpdateTimeConfirm,
     handleSaveTime,
-    performTimeUpdate,
+    performUpdate,
     handleDeleteSelected,
     handleDeleteSeries,
     handleExtendBooking,
@@ -106,6 +110,7 @@ export function BookingEditorModal({
     if (booking) {
       setStartTime(formatTimeForInput(booking.start));
       setEndTime(formatTimeForInput(booking.end));
+      setCapacity(booking.capacity || 1);
     }
     setError(null);
     onClose();
@@ -116,7 +121,7 @@ export function BookingEditorModal({
   };
 
   const handleSave = async () => {
-    if (!hasTimeChanges) {
+    if (!hasChanges) {
       onClose();
       return;
     }
@@ -128,7 +133,7 @@ export function BookingEditorModal({
   };
 
   const handleConfirmUpdateTime = async () => {
-    const success = await performTimeUpdate();
+    const success = await performUpdate();
     if (success) {
       setShowUpdateTimeConfirm(false);
       onClose();
@@ -149,6 +154,26 @@ export function BookingEditorModal({
           closedTimes={closedTimes}
           closedPeriods={closedPeriods}
         />
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Number of Athletes
+          </label>
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={capacity}
+            onChange={(e) => {
+              const value = parseInt(e.target.value, 10);
+              if (!isNaN(value) && value >= 1 && value <= 100) {
+                setCapacity(value);
+              }
+            }}
+            disabled={isLocked || saving}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+        </div>
 
         <SeriesInstancesList
           instances={seriesInstances}
@@ -189,10 +214,11 @@ export function BookingEditorModal({
         />
 
         <UpdateTimeConfirmationDialog
-          isOpen={showUpdateTimeConfirm && !showExtendDialog && hasTimeChanges}
+          isOpen={showUpdateTimeConfirm && !showExtendDialog && hasChanges}
           sessionCount={selectedInstances.size}
-          startTime={startTime}
-          endTime={endTime}
+          startTime={hasTimeChanges ? startTime : ""}
+          endTime={hasTimeChanges ? endTime : ""}
+          capacity={hasCapacityChanges ? capacity : undefined}
           onCancel={() => setShowUpdateTimeConfirm(false)}
           onConfirm={handleConfirmUpdateTime}
           saving={saving}
@@ -230,7 +256,7 @@ export function BookingEditorModal({
           }}
           saving={saving}
           deleting={deleting}
-          hasTimeChanges={hasTimeChanges}
+          hasChanges={hasChanges}
           selectedInstancesCount={selectedInstances.size}
           seriesInstancesCount={seriesInstances.length}
           showDeleteConfirm={showDeleteConfirm !== null}

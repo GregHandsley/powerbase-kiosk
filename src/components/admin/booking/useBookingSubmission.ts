@@ -14,6 +14,21 @@ type WeekManagement = {
   setCapacityByWeek: (map: Map<number, number>) => void;
 };
 
+type CapacityValidation = {
+  isValid: boolean;
+  hasWarnings: boolean;
+  violations: Array<{
+    time: string;
+    timeStr: string;
+    used: number;
+    limit: number;
+    periodType: string;
+    week?: number;
+  }>;
+  maxUsed: number;
+  maxLimit: number;
+};
+
 /**
  * Hook to handle booking form submission
  */
@@ -22,7 +37,8 @@ export function useBookingSubmission(
   role: "admin" | "coach",
   userId: string | null,
   timeRangeIsClosed: boolean,
-  weekManagement: WeekManagement
+  weekManagement: WeekManagement,
+  capacityValidation: CapacityValidation
 ) {
   const queryClient = useQueryClient();
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -52,6 +68,35 @@ export function useBookingSubmission(
       // Check if booking time overlaps with closed periods
       if (timeRangeIsClosed) {
         throw new Error("Cannot create booking during closed hours. Please select a different time.");
+      }
+
+      // Check capacity validation
+      if (!capacityValidation.isValid) {
+        const violationsByWeek = new Map<number, typeof capacityValidation.violations>();
+        capacityValidation.violations.forEach((v) => {
+          const week = v.week || 1;
+          if (!violationsByWeek.has(week)) {
+            violationsByWeek.set(week, []);
+          }
+          violationsByWeek.get(week)!.push(v);
+        });
+
+        const errorParts: string[] = [];
+        errorParts.push("⚠️ Capacity exceeded:");
+        errorParts.push("");
+        errorParts.push(`This booking would exceed the facility capacity by ${capacityValidation.maxUsed - capacityValidation.maxLimit} athlete${capacityValidation.maxUsed - capacityValidation.maxLimit !== 1 ? "s" : ""} at peak times.`);
+        errorParts.push("");
+        
+        violationsByWeek.forEach((violations, week) => {
+          const maxViolation = violations.reduce((max, v) => (v.used > max.used ? v : max), violations[0]);
+          errorParts.push(`Week ${week}: Peak violation at ${maxViolation.timeStr}`);
+          errorParts.push(`  Used: ${maxViolation.used} / Limit: ${maxViolation.limit} athletes (${maxViolation.periodType})`);
+        });
+        
+        errorParts.push("");
+        errorParts.push("Please reduce the number of athletes or adjust the booking time.");
+        
+        throw new Error(errorParts.join("\n"));
       }
 
       // Validate that all weeks have racks selected

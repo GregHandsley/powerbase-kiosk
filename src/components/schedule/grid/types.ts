@@ -15,6 +15,7 @@ export type ScheduleGridProps = {
   bookings: ActiveInstance[];
   currentDate: Date;
   slotCapacityData: Map<number, SlotCapacityData>;
+  capacityExceededBySlot?: Map<number, Set<number>>; // slotIndex -> Set of racks at capacity
   onCellClick: (rack: number, timeSlot: TimeSlot) => void;
   onBookingClick?: (booking: ActiveInstance) => void;
   onDragSelection?: (selection: {
