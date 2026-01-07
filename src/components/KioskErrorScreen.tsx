@@ -1,8 +1,23 @@
 import { useEffect, useState } from "react";
 import type { FallbackProps } from "react-error-boundary";
+import * as Sentry from "@sentry/react";
 
 export function KioskErrorScreen({ error, resetErrorBoundary }: FallbackProps) {
   const [seconds, setSeconds] = useState(5);
+
+  // Send error to Sentry
+  useEffect(() => {
+    Sentry.captureException(error, {
+      tags: {
+        errorType: "kiosk-error",
+        errorBoundary: "kiosk",
+      },
+      extra: {
+        errorMessage: error.message,
+        errorStack: error.stack,
+      },
+    });
+  }, [error]);
 
   useEffect(() => {
     const id = setInterval(() => {

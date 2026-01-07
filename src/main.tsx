@@ -2,10 +2,15 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ErrorBoundary } from "react-error-boundary";
+import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
+import * as Sentry from "@sentry/react";
 import App from "./App";
 import "./styles/index.css";
 import { AuthProvider } from "./context/AuthContext";
+import { initSentry, captureQueryError } from "./lib/sentry";
+
+// Initialize Sentry as early as possible
+initSentry();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -15,12 +20,32 @@ const queryClient = new QueryClient({
       refetchOnReconnect: true,
       retry: 3,
       staleTime: 10_000,
+      onError: (error, query) => {
+        // Track React Query errors in Sentry
+        captureQueryError(error as Error, query.queryKey, {
+          queryState: query.state,
+        });
+      },
+    },
+    mutations: {
+      onError: (error, variables, context, mutation) => {
+        // Track mutation errors in Sentry
+        captureQueryError(error as Error, mutation.mutationKey || [], {
+          variables,
+          context,
+        });
+      },
     },
   },
 });
 
 // Export for fast refresh so the module has an export.
-export function ErrorFallback() {
+export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+  // Send error to Sentry
+  React.useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-black text-red-400">
       <div className="max-w-md text-center px-4">
@@ -29,6 +54,12 @@ export function ErrorFallback() {
           The kiosk/admin app hit an error. Please refresh the page. If this
           persists, contact the system admin.
         </p>
+        <button
+          onClick={resetErrorBoundary}
+          className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-500 rounded text-sm"
+        >
+          Try again
+        </button>
       </div>
     </div>
   );
@@ -36,16 +67,18 @@ export function ErrorFallback() {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <AuthProvider>
-          <div className="app-shell">
-            <App />
-          </div>
-          </AuthProvider>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
+      <ErrorBoundary FallbackComponent={ErrorFallback}>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <AuthProvider>
+            <div className="app-shell">
+              <App />
+            </div>
+            </AuthProvider>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </Sentry.ErrorBoundary>
   </React.StrictMode>
 );

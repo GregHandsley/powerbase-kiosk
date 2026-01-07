@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
   import type { User } from "@supabase/supabase-js";
   import { supabase } from "../lib/supabaseClient";
   import type { Profile, ProfileRole } from "../types/auth";
+  import { setSentryUser } from "../lib/sentry";
   
   type AuthContextValue = {
     user: User | null;
@@ -25,7 +26,7 @@ import type { ReactNode } from "react";
   
   // --- helpers -------------------------------------------------------
 
-  async function fetchProfile(userId: string) {
+  async function fetchProfile(userId: string, userEmail?: string) {
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -39,7 +40,18 @@ import type { ReactNode } from "react";
         return;
       }
 
-      setProfile(data ? (data as Profile) : null);
+      const profileData = data ? (data as Profile) : null;
+      setProfile(profileData);
+      
+      // Update Sentry user context with full profile info
+      if (profileData) {
+        setSentryUser({
+          id: userId,
+          email: userEmail,
+          role: profileData.role,
+          name: profileData.full_name || undefined,
+        });
+      }
     } catch (err) {
       console.warn("fetchProfile unexpected error", err);
       setProfile(null);
@@ -71,9 +83,15 @@ import type { ReactNode } from "react";
         setUser(user ?? null);
   
         if (user) {
-          void fetchProfile(user.id); // don't block UI on profile fetch
+          // Set Sentry user context immediately with basic info
+          setSentryUser({
+            id: user.id,
+            email: user.email,
+          });
+          void fetchProfile(user.id, user.email); // don't block UI on profile fetch
         } else {
           setProfile(null);
+          setSentryUser(null); // Clear Sentry user context
         }
       } finally {
         if (isMounted) {
@@ -92,9 +110,15 @@ import type { ReactNode } from "react";
         setUser(u);
 
         if (u) {
-          void fetchProfile(u.id); // fire and forget to avoid blocking loading state
+          // Set Sentry user context immediately with basic info
+          setSentryUser({
+            id: u.id,
+            email: u.email,
+          });
+          void fetchProfile(u.id, u.email); // fire and forget to avoid blocking loading state
         } else {
           setProfile(null);
+          setSentryUser(null); // Clear Sentry user context
         }
       } catch (err) {
         console.warn("onAuthStateChange error", err);
@@ -119,7 +143,7 @@ import type { ReactNode } from "react";
       }
     try {
       setLoading(true);
-      await fetchProfile(user.id);
+      await fetchProfile(user.id, user.email);
     } finally {
       setLoading(false);
       }
@@ -157,6 +181,7 @@ import type { ReactNode } from "react";
       }
       setUser(null);
       setProfile(null);
+      setSentryUser(null); // Clear Sentry user context on sign out
     } finally {
       setLoading(false);
     }
