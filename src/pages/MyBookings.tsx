@@ -8,25 +8,19 @@ import { RackSelectionPanel } from "../components/schedule/rack-editor/RackSelec
 import { MiniScheduleFloorplan } from "../components/shared/MiniScheduleFloorplan";
 import { UpdateRacksConfirmationDialog } from "../components/schedule/booking-editor/UpdateRacksConfirmationDialog";
 import { useRackSelection } from "../components/schedule/rack-editor/useRackSelection";
-import { ConfirmationDialog } from "../components/shared/ConfirmationDialog";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../lib/supabaseClient";
-import { useNavigate } from "react-router-dom";
 import type { ActiveInstance } from "../types/snapshot";
-import { parseISO } from "date-fns";
 import type { BookingWithInstances } from "../hooks/useMyBookings";
 
 export function MyBookings() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [filters, setFilters] = useState<BookingFilter>({
     status: "all",
     side: "all",
   });
   const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(null);
-  const [deletingBooking, setDeletingBooking] = useState<BookingWithInstances | null>(null);
-  const [extendingBooking, setExtendingBooking] = useState<BookingWithInstances | null>(null);
+  const [showExtendDialogOnOpen, setShowExtendDialogOnOpen] = useState(false);
 
   const { data: bookings = [], isLoading, error } = useMyBookings(user?.id || null, filters);
 
@@ -67,12 +61,10 @@ export function MyBookings() {
     },
   });
 
-  const handleEdit = (booking: BookingWithInstances) => {
-    // Convert to ActiveInstance format for the booking editor
+  const convertToActiveInstance = (booking: BookingWithInstances): ActiveInstance | null => {
     const firstInstance = booking.instances[0];
-    if (!firstInstance) return;
-
-    const activeInstance: ActiveInstance = {
+    if (!firstInstance) return null;
+    return {
       instanceId: firstInstance.id,
       bookingId: booking.id,
       start: firstInstance.start,
@@ -86,59 +78,15 @@ export function MyBookings() {
       capacity: firstInstance.capacity,
       status: booking.status,
     };
+  };
 
+  const handleEdit = (booking: BookingWithInstances) => {
+    const activeInstance = convertToActiveInstance(booking);
+    if (!activeInstance) return;
+    setShowExtendDialogOnOpen(false);
     setEditingBooking(activeInstance);
   };
 
-  const handleDelete = async (booking: BookingWithInstances) => {
-    if (!confirm(`Are you sure you want to delete "${booking.title}"? This will delete all ${booking.instances.length} session(s).`)) {
-      return;
-    }
-
-    try {
-      // Delete all instances first
-      const { error: instancesError } = await supabase
-        .from("booking_instances")
-        .delete()
-        .eq("booking_id", booking.id);
-
-      if (instancesError) {
-        throw new Error(instancesError.message);
-      }
-
-      // Delete the booking
-      const { error: bookingError } = await supabase
-        .from("bookings")
-        .delete()
-        .eq("id", booking.id);
-
-      if (bookingError) {
-        throw new Error(bookingError.message);
-      }
-
-      // Invalidate queries
-      await queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-      await queryClient.invalidateQueries({ queryKey: ["snapshot"] });
-      await queryClient.invalidateQueries({ queryKey: ["booking-series"] });
-
-      setDeletingBooking(null);
-    } catch (err) {
-      console.error("Failed to delete booking:", err);
-      alert(err instanceof Error ? err.message : "Failed to delete booking");
-    }
-  };
-
-  const handleExtend = (booking: BookingWithInstances) => {
-    setExtendingBooking(booking);
-    // Navigate to schedule with the last instance's date/time pre-filled
-    const lastInstance = booking.instances[booking.instances.length - 1];
-    if (lastInstance) {
-      const date = parseISO(lastInstance.start);
-      navigate(
-        `/schedule?date=${date.toISOString().split("T")[0]}&side=${booking.side.key.toLowerCase()}`
-      );
-    }
-  };
 
   const handleBookingModalClose = () => {
     if (!isSelectingRacks && !enteringSelectionModeRef.current) {
@@ -147,6 +95,7 @@ export function MyBookings() {
       enteringSelectionModeRef.current = false;
     }
     queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+    setShowExtendDialogOnOpen(false);
   };
 
   if (!user) {
@@ -271,8 +220,6 @@ export function MyBookings() {
                   key={booking.id}
                   booking={booking}
                   onEdit={handleEdit}
-                  onDelete={() => setDeletingBooking(booking)}
-                  onExtend={handleExtend}
                 />
               ))}
             </div>
@@ -291,22 +238,10 @@ export function MyBookings() {
           initialSelectedInstances={
             savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined
           }
+          initialShowExtendDialog={showExtendDialogOnOpen}
         />
       )}
 
-      {/* Delete Confirmation */}
-      {deletingBooking && (
-        <ConfirmationDialog
-          isOpen={!!deletingBooking}
-          title="Delete Booking"
-          message={`Are you sure you want to delete "${deletingBooking.title}"? This will permanently delete all ${deletingBooking.instances.length} session(s) and cannot be undone.`}
-          confirmText="Delete"
-          cancelText="Cancel"
-          onConfirm={() => handleDelete(deletingBooking)}
-          onCancel={() => setDeletingBooking(null)}
-          variant="danger"
-        />
-      )}
     </div>
   );
 }

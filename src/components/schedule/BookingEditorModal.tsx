@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { formatTimeForInput } from "../shared/dateUtils";
 import { useAuth } from "../../context/AuthContext";
 import type { ActiveInstance } from "../../types/snapshot";
@@ -22,6 +23,8 @@ type Props = {
   onClearRacks: (selectedInstances?: Set<number>) => void;
   onSaveTime?: (startTime: string, endTime: string) => Promise<void>;
   initialSelectedInstances?: Set<number>;
+  /** When true, open directly into the extend dialog (used by MyBookings Extend) */
+  initialShowExtendDialog?: boolean;
 };
 
 /**
@@ -34,6 +37,7 @@ export function BookingEditorModal({
   onClearRacks,
   onSaveTime,
   initialSelectedInstances,
+  initialShowExtendDialog = false,
 }: Props) {
   const { role } = useAuth();
 
@@ -73,6 +77,14 @@ export function BookingEditorModal({
     handleExtendBooking,
     handleInstanceToggle,
   } = useBookingEditor(booking, isOpen, initialSelectedInstances);
+
+  // Open directly into the extend dialog when requested (e.g., Extend from MyBookings)
+  useEffect(() => {
+    if (isOpen && initialShowExtendDialog) {
+      setShowExtendDialog(true);
+      setShowUpdateTimeConfirm(false);
+    }
+  }, [isOpen, initialShowExtendDialog, setShowExtendDialog, setShowUpdateTimeConfirm]);
 
   // Fetch the booking's side_id to get closed times
   const { data: bookingSideId } = useQuery({
