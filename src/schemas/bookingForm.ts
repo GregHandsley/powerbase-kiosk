@@ -9,15 +9,15 @@ export const BookingFormSchema = z.object({
     .regex(/^\d{2}:\d{2}$/, "Start time must be HH:MM")
     .refine((time) => {
       const [, minutes] = time.split(":").map(Number);
-      return minutes === 0 || minutes === 30;
-    }, "Start time must be on the hour or half hour (00 or 30 minutes)"),
+      return minutes === 0 || minutes === 15 || minutes === 30 || minutes === 45;
+    }, "Start time must be on a 15-minute interval (00, 15, 30, or 45 minutes)"),
   endTime: z
     .string()
     .regex(/^\d{2}:\d{2}$/, "End time must be HH:MM")
     .refine((time) => {
       const [, minutes] = time.split(":").map(Number);
-      return minutes === 0 || minutes === 30;
-    }, "End time must be on the hour or half hour (00 or 30 minutes)"),
+      return minutes === 0 || minutes === 15 || minutes === 30 || minutes === 45;
+    }, "End time must be on a 15-minute interval (00, 15, 30, or 45 minutes)"),
   weeks: z
     .number()
     .refine((val) => !Number.isNaN(val), { message: "Weeks is required" })

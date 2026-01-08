@@ -69,6 +69,25 @@ export function LiveView() {
     }
   };
 
+  const handleAddBooking = () => {
+    // Calculate end time as 90 minutes after start time
+    const [startHour, startMinute] = time.split(":").map(Number);
+    const startTotalMinutes = startHour * 60 + startMinute;
+    const endTotalMinutes = startTotalMinutes + 90;
+    const endHour = Math.floor(endTotalMinutes / 60);
+    const endMinute = endTotalMinutes % 60;
+    const endTime = `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
+
+    // Navigate to bookings page with pre-filled values
+    const params = new URLSearchParams({
+      date,
+      startTime: time,
+      endTime,
+      side: sideMode === "power" ? "Power" : "Base",
+    });
+    navigate(`/bookings?${params.toString()}`);
+  };
+
   const selectedSnapshot = sideMode === "power" ? power : base;
 
   // Get capacity information for the selected date/time
@@ -79,8 +98,16 @@ export function LiveView() {
   });
 
   // Calculate current capacity usage at the selected time
+  // Include applicableSchedule in query key so it refetches when schedule changes (e.g., when date changes)
   const { data: currentCapacityUsage } = useQuery({
-    queryKey: ["live-view-capacity-usage", sideId, date, time],
+    queryKey: [
+      "live-view-capacity-usage",
+      sideId,
+      date,
+      time,
+      applicableSchedule?.id,
+      applicableSchedule?.capacity,
+    ],
     queryFn: async () => {
       if (!sideId || !date || !time) return { used: 0, limit: null };
 
@@ -206,12 +233,13 @@ export function LiveView() {
             <span className="mb-1 text-slate-300">Actions</span>
             <button
               type="button"
-              onClick={() => navigate("/bookings")}
+              onClick={handleAddBooking}
               className="px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-medium"
             >
               Add Booking
             </button>
           </div>
+
         </div>
       </header>
 

@@ -119,13 +119,13 @@ export function checkCapacityViolations(
   let maxLimit = Infinity;
   let maxViolationTime: string | null = null;
 
-  // Generate time points to check (every 30 minutes during the proposed booking)
+  // Generate time points to check (every 15 minutes during the proposed booking)
   const timePoints: Date[] = [];
   let current = new Date(proposedStart);
   
   while (current < proposedEnd) {
     timePoints.push(new Date(current));
-    current = new Date(current.getTime() + 30 * 60 * 1000); // Add 30 minutes
+    current = new Date(current.getTime() + 15 * 60 * 1000); // Add 15 minutes
   }
   
   // Also check the end time (exclusive, so we check just before)

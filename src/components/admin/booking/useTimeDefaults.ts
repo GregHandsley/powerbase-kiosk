@@ -5,12 +5,12 @@ import { isTimeClosed, getAvailableTimeRanges, type ClosedPeriod } from "../capa
 import { calculateEndTime } from "./utils";
 
 /**
- * Round a time string to the nearest 30-minute interval
+ * Round a time string to the nearest 15-minute interval
  */
-function roundTo30Minutes(timeStr: string): string {
+function roundTo15Minutes(timeStr: string): string {
   const [hours, minutes] = timeStr.split(":").map(Number);
   const totalMinutes = hours * 60 + minutes;
-  const roundedMinutes = Math.round(totalMinutes / 30) * 30;
+  const roundedMinutes = Math.round(totalMinutes / 15) * 15;
   const roundedHours = Math.floor(roundedMinutes / 60) % 24;
   const roundedMins = roundedMinutes % 60;
   return `${String(roundedHours).padStart(2, "0")}:${String(roundedMins).padStart(2, "0")}`;
@@ -83,16 +83,16 @@ export function useTimeDefaults(
         
         // Set start time to first available (which excludes closed times)
         // This should be 09:00 if facility is closed until 09:00
-        // Round to nearest 30 minutes
-        const newStartTime = roundTo30Minutes(firstAvailableTime);
+        // Round to nearest 15 minutes
+        const newStartTime = roundTo15Minutes(firstAvailableTime);
         if (currentStartTime !== newStartTime) {
           form.setValue("startTime", newStartTime, { shouldValidate: false });
         }
         
-        // Set end time to 90 minutes after start (rounded to 30 minutes)
+        // Set end time to 90 minutes after start (rounded to 15 minutes)
         const calculatedEnd = calculateEndTime(newStartTime, 90, closedTimes);
         if (calculatedEnd) {
-          const roundedEnd = roundTo30Minutes(calculatedEnd);
+          const roundedEnd = roundTo15Minutes(calculatedEnd);
           if (currentEndTime !== roundedEnd) {
             form.setValue("endTime", roundedEnd, { shouldValidate: false });
           }
@@ -104,7 +104,7 @@ export function useTimeDefaults(
           const endMinute = endTotalMinutes % 60;
           if (endHour < 24) {
             const fallbackEnd = `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
-            const roundedFallback = roundTo30Minutes(fallbackEnd);
+            const roundedFallback = roundTo15Minutes(fallbackEnd);
             if (currentEndTime !== roundedFallback) {
               form.setValue("endTime", roundedFallback, { shouldValidate: false });
             }
@@ -127,7 +127,7 @@ export function useTimeDefaults(
     if (!endTimeManuallyChanged && startTime && lastInitializedKey === initializationKey && lastInitializedKey) {
       const calculatedEnd = calculateEndTime(startTime, 90, closedTimes);
       if (calculatedEnd) {
-        const roundedEnd = roundTo30Minutes(calculatedEnd);
+        const roundedEnd = roundTo15Minutes(calculatedEnd);
         form.setValue("endTime", roundedEnd, { shouldValidate: true });
       }
     }

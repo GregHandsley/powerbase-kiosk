@@ -58,6 +58,7 @@ export function ScheduleGrid({
     timeSlots,
     bookingBlocksByRack,
     slotCapacityData,
+    unavailableBlocksByRack,
     onDragSelection
   );
 
@@ -94,6 +95,7 @@ export function ScheduleGrid({
               bookingBlocksByRack={bookingBlocksByRack}
               unavailableBlocksByRack={unavailableBlocksByRack}
               capacityExceededBySlot={capacityExceededBySlot}
+              slotCapacityData={slotCapacityData}
               bookings={bookings}
               currentDate={currentDate}
               timeSlots={timeSlots}

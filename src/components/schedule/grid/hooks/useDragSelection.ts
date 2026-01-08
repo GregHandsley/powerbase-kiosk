@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import type { TimeSlot } from "../../../admin/capacity/scheduleUtils";
-import type { SlotCapacityData, BookingBlock } from "../types";
+import type { SlotCapacityData, BookingBlock, UnavailableBlock } from "../types";
 
 type DragSelectionState = {
   isDragging: boolean;
@@ -20,6 +20,7 @@ export function useDragSelection(
   timeSlots: TimeSlot[],
   bookingBlocksByRack: Map<number, BookingBlock[]>,
   slotCapacityData: Map<number, SlotCapacityData>,
+  unavailableBlocksByRack?: Map<number, UnavailableBlock[]>,
   onDragSelection?: (selection: {
     startTimeSlot: TimeSlot;
     endTimeSlot: TimeSlot;
@@ -83,11 +84,23 @@ export function useDragSelection(
           capacityData.availablePlatforms.has(rack);
         const isClosed = capacityData?.isClosed ?? false;
         if (!isAvailable || isClosed) return false;
+
+        // Check if cell is in a General User block
+        if (unavailableBlocksByRack) {
+          const unavailableBlocks = unavailableBlocksByRack.get(rack) ?? [];
+          const isInGeneralUserBlock = unavailableBlocks.some(
+            (block) =>
+              slotIndex >= block.startSlot &&
+              slotIndex <= block.endSlot &&
+              block.periodType === "General User"
+          );
+          if (isInGeneralUserBlock) return false;
+        }
       }
     }
 
     return true;
-  }, [selectedRange, racks, bookingBlocksByRack, slotCapacityData]);
+  }, [selectedRange, racks, bookingBlocksByRack, slotCapacityData, unavailableBlocksByRack]);
 
   // Handle mouse events for drag selection
   const handleMouseDown = (e: React.MouseEvent, slotIndex: number, rackIndex: number) => {
@@ -108,6 +121,18 @@ export function useDragSelection(
       capacityData.availablePlatforms.has(rack);
     const isClosed = capacityData?.isClosed ?? false;
     if (!isAvailable || isClosed) return;
+
+    // Check if cell is in a General User block
+    if (unavailableBlocksByRack) {
+      const unavailableBlocks = unavailableBlocksByRack.get(rack) ?? [];
+      const isInGeneralUserBlock = unavailableBlocks.some(
+        (block) =>
+          slotIndex >= block.startSlot &&
+          slotIndex <= block.endSlot &&
+          block.periodType === "General User"
+      );
+      if (isInGeneralUserBlock) return;
+    }
 
     // Start drag selection
     setIsDragging(true);

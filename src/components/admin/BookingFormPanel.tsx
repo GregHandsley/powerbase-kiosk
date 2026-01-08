@@ -219,7 +219,6 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
             form={form}
             closedTimes={closedTimes}
             closedPeriods={closedPeriods}
-            availableRanges={availableRanges}
             firstAvailableTime={firstAvailableTime}
             endTimeManuallyChanged={endTimeManuallyChanged}
             onEndTimeChange={() => setEndTimeManuallyChanged(true)}

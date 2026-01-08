@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { formatTimeSlot, type TimeSlot } from "../../../admin/capacity/scheduleUtils";
-import type { BookingBlock, UnavailableBlock } from "../types";
+import type { BookingBlock, UnavailableBlock, SlotCapacityData } from "../types";
 import type { ActiveInstance } from "../../../../types/snapshot";
 import { BookingBlock as BookingBlockComponent } from "./BookingBlock";
 import { UnavailableBlock as UnavailableBlockComponent } from "./UnavailableBlock";
@@ -16,6 +16,7 @@ type Props = {
   bookingBlocksByRack: Map<number, BookingBlock[]>;
   unavailableBlocksByRack: Map<number, UnavailableBlock[]>;
   capacityExceededBySlot?: Map<number, Set<number>>;
+  slotCapacityData: Map<number, SlotCapacityData>;
   bookings: ActiveInstance[];
   currentDate: Date;
   timeSlots: TimeSlot[];
@@ -35,6 +36,7 @@ export function ScheduleGridRow({
   bookingBlocksByRack,
   unavailableBlocksByRack,
   capacityExceededBySlot,
+  slotCapacityData,
   bookings,
   currentDate,
   timeSlots,
@@ -88,6 +90,24 @@ export function ScheduleGridRow({
           ? isRackAtCapacity(slotIndex, rack, capacityExceededBySlot, bookings, currentDate, timeSlots)
           : false;
 
+        // Check if this rack is in a General User block (blocked from booking)
+        const isInGeneralUserBlock = isInUnavailableBlock && unavailableBlockForThisSlot?.periodType === "General User";
+
+        // Check if this rack is not available in the capacity schedule
+        // A rack is unavailable if:
+        // 1. There's capacity data for this slot
+        // 2. availablePlatforms is not null (meaning there's a restriction)
+        // 3. The rack is NOT in the availablePlatforms set
+        // 4. It's not already booked (bookings take priority)
+        // 5. There's no unavailable block (to avoid double indication)
+        const capacityData = slotCapacityData.get(slotIndex);
+        const isRackUnavailable = 
+          !isInBookingBlock && // Don't mark as unavailable if there's a booking
+          !isInUnavailableBlock && // Don't show red if there's already an unavailable block
+          capacityData !== undefined &&
+          capacityData.availablePlatforms !== null && // null means all platforms available
+          !capacityData.availablePlatforms.has(rack); // rack not in available set
+
         return (
           <div
             key={rackIndex}
@@ -95,9 +115,18 @@ export function ScheduleGridRow({
               "relative border-r border-slate-800 last:border-r-0 min-h-[50px] min-w-[120px]",
               isSelected && isSelectionValid && "bg-indigo-500/20",
               isSelected && !isSelectionValid && "bg-red-500/10",
-              isAtCapacity && !isInBookingBlock && "bg-red-950/20"
+              isAtCapacity && !isInBookingBlock && "bg-red-950/20",
+              isRackUnavailable && "bg-red-950/20" // Same subtle red as capacity exceeded
             )}
-            title={isAtCapacity && !isInBookingBlock ? "Capacity exceeded - cannot book additional sessions" : undefined}
+            title={
+              isAtCapacity && !isInBookingBlock
+                ? "Capacity exceeded - cannot book additional sessions"
+                : isRackUnavailable
+                ? "Platform not available for booking in this time slot"
+                : isInGeneralUserBlock
+                ? "General User period - platform not available for booking"
+                : undefined
+            }
           >
             {/* Booking Block */}
             {isBookingBlockStart && bookingBlockForThisSlot && (
@@ -117,17 +146,17 @@ export function ScheduleGridRow({
                 "h-full w-full transition-colors",
                 isInBlock && !isBlockStart
                   ? "pointer-events-none"
-                  : isAtCapacity && !isInBookingBlock
+                  : (isAtCapacity || isRackUnavailable || isInGeneralUserBlock) && !isInBookingBlock
                     ? "cursor-not-allowed opacity-60"
                     : "cursor-pointer hover:bg-slate-800/30"
               )}
               onMouseDown={(e) => {
-                if (!isInBlock && !isBlockStart && !isAtCapacity) {
+                if (!isInBlock && !isBlockStart && !isAtCapacity && !isRackUnavailable && !isInGeneralUserBlock) {
                   onMouseDown(e, slotIndex, rackIndex);
                 }
               }}
               onClick={() => {
-                if (isAtCapacity && !isInBookingBlock) {
+                if ((isAtCapacity || isRackUnavailable || isInGeneralUserBlock) && !isInBookingBlock) {
                   // Show a message or prevent action
                   return;
                 }

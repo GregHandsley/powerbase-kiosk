@@ -72,15 +72,18 @@ export function TimePicker({
   const availableHours = Array.from({ length: 24 }, (_, i) => i).filter((h) => {
     // Always include the current hour when editing (disableAutoAdjust)
     if (disableAutoAdjust && h === hour) return true;
-    // Check if either :00 or :30 is available for this hour
+    // Check if any 15-minute interval (:00, :15, :30, :45) is available for this hour
     const time00 = formatTime(h, 0);
+    const time15 = formatTime(h, 15);
     const time30 = formatTime(h, 30);
-    return !isTimeClosed(time00) || !isTimeClosed(time30);
+    const time45 = formatTime(h, 45);
+    return !isTimeClosed(time00) || !isTimeClosed(time15) || !isTimeClosed(time30) || !isTimeClosed(time45);
   });
 
   // Filter minutes for the current hour - check each minute individually
   // When disableAutoAdjust is true, also include the current minute (for editing existing bookings)
-  const availableMinutes = [0, 30].filter((m) => {
+  // Allow 15-minute intervals: 0, 15, 30, 45
+  const availableMinutes = [0, 15, 30, 45].filter((m) => {
     // Always include the current minute when editing (disableAutoAdjust)
     if (disableAutoAdjust && m === minute) return true;
     const timeStr = formatTime(hour, m);
@@ -109,7 +112,7 @@ export function TimePicker({
         const currentHourIndex = availableHours.indexOf(hour);
         if (currentHourIndex >= 0 && currentHourIndex < availableHours.length - 1) {
           const nextHour = availableHours[currentHourIndex + 1];
-          const minutesForNextHour = [0, 30].filter((m) => {
+          const minutesForNextHour = [0, 15, 30, 45].filter((m) => {
             const timeStr = formatTime(nextHour, m);
             return !isTimeClosed(timeStr);
           });
@@ -120,7 +123,7 @@ export function TimePicker({
         }
         // Fallback to first available hour
         const firstHour = availableHours[0];
-        const minutesForFirstHour = [0, 30].filter((m) => {
+        const minutesForFirstHour = [0, 15, 30, 45].filter((m) => {
           const timeStr = formatTime(firstHour, m);
           return !isTimeClosed(timeStr);
         });
@@ -139,7 +142,7 @@ export function TimePicker({
         onChange={(e) => {
           const newHour = parseInt(e.target.value, 10);
           // When hour changes, find first available minute for that hour
-          const minutesForNewHour = [0, 30].filter((m) => {
+          const minutesForNewHour = [0, 15, 30, 45].filter((m) => {
             const timeStr = formatTime(newHour, m);
             return !isTimeClosed(timeStr);
           });

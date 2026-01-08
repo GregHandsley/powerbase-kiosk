@@ -1,14 +1,36 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { BookingFormPanel } from "../components/admin/BookingFormPanel";
 import { Clock } from "../components/Clock";
 import { useAuth } from "../context/AuthContext";
+import type { BookingFormValues } from "../schemas/bookingForm";
 
 export function Bookings() {
   const { user, profile, role, loading, signOut, signIn } = useAuth();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
+
+  // Read URL params for pre-filled booking form
+  const initialBookingValues = useMemo<Partial<BookingFormValues> | undefined>(() => {
+    const date = searchParams.get("date");
+    const startTime = searchParams.get("startTime");
+    const endTime = searchParams.get("endTime");
+    const side = searchParams.get("side");
+
+    if (!date || !startTime || !endTime || !side) {
+      return undefined;
+    }
+
+    return {
+      startDate: date,
+      startTime,
+      endTime,
+      sideKey: side === "Base" ? "Base" : "Power",
+    };
+  }, [searchParams]);
 
   const showSpinner = (
     <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center">
@@ -132,7 +154,7 @@ export function Bookings() {
         </div>
       </header>
 
-      <BookingFormPanel role={role} />
+      <BookingFormPanel role={role} initialValues={initialBookingValues} />
     </div>
   );
 }

@@ -9,7 +9,6 @@ type Props = {
   form: UseFormReturn<BookingFormValues>;
   closedTimes: Set<string>;
   closedPeriods?: ClosedPeriod[];
-  availableRanges: Array<{ start: string; end: string }>;
   firstAvailableTime: string;
   endTimeManuallyChanged: boolean;
   onEndTimeChange: () => void;
@@ -22,7 +21,6 @@ export function BookingTimeInputs({
   form,
   closedTimes,
   closedPeriods = [],
-  availableRanges,
   firstAvailableTime,
   endTimeManuallyChanged,
   onEndTimeChange,
@@ -104,18 +102,6 @@ export function BookingTimeInputs({
           )}
         </div>
       </div>
-      {availableRanges.length > 0 && closedTimes.size > 0 && (
-        <div className="col-span-3">
-          <p className="text-xs text-slate-400 mt-1">
-            Available times: {availableRanges.map((r, i) => (
-              <span key={i}>
-                {i > 0 && ", "}
-                {r.start} - {r.end}
-              </span>
-            ))}
-          </p>
-        </div>
-      )}
       <div>
         <label className="block mb-1 font-medium">Weeks</label>
         <input
