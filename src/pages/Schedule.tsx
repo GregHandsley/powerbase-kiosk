@@ -24,6 +24,7 @@ import { useRackSelection } from "../components/schedule/rack-editor/useRackSele
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabaseClient";
 import type { ActiveInstance } from "../types/snapshot";
+import { canEditBooking } from "../utils/bookingPermissions";
 
 type NewBookingContext = {
   date: Date;
@@ -35,7 +36,7 @@ type NewBookingContext = {
 } | null;
 
 export function Schedule() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const [selectedSide, setSelectedSide] = useState<"Power" | "Base">("Power");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(null);
@@ -262,6 +263,12 @@ export function Schedule() {
   };
 
   const handleEditBooking = (booking: ActiveInstance) => {
+    // Check if user has permission to edit this booking
+    if (!canEditBooking(booking, user?.id || null, role)) {
+      // Show error message or prevent opening modal
+      alert("You don't have permission to edit this booking. Only the coach who created it or an admin can edit it.");
+      return;
+    }
     setEditingBooking(booking);
   };
 

@@ -1,12 +1,12 @@
 import clsx from "clsx";
 
 type BookingEditorActionsProps = {
-  onEditRacks: () => void;
+  onEditRacks?: () => void;
   onCancel: () => void;
-  onSave: () => void;
-  onDeleteSelected: () => void;
-  onDeleteSeries: () => void;
-  onExtend: () => void;
+  onSave?: () => void;
+  onDeleteSelected?: () => void;
+  onDeleteSeries?: () => void;
+  onExtend?: () => void;
   saving: boolean;
   deleting: boolean;
   hasChanges: boolean;
@@ -39,10 +39,11 @@ export function BookingEditorActions({
   return (
     <div className="space-y-3 pt-2 border-t border-slate-700">
       <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onEditRacks}
-          disabled={isLocked || saving || deleting}
+        {onEditRacks && (
+          <button
+            type="button"
+            onClick={onEditRacks}
+            disabled={isLocked || saving || deleting}
           className={clsx(
             "px-4 py-2 text-sm font-medium rounded-md",
             "bg-slate-700 hover:bg-slate-600 text-slate-100",
@@ -51,6 +52,7 @@ export function BookingEditorActions({
         >
           Edit Racks
         </button>
+        )}
         <div className="flex gap-3">
           <button
             type="button"
@@ -60,10 +62,11 @@ export function BookingEditorActions({
           >
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saving || deleting || isLocked || !hasChanges || selectedInstancesCount === 0}
+          {onSave && (
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saving || deleting || isLocked || !hasChanges || selectedInstancesCount === 0}
             className={clsx(
               "px-4 py-2 text-sm font-medium rounded-md",
               "bg-indigo-600 hover:bg-indigo-500 text-white",
@@ -72,12 +75,13 @@ export function BookingEditorActions({
           >
             {saving ? "Saving..." : "Save"}
           </button>
+          )}
         </div>
       </div>
 
       {/* Delete Actions */}
       <div className="flex gap-2 pt-2 border-t border-slate-800">
-        {selectedInstancesCount > 0 && (
+        {onDeleteSelected && selectedInstancesCount > 0 && (
           <button
             type="button"
             onClick={onDeleteSelected}
@@ -97,7 +101,7 @@ export function BookingEditorActions({
             Delete Selected ({selectedInstancesCount})
           </button>
         )}
-        {seriesInstancesCount > 1 && (
+        {onDeleteSeries && seriesInstancesCount > 1 && (
           <button
             type="button"
             onClick={onDeleteSeries}
@@ -117,10 +121,11 @@ export function BookingEditorActions({
             Delete Entire Series
           </button>
         )}
-        <button
-          type="button"
-          onClick={onExtend}
-          disabled={
+        {onExtend && (
+          <button
+            type="button"
+            onClick={onExtend}
+            disabled={
             isLocked ||
             saving ||
             deleting ||
@@ -135,6 +140,7 @@ export function BookingEditorActions({
         >
           Extend Booking
         </button>
+        )}
       </div>
     </div>
   );

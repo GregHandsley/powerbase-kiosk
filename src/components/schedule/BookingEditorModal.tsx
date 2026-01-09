@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabaseClient";
 import { useClosedTimes } from "../admin/capacity/useClosedTimes";
 import { format } from "date-fns";
+import { canEditBooking } from "../../utils/bookingPermissions";
 
 type Props = {
   booking: ActiveInstance | null;
@@ -39,7 +40,7 @@ export function BookingEditorModal({
   initialSelectedInstances,
   initialShowExtendDialog = false,
 }: Props) {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
 
   const {
     startTime,
@@ -116,6 +117,8 @@ export function BookingEditorModal({
 
   if (!isOpen || !booking) return null;
 
+  // Check if user has permission to edit this booking
+  const canEdit = canEditBooking(booking, user?.id || null, role);
   const isLocked = booking.isLocked && role !== "admin";
 
   const handleCancel = () => {
@@ -155,14 +158,24 @@ export function BookingEditorModal({
   return (
     <Modal isOpen={isOpen} onClose={handleCancel}>
       <div className="space-y-4">
-        <BookingEditorHeader title={booking.title} isLocked={isLocked} />
+        <BookingEditorHeader 
+          title={booking.title} 
+          isLocked={isLocked} 
+          mode={canEdit ? "edit" : "view"}
+        />
+
+        {!canEdit && (
+          <div className="p-3 bg-amber-900/20 border border-amber-700/50 rounded-md text-sm text-amber-200">
+            You don't have permission to edit this booking. Only the coach who created it or an admin can edit it.
+          </div>
+        )}
 
         <TimeInputSection
           startTime={startTime}
           endTime={endTime}
           onStartTimeChange={setStartTime}
           onEndTimeChange={setEndTime}
-          disabled={isLocked || saving}
+          disabled={!canEdit || isLocked || saving}
           closedTimes={closedTimes}
           closedPeriods={closedPeriods}
         />
@@ -192,7 +205,7 @@ export function BookingEditorModal({
                 // Mark that user manually changed capacity (handled in useBookingEditor)
               }
             }}
-            disabled={isLocked || saving}
+            disabled={!canEdit || isLocked || saving}
             className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
@@ -268,15 +281,15 @@ export function BookingEditorModal({
         />
 
         <BookingEditorActions
-          onEditRacks={handleClearRacks}
+          onEditRacks={canEdit ? handleClearRacks : undefined}
           onCancel={handleCancel}
-          onSave={handleSave}
-          onDeleteSelected={() => setShowDeleteConfirm("selected")}
-          onDeleteSeries={() => setShowDeleteConfirm("series")}
-          onExtend={() => {
+          onSave={canEdit ? handleSave : undefined}
+          onDeleteSelected={canEdit ? () => setShowDeleteConfirm("selected") : undefined}
+          onDeleteSeries={canEdit ? () => setShowDeleteConfirm("series") : undefined}
+          onExtend={canEdit ? () => {
             setShowExtendDialog(true);
             setShowUpdateTimeConfirm(false); // Hide update confirmation when extending
-          }}
+          } : undefined}
           saving={saving}
           deleting={deleting}
           hasChanges={hasChanges}
@@ -284,7 +297,7 @@ export function BookingEditorModal({
           seriesInstancesCount={seriesInstances.length}
           showDeleteConfirm={showDeleteConfirm !== null}
           showExtendDialog={showExtendDialog}
-          isLocked={isLocked}
+          isLocked={isLocked || !canEdit}
         />
       </div>
     </Modal>

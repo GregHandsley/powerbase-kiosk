@@ -11,9 +11,10 @@ import { useRackSelection } from "../components/schedule/rack-editor/useRackSele
 import { useQueryClient } from "@tanstack/react-query";
 import type { ActiveInstance } from "../types/snapshot";
 import type { BookingWithInstances } from "../hooks/useMyBookings";
+import { canEditBooking } from "../utils/bookingPermissions";
 
 export function MyBookings() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<BookingFilter>({
     status: "all",
@@ -83,6 +84,15 @@ export function MyBookings() {
   const handleEdit = (booking: BookingWithInstances) => {
     const activeInstance = convertToActiveInstance(booking);
     if (!activeInstance) return;
+    
+    // Check if user has permission to edit this booking
+    if (!canEditBooking(activeInstance, user?.id || null, role)) {
+      // This shouldn't happen in MyBookings since it only shows user's bookings,
+      // but check anyway for safety
+      alert("You don't have permission to edit this booking.");
+      return;
+    }
+    
     setShowExtendDialogOnOpen(false);
     setEditingBooking(activeInstance);
   };

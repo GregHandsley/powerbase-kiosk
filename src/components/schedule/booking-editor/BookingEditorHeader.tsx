@@ -1,6 +1,7 @@
 type BookingEditorHeaderProps = {
   title: string;
   isLocked: boolean;
+  mode?: "edit" | "view";
 };
 
 /**
@@ -9,11 +10,14 @@ type BookingEditorHeaderProps = {
 export function BookingEditorHeader({
   title,
   isLocked,
+  mode = "edit",
 }: BookingEditorHeaderProps) {
   return (
     <div className="flex items-start justify-between">
       <div>
-        <h2 className="text-lg font-semibold text-slate-100">Edit Booking</h2>
+        <h2 className="text-lg font-semibold text-slate-100">
+          {mode === "view" ? "View Booking" : "Edit Booking"}
+        </h2>
         <p className="text-xs text-slate-500 mt-1">{title}</p>
       </div>
       {isLocked && (

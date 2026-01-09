@@ -10,6 +10,7 @@ import type { ScheduleData } from "../../admin/capacity/scheduleUtils";
 import { parseExcludedDates } from "../../admin/capacity/scheduleUtils";
 import { useAuth } from "../../../context/AuthContext";
 import type { BookingStatus } from "../../../types/db";
+import { isAfterCutoff, getBookingCutoff, getCutoffMessage } from "../../../utils/cutoff";
 
 type SeriesInstance = {
   id: number;
@@ -27,7 +28,7 @@ export function useBookingEditor(
   initialSelectedInstances?: Set<number>
 ) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [capacity, setCapacity] = useState<number>(1);
@@ -521,6 +522,30 @@ export function useBookingEditor(
         return false;
       }
 
+      // Check cutoff deadline for the first instance being updated
+      const firstInstance = instancesToUpdate[0];
+      if (!firstInstance) {
+        throw new Error("No instances selected for update");
+      }
+      
+      // Use the new start date if time is changing, otherwise use the original start
+      const firstInstanceDate = hasTimeChanges 
+        ? firstInstance.newStart 
+        : new Date(firstInstance.instance.start);
+      
+      const cutoff = getBookingCutoff(firstInstanceDate);
+      const isAfterDeadline = isAfterCutoff(firstInstanceDate);
+      
+      if (isAfterDeadline && role !== "admin") {
+        // Non-admins cannot edit bookings after cutoff
+        const cutoffMessage = getCutoffMessage(firstInstanceDate);
+        throw new Error(
+          `⚠️ Booking cutoff has passed.\n\n${cutoffMessage}\n\n` +
+          `Bookings cannot be created or edited after the cutoff deadline. ` +
+          `Please contact an administrator if this is an emergency.`
+        );
+      }
+
       // No conflicts, proceed with updates
       const updates = instancesToUpdate.map(async (instanceToUpdate) => {
         const updateData: {
@@ -552,6 +577,7 @@ export function useBookingEditor(
 
       // Update booking status if it was previously processed
       // When a processed booking is edited, reset status to 'pending'
+      // Also update last-minute change flag if after cutoff
       if (booking?.bookingId && user?.id) {
         const { data: currentBooking } = await supabase
           .from("bookings")
@@ -559,24 +585,43 @@ export function useBookingEditor(
           .eq("id", booking.bookingId)
           .maybeSingle();
 
+        const updateData: {
+          status?: BookingStatus;
+          last_edited_at: string;
+          last_edited_by: string;
+          last_minute_change?: boolean;
+          cutoff_at?: string;
+          override_by?: string | null;
+        } = {
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: user.id,
+        };
+
+        // Add last-minute change tracking
+        if (isAfterDeadline) {
+          updateData.last_minute_change = true;
+          updateData.cutoff_at = cutoff.toISOString();
+          updateData.override_by = role === "admin" ? user.id : null;
+        }
+
         if (currentBooking?.status === "processed") {
           // Reset to pending and update edit tracking
+          updateData.status = "pending";
           await supabase
             .from("bookings")
-            .update({
-              status: "pending" as BookingStatus,
-              last_edited_at: new Date().toISOString(),
-              last_edited_by: user.id,
-            })
+            .update(updateData)
             .eq("id", booking.bookingId);
         } else if (currentBooking?.status && currentBooking.status !== "draft" && currentBooking.status !== "pending") {
           // For other statuses (confirmed, completed, cancelled), just update edit tracking
           await supabase
             .from("bookings")
-            .update({
-              last_edited_at: new Date().toISOString(),
-              last_edited_by: user.id,
-            })
+            .update(updateData)
+            .eq("id", booking.bookingId);
+        } else {
+          // For pending/draft, just update edit tracking
+          await supabase
+            .from("bookings")
+            .update(updateData)
             .eq("id", booking.bookingId);
         }
       }

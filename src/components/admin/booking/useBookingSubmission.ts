@@ -6,6 +6,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import type { BookingFormValues } from "../../../schemas/bookingForm";
 import { getSideIdByKeyNode, type SideKey } from "../../../nodes/data/sidesNodes";
 import { combineDateAndTime } from "./utils";
+import { isAfterCutoff, getBookingCutoff, getCutoffMessage } from "../../../utils/cutoff";
 
 type WeekManagement = {
   racksByWeek: Map<number, number[]>;
@@ -216,6 +217,20 @@ export function useBookingSubmission(
         throw new Error(errorParts.join("\n"));
       }
 
+      // Check cutoff deadline
+      const cutoff = getBookingCutoff(startTemplate);
+      const isAfterDeadline = isAfterCutoff(startTemplate);
+      
+      if (isAfterDeadline && role !== "admin") {
+        // Non-admins cannot create bookings after cutoff
+        const cutoffMessage = getCutoffMessage(startTemplate);
+        throw new Error(
+          `⚠️ Booking cutoff has passed.\n\n${cutoffMessage}\n\n` +
+          `Bookings cannot be created or edited after the cutoff deadline. ` +
+          `Please contact an administrator if this is an emergency.`
+        );
+      }
+
       const areasKeys = values.areas || [];
 
       // Admin can lock; coaches cannot
@@ -234,6 +249,9 @@ export function useBookingSubmission(
       // Get capacity template (use first week's capacity)
       const templateCapacity = weekManagement.capacityByWeek.get(0) || values.capacity || 1;
 
+      // Determine if this is a last-minute change
+      const lastMinuteChange = isAfterDeadline;
+      
       const { data: booking, error: bookingError } = await supabase
         .from("bookings")
         .insert({
@@ -249,6 +267,9 @@ export function useBookingSubmission(
           created_by: userId,
           is_locked: isLocked,
           status: "pending", // New bookings start as pending
+          last_minute_change: lastMinuteChange,
+          cutoff_at: cutoff.toISOString(),
+          override_by: lastMinuteChange && role === "admin" ? userId : null,
         })
         .select("*")
         .single();
