@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../../lib/supabaseClient";
+import { useAuth } from "../../../context/AuthContext";
 import type { ActiveInstance } from "../../../types/snapshot";
+import type { BookingStatus } from "../../../types/db";
 
 type SeriesInstance = {
   id: number;
@@ -32,6 +34,7 @@ export function useRackSelection({
   onAfterRackUpdate,
 }: UseRackSelectionOptions) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const [isSelectingRacks, setIsSelectingRacks] = useState(false);
   const [selectedRacks, setSelectedRacks] = useState<number[]>([]);
@@ -439,11 +442,42 @@ export function useRackSelection({
 
       await Promise.all(updates);
 
+      // Update the booking record to mark it as edited and reset status if it was processed
+      // This ensures the bookings team sees the change and can reprocess it
+      if (editingBooking.bookingId && user?.id) {
+        const { data: currentBooking } = await supabase
+          .from("bookings")
+          .select("status")
+          .eq("id", editingBooking.bookingId)
+          .maybeSingle();
+
+        const updateData: {
+          last_edited_at: string;
+          last_edited_by: string;
+          status?: BookingStatus;
+        } = {
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: user.id,
+        };
+
+        // If booking was processed, reset to pending so bookings team can review the rack changes
+        if (currentBooking?.status === "processed") {
+          updateData.status = "pending";
+        }
+
+        await supabase
+          .from("bookings")
+          .update(updateData)
+          .eq("id", editingBooking.bookingId);
+      }
+
       await queryClient.invalidateQueries({ queryKey: ["schedule-bookings"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["booking-instances-debug"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["booking-series"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["booking-series-racks"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["bookings-team"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["my-bookings"], exact: false });
 
       if (onAfterRackUpdate) {
         await onAfterRackUpdate();

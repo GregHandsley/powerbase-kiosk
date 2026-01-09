@@ -11,9 +11,12 @@ import { BookingsTeam } from "./pages/BookingsTeam";
 import { Admin } from "./pages/Admin";
 import { TestLayout } from "./pages/TestLayout";
 import { KioskErrorScreen } from "./components/KioskErrorScreen";
+import { TaskBell } from "./components/tasks/TaskBell";
+import { useAuth } from "./context/AuthContext";
 
 export default function App() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const showHeader = !pathname.startsWith("/kiosk");
 
   return (
@@ -46,9 +49,12 @@ export default function App() {
           <Link to="/test-layout" className="hover:text-white">
             Test
           </Link>
-          <Link to="/admin" className="hover:text-white ml-auto">
-            Admin
-          </Link>
+          <div className="ml-auto flex items-center gap-4">
+            {user && <TaskBell />}
+            <Link to="/admin" className="hover:text-white">
+              Admin
+            </Link>
+          </div>
         </nav>
       </header>
       )}

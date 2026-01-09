@@ -11,6 +11,8 @@ import { parseExcludedDates } from "../../admin/capacity/scheduleUtils";
 import { useAuth } from "../../../context/AuthContext";
 import type { BookingStatus } from "../../../types/db";
 import { isAfterCutoff, getBookingCutoff, getCutoffMessage } from "../../../utils/cutoff";
+import { createTasksForUsers, getUserIdsByRole } from "../../../hooks/useTasks";
+import toast from "react-hot-toast";
 
 type SeriesInstance = {
   id: number;
@@ -623,6 +625,51 @@ export function useBookingEditor(
             .from("bookings")
             .update(updateData)
             .eq("id", booking.bookingId);
+        }
+
+        // Create tasks for all edits (bookings team needs to know about all changes)
+        try {
+          // Get bookings team and admin user IDs
+          const bookingsTeamIds = await getUserIdsByRole("bookings_team");
+          const adminIds = await getUserIdsByRole("admin");
+          const allNotifyIds = [...new Set([...bookingsTeamIds, ...adminIds])];
+
+          if (allNotifyIds.length > 0) {
+            // Get booking title for task
+            const { data: bookingData } = await supabase
+              .from("bookings")
+              .select("title, status")
+              .eq("id", booking.bookingId)
+              .single();
+
+            const isLastMinute = isAfterDeadline && updateData.last_minute_change;
+            const wasProcessed = currentBooking?.status === "processed";
+
+            await createTasksForUsers(allNotifyIds, {
+              type: isLastMinute ? "last_minute_change" : "booking:edited",
+              title: isLastMinute
+                ? "Last-Minute Booking Change"
+                : wasProcessed
+                  ? "Processed Booking Edited"
+                  : "Booking Edited",
+              message: isLastMinute
+                ? `Booking "${bookingData?.title || "Untitled"}" was edited after the cutoff deadline.`
+                : wasProcessed
+                  ? `Processed booking "${bookingData?.title || "Untitled"}" was edited and needs reprocessing.`
+                  : `Booking "${bookingData?.title || "Untitled"}" was edited.`,
+              link: `/bookings-team?booking=${booking.bookingId}`,
+              metadata: {
+                booking_id: booking.bookingId,
+                booking_title: bookingData?.title || null,
+                changed_by: user.id,
+                is_last_minute: isLastMinute,
+                was_processed: wasProcessed,
+              },
+            });
+          }
+        } catch (taskError) {
+          console.error("Failed to create tasks:", taskError);
+          // Don't fail the update if tasks fail
         }
       }
 

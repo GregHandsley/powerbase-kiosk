@@ -16,11 +16,13 @@ export type ProcessedSnapshot = {
   instanceCount: number;
   firstInstanceStart: string;
   firstInstanceEnd: string;
-  firstInstanceCapacity?: number;
-  firstInstanceRacks: number[];
+  firstInstanceCapacity?: number; // Deprecated - use allInstanceCapacities instead
+  firstInstanceRacks: number[]; // Deprecated - use allInstanceRacks instead
   allRacks: number[];
   allInstanceStarts?: string[]; // Store all instance start dates for accurate deletion detection
   allInstanceTimes?: Array<{ start: string; end: string }>; // Store all instance times for accurate time change detection
+  allInstanceCapacities?: Array<{ start: string; capacity: number }>; // Store capacity for each instance by date
+  allInstanceRacks?: Array<{ start: string; racks: number[] }>; // Store racks for each instance by date
 };
 
 export type BookingForTeam = {

@@ -2,8 +2,11 @@ import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
 import { supabase } from "../../lib/supabaseClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../../context/AuthContext";
+import { createTasksForUsers, getUserIdsByRole } from "../../hooks/useTasks";
 import type { SideSnapshot } from "../../types/snapshot";
 import type { ActiveInstance } from "../../types/snapshot";
+import type { BookingStatus } from "../../types/db";
 import { RackEditorHeader } from "./rack-editor/RackEditorHeader";
 import { RackEditorGrid } from "./rack-editor/RackEditorGrid";
 import { RackEditorDragOverlay } from "./rack-editor/RackEditorDragOverlay";
@@ -60,6 +63,7 @@ export function RackListEditorCore({
 }: RackListEditorCoreProps) {
   const bookings = useMemo(() => snapshot?.currentInstances ?? [], [snapshot]);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Capacity / availability state for the live view
   const { availablePlatforms, isClosedPeriod } = useLiveViewCapacity({
@@ -335,11 +339,76 @@ export function RackListEditorCore({
 
       await Promise.all(updates);
 
+      // Update the booking record to mark it as edited and reset status if it was processed
+      // This ensures the bookings team sees the change and can reprocess it
+      if (editingBooking.bookingId && user?.id) {
+        const { data: currentBooking } = await supabase
+          .from("bookings")
+          .select("status, title")
+          .eq("id", editingBooking.bookingId)
+          .maybeSingle();
+
+        if (currentBooking) {
+          const updateData: {
+            last_edited_at: string;
+            last_edited_by: string;
+            status?: BookingStatus;
+          } = {
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user.id,
+          };
+
+          // If booking was processed, reset to pending so bookings team can review the rack changes
+          if (currentBooking.status === "processed") {
+            updateData.status = "pending";
+          }
+
+          await supabase
+            .from("bookings")
+            .update(updateData)
+            .eq("id", editingBooking.bookingId);
+
+          // Create tasks for bookings team if booking was processed or if it's a change
+          if (currentBooking.status === "processed" || updateData.status === "pending") {
+            try {
+              const bookingsTeamIds = await getUserIdsByRole("bookings_team");
+              const adminIds = await getUserIdsByRole("admin");
+              const allNotifyIds = [...new Set([...bookingsTeamIds, ...adminIds])];
+
+              if (allNotifyIds.length > 0) {
+                await createTasksForUsers(allNotifyIds, {
+                  type: "booking:edited",
+                  title: currentBooking.status === "processed"
+                    ? "Processed Booking Edited"
+                    : "Booking Edited",
+                  message: currentBooking.status === "processed"
+                    ? `Processed booking "${currentBooking.title || "Untitled"}" had racks/platforms changed and needs reprocessing.`
+                    : `Booking "${currentBooking.title || "Untitled"}" had racks/platforms changed.`,
+                  link: `/bookings-team?booking=${editingBooking.bookingId}`,
+                  metadata: {
+                    booking_id: editingBooking.bookingId,
+                    booking_title: currentBooking.title || null,
+                    changed_by: user.id,
+                    was_processed: currentBooking.status === "processed",
+                  },
+                });
+              }
+            } catch (taskError) {
+              console.error("Failed to create tasks:", taskError);
+              // Don't fail the save if tasks fail
+            }
+          }
+        }
+      }
+
       await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["booking-instances-debug"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["booking-instances-for-time"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["booking-series"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["booking-series-racks"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["bookings-team"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["my-bookings"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"], exact: false });
 
       setIsSelectingRacks(false);
       setEditingBooking(null);

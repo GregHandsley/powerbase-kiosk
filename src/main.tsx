@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
+import { Toaster } from "react-hot-toast";
 import * as Sentry from "@sentry/react";
 import App from "./App";
 import "./styles/index.css";
@@ -74,6 +75,29 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
           <AuthProvider>
           <div className="app-shell">
             <App />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: "#1e293b",
+                  color: "#e2e8f0",
+                  border: "1px solid #334155",
+                },
+                success: {
+                  iconTheme: {
+                    primary: "#10b981",
+                    secondary: "#e2e8f0",
+                  },
+                },
+                error: {
+                  iconTheme: {
+                    primary: "#ef4444",
+                    secondary: "#e2e8f0",
+                  },
+                },
+              }}
+            />
           </div>
           </AuthProvider>
         </BrowserRouter>

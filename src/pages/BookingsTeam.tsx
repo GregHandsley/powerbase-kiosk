@@ -4,9 +4,11 @@ import { useBookingsTeam, type BookingsTeamFilter, type BookingForTeam } from ".
 import { BookingsTeamFilters } from "../components/bookings-team/BookingsTeamFilters";
 import { BookingTeamCard } from "../components/bookings-team/BookingTeamCard";
 import { BookingDetailModal } from "../components/bookings-team/BookingDetailModal";
+import { LastMinuteChangesWidget } from "../components/bookings-team/LastMinuteChangesWidget";
 import { ConfirmationDialog } from "../components/shared/ConfirmationDialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabaseClient";
+import { deleteTasksForBooking } from "../hooks/useTasks";
 
 function InfoTooltip({ content }: { content: string }) {
   const [show, setShow] = useState(false);
@@ -101,8 +103,8 @@ export function BookingsTeam() {
         instanceCount: booking.instances.length,
         firstInstanceStart: firstInstance?.start || "",
         firstInstanceEnd: firstInstance?.end || "",
-        firstInstanceCapacity: firstInstance?.capacity,
-        firstInstanceRacks: firstInstance?.racks || [],
+        firstInstanceCapacity: firstInstance?.capacity, // Keep for backward compatibility
+        firstInstanceRacks: firstInstance?.racks || [], // Keep for backward compatibility
         allRacks: Array.from(allRacks).sort((a, b) => a - b),
         // Store all instance start dates for accurate deletion detection
         allInstanceStarts: booking.instances.map(inst => inst.start).sort(),
@@ -110,6 +112,16 @@ export function BookingsTeam() {
         allInstanceTimes: booking.instances.map(inst => ({
           start: inst.start,
           end: inst.end,
+        })).sort((a, b) => a.start.localeCompare(b.start)),
+        // Store capacity for each instance by date (for accurate change detection after reprocessing)
+        allInstanceCapacities: booking.instances.map(inst => ({
+          start: inst.start,
+          capacity: inst.capacity ?? 1,
+        })).sort((a, b) => a.start.localeCompare(b.start)),
+        // Store racks for each instance by date (for accurate change detection after reprocessing)
+        allInstanceRacks: booking.instances.map(inst => ({
+          start: inst.start,
+          racks: inst.racks || [],
         })).sort((a, b) => a.start.localeCompare(b.start)),
       };
 
@@ -127,10 +139,14 @@ export function BookingsTeam() {
         throw new Error(error.message);
       }
 
+      // Delete tasks related to this booking since it's now processed/resolved
+      await deleteTasksForBooking(booking.id);
+
       // Invalidate queries
       await queryClient.invalidateQueries({ queryKey: ["bookings-team"] });
       await queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
       await queryClient.invalidateQueries({ queryKey: ["snapshot"] });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
       setProcessingBooking(null);
       setViewingBooking(null);
@@ -164,9 +180,26 @@ export function BookingsTeam() {
           instanceCount: booking.instances.length,
           firstInstanceStart: firstInstance?.start || "",
           firstInstanceEnd: firstInstance?.end || "",
-          firstInstanceCapacity: firstInstance?.capacity,
-          firstInstanceRacks: firstInstance?.racks || [],
+          firstInstanceCapacity: firstInstance?.capacity, // Keep for backward compatibility
+          firstInstanceRacks: firstInstance?.racks || [], // Keep for backward compatibility
           allRacks: Array.from(allRacks).sort((a, b) => a - b),
+          // Store all instance start dates for accurate deletion detection
+          allInstanceStarts: booking.instances.map(inst => inst.start).sort(),
+          // Store all instance times for accurate time change detection
+          allInstanceTimes: booking.instances.map(inst => ({
+            start: inst.start,
+            end: inst.end,
+          })).sort((a, b) => a.start.localeCompare(b.start)),
+          // Store capacity for each instance by date (for accurate change detection after reprocessing)
+          allInstanceCapacities: booking.instances.map(inst => ({
+            start: inst.start,
+            capacity: inst.capacity ?? 1,
+          })).sort((a, b) => a.start.localeCompare(b.start)),
+          // Store racks for each instance by date (for accurate change detection after reprocessing)
+          allInstanceRacks: booking.instances.map(inst => ({
+            start: inst.start,
+            racks: inst.racks || [],
+          })).sort((a, b) => a.start.localeCompare(b.start)),
         };
 
         return supabase
@@ -187,10 +220,14 @@ export function BookingsTeam() {
         throw new Error(error.message);
       }
 
+      // Delete tasks for all processed bookings
+      await Promise.all(bookingIds.map(id => deleteTasksForBooking(id)));
+
       // Invalidate queries
       await queryClient.invalidateQueries({ queryKey: ["bookings-team"] });
       await queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
       await queryClient.invalidateQueries({ queryKey: ["snapshot"] });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
       setSelectedBookings(new Set());
     } catch (err) {
@@ -347,6 +384,11 @@ export function BookingsTeam() {
             ></div>
           </div>
         </div>
+      </div>
+
+      {/* Last-Minute Changes Widget */}
+      <div className="mb-6">
+        <LastMinuteChangesWidget />
       </div>
 
       {/* Filters */}

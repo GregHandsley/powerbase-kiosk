@@ -7,6 +7,8 @@ import type { BookingFormValues } from "../../../schemas/bookingForm";
 import { getSideIdByKeyNode, type SideKey } from "../../../nodes/data/sidesNodes";
 import { combineDateAndTime } from "./utils";
 import { isAfterCutoff, getBookingCutoff, getCutoffMessage } from "../../../utils/cutoff";
+import { createTasksForUsers, getUserIdsByRole } from "../../../hooks/useTasks";
+import toast from "react-hot-toast";
 
 type WeekManagement = {
   racksByWeek: Map<number, number[]>;
@@ -329,6 +331,34 @@ export function useBookingSubmission(
       await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["booking-instances-debug"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["schedule-bookings"], exact: false });
+
+      // Create tasks for all bookings (bookings team needs to know about all new bookings)
+      try {
+        // Get bookings team and admin user IDs
+        const bookingsTeamIds = await getUserIdsByRole("bookings_team");
+        const adminIds = await getUserIdsByRole("admin");
+        const allNotifyIds = [...new Set([...bookingsTeamIds, ...adminIds])];
+
+        if (allNotifyIds.length > 0) {
+          await createTasksForUsers(allNotifyIds, {
+            type: lastMinuteChange ? "last_minute_change" : "booking:created",
+            title: lastMinuteChange ? "Last-Minute Booking Created" : "New Booking Created",
+            message: lastMinuteChange
+              ? `Booking "${values.title}" was created after the cutoff deadline.`
+              : `New booking "${values.title}" requires processing.`,
+            link: `/bookings-team?booking=${booking.id}`,
+            metadata: {
+              booking_id: booking.id,
+              booking_title: values.title,
+              created_by: userId,
+              is_last_minute: lastMinuteChange,
+            },
+          });
+        }
+      } catch (taskError) {
+        console.error("Failed to create tasks:", taskError);
+        // Don't fail the booking creation if tasks fail
+      }
 
       setSubmitMessage(
         `Created booking "${values.title}" with ${instancesPayload.length} instance${instancesPayload.length !== 1 ? "s" : ""}.`

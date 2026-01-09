@@ -163,55 +163,83 @@ export function BookingChanges({ booking, acknowledgedChanges = new Set(), onAck
       }
     }
 
-    // Check capacity changes (compare all instances - assume all had same capacity when processed)
-    if (snapshot.firstInstanceCapacity !== undefined) {
-      const changedSessions: Array<{ date: string; newCapacity: number }> = [];
-      
-      // Check each current instance - if capacity differs from snapshot, it changed
+    // Check capacity changes (compare each instance against its snapshot value)
+    const changedSessions: Array<{ date: string; oldCapacity: number; newCapacity: number }> = [];
+    
+    if (snapshot.allInstanceCapacities && snapshot.allInstanceCapacities.length > 0) {
+      // We have stored capacities for each instance, match by date and compare
+      current.forEach((inst) => {
+        const instDateStr = format(parseISO(inst.start), "yyyy-MM-dd");
+        const currentCapacity = inst.capacity ?? 1;
+        
+        // Find the corresponding snapshot instance by matching date
+        const matchingSnapshotInstance = snapshot.allInstanceCapacities.find((snapInst) => {
+          const snapDateStr = format(parseISO(snapInst.start), "yyyy-MM-dd");
+          return snapDateStr === instDateStr;
+        });
+        
+        if (matchingSnapshotInstance) {
+          // Found a matching snapshot instance, check if capacity changed
+          if (currentCapacity !== matchingSnapshotInstance.capacity) {
+            changedSessions.push({
+              date: formatDateBritish(inst.start),
+              oldCapacity: matchingSnapshotInstance.capacity,
+              newCapacity: currentCapacity,
+            });
+          }
+        } else {
+          // No matching snapshot instance - this is a new session (handled by extension check above)
+          // But if we're here, it means the instance count didn't increase, so this shouldn't happen
+          // However, if the snapshot is incomplete, we might need to check against firstInstanceCapacity as fallback
+        }
+      });
+    } else if (snapshot.firstInstanceCapacity !== undefined) {
+      // Fallback for old snapshots - compare all instances against first instance capacity
       current.forEach((inst) => {
         const currentCapacity = inst.capacity ?? 1;
         if (currentCapacity !== snapshot.firstInstanceCapacity) {
           changedSessions.push({
             date: formatDateBritish(inst.start),
+            oldCapacity: snapshot.firstInstanceCapacity,
             newCapacity: currentCapacity,
           });
         }
       });
+    }
 
-      if (changedSessions.length > 0) {
-        // Show each session clearly with its specific change
-        if (changedSessions.length === current.length && changedSessions.every(s => s.newCapacity === changedSessions[0].newCapacity)) {
-          // All sessions changed to the same capacity
-          if (current.length === 1) {
-            // Single session booking
-            detectedChanges.push({
-              type: "capacity",
-              message: `Athletes changed from ${snapshot.firstInstanceCapacity} to ${changedSessions[0].newCapacity} athletes`,
-              oldValue: snapshot.firstInstanceCapacity,
-              newValue: changedSessions[0].newCapacity,
-            });
-          } else {
-            // Multiple sessions
-            detectedChanges.push({
-              type: "capacity",
-              message: `Athletes changed: All ${current.length} sessions changed from ${snapshot.firstInstanceCapacity} to ${changedSessions[0].newCapacity} athletes`,
-              oldValue: snapshot.firstInstanceCapacity,
-              newValue: changedSessions[0].newCapacity,
-            });
-          }
-        } else {
-          // Build a clear list of each session's change
-          const sessionDetails = changedSessions.map(({ date, newCapacity }) => 
-            `• ${date}: ${snapshot.firstInstanceCapacity} → ${newCapacity} athletes`
-          ).join("\n");
-          
+    if (changedSessions.length > 0) {
+      // Show each session clearly with its specific change
+      if (changedSessions.length === current.length && changedSessions.every(s => s.newCapacity === changedSessions[0].newCapacity && s.oldCapacity === changedSessions[0].oldCapacity)) {
+        // All sessions changed to the same capacity
+        if (current.length === 1) {
+          // Single session booking
           detectedChanges.push({
             type: "capacity",
-            message: `Athletes changed on ${changedSessions.length} session${changedSessions.length !== 1 ? "s" : ""}:\n${sessionDetails}`,
-            oldValue: snapshot.firstInstanceCapacity,
-            newValue: changedSessions.map(s => s.newCapacity).join(", "),
+            message: `Athletes changed from ${changedSessions[0].oldCapacity} to ${changedSessions[0].newCapacity} athletes`,
+            oldValue: changedSessions[0].oldCapacity,
+            newValue: changedSessions[0].newCapacity,
+          });
+        } else {
+          // Multiple sessions
+          detectedChanges.push({
+            type: "capacity",
+            message: `Athletes changed: All ${current.length} sessions changed from ${changedSessions[0].oldCapacity} to ${changedSessions[0].newCapacity} athletes`,
+            oldValue: changedSessions[0].oldCapacity,
+            newValue: changedSessions[0].newCapacity,
           });
         }
+      } else {
+        // Build a clear list of each session's change
+        const sessionDetails = changedSessions.map(({ date, oldCapacity, newCapacity }) => 
+          `• ${date}: ${oldCapacity} → ${newCapacity} athletes`
+        ).join("\n");
+        
+        detectedChanges.push({
+          type: "capacity",
+          message: `Athletes changed on ${changedSessions.length} session${changedSessions.length !== 1 ? "s" : ""}:\n${sessionDetails}`,
+          oldValue: changedSessions.map(s => s.oldCapacity).join(", "),
+          newValue: changedSessions.map(s => s.newCapacity).join(", "),
+        });
       }
     }
 
@@ -326,36 +354,69 @@ export function BookingChanges({ booking, acknowledgedChanges = new Set(), onAck
       }
     }
 
-    // Check rack changes (compare each instance individually)
+    // Check rack changes (compare each instance against its snapshot value)
     const formatRacks = (racks: number[]) => {
       return Array.from(racks).sort((a, b) => a - b).join(", ");
     };
     
-    // Use firstInstanceRacks as baseline (assume all instances had same racks when processed)
-    // For future snapshots, we could store individual instance racks
-    const baselineRacks = snapshot.firstInstanceRacks || [];
-    const baselineRacksSet = new Set(baselineRacks);
-    
-    // Find which sessions have different racks
     const rackChangedSessions: Array<{ date: string; oldRacks: string; newRacks: string }> = [];
     
-    current.forEach((inst) => {
-      const instRacks = inst.racks || [];
-      const instRacksSet = new Set(instRacks);
-      
-      // Check if racks changed by comparing sets
-      const racksMatch = 
-        instRacksSet.size === baselineRacksSet.size &&
-        Array.from(instRacksSet).every((rack) => baselineRacksSet.has(rack));
-      
-      if (!racksMatch) {
-        rackChangedSessions.push({
-          date: formatDateBritish(inst.start),
-          oldRacks: formatRacks(baselineRacks),
-          newRacks: formatRacks(instRacks),
+    if (snapshot.allInstanceRacks && snapshot.allInstanceRacks.length > 0) {
+      // We have stored racks for each instance, match by date and compare
+      current.forEach((inst) => {
+        const instDateStr = format(parseISO(inst.start), "yyyy-MM-dd");
+        const instRacks = inst.racks || [];
+        const instRacksSet = new Set(instRacks);
+        
+        // Find the corresponding snapshot instance by matching date
+        const matchingSnapshotInstance = snapshot.allInstanceRacks.find((snapInst) => {
+          const snapDateStr = format(parseISO(snapInst.start), "yyyy-MM-dd");
+          return snapDateStr === instDateStr;
         });
-      }
-    });
+        
+        if (matchingSnapshotInstance) {
+          // Found a matching snapshot instance, check if racks changed
+          const snapshotRacks = matchingSnapshotInstance.racks || [];
+          const snapshotRacksSet = new Set(snapshotRacks);
+          
+          // Check if racks changed by comparing sets
+          const racksMatch = 
+            instRacksSet.size === snapshotRacksSet.size &&
+            Array.from(instRacksSet).every((rack) => snapshotRacksSet.has(rack));
+          
+          if (!racksMatch) {
+            rackChangedSessions.push({
+              date: formatDateBritish(inst.start),
+              oldRacks: formatRacks(snapshotRacks),
+              newRacks: formatRacks(instRacks),
+            });
+          }
+        }
+        // If no matching snapshot instance found, this is a new session (handled by extension check above)
+      });
+    } else {
+      // Fallback for old snapshots - compare all instances against first instance racks
+      const baselineRacks = snapshot.firstInstanceRacks || [];
+      const baselineRacksSet = new Set(baselineRacks);
+      
+      current.forEach((inst) => {
+        const instRacks = inst.racks || [];
+        const instRacksSet = new Set(instRacks);
+        
+        // Check if racks changed by comparing sets
+        const racksMatch = 
+          instRacksSet.size === baselineRacksSet.size &&
+          Array.from(instRacksSet).every((rack) => baselineRacksSet.has(rack));
+        
+        if (!racksMatch) {
+          rackChangedSessions.push({
+            date: formatDateBritish(inst.start),
+            oldRacks: formatRacks(baselineRacks),
+            newRacks: formatRacks(instRacks),
+          });
+        }
+      });
+    }
 
     if (rackChangedSessions.length > 0) {
       if (rackChangedSessions.length === 1 && current.length === 1) {
