@@ -1,13 +1,23 @@
 import { useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { addWeeks } from "date-fns";
+import { addWeeks, format } from "date-fns";
 import { supabase } from "../../../lib/supabaseClient";
 import type { BookingFormValues } from "../../../schemas/bookingForm";
 import { getSideIdByKeyNode, type SideKey } from "../../../nodes/data/sidesNodes";
 import { combineDateAndTime } from "./utils";
-import { isAfterCutoff, getBookingCutoff, getCutoffMessage } from "../../../utils/cutoff";
+import {
+  isAfterNotificationWindow,
+  isWithinHardRestriction,
+  getHardRestrictionMessage,
+  getNotificationWindowSettings,
+  getNotificationWindowDeadline,
+} from "../../../utils/notificationWindow";
 import { createTasksForUsers, getUserIdsByRole } from "../../../hooks/useTasks";
+import { getEmailRecipients } from "../../../utils/emailRecipients";
+import { sendLastMinuteAlert, sendUserConfirmation } from "../../../services/email/sendEmail";
+import { useNotificationSettings } from "../../../hooks/useNotificationSettings";
+import { useAuth } from "../../../context/AuthContext";
 import toast from "react-hot-toast";
 
 type WeekManagement = {
@@ -44,6 +54,8 @@ export function useBookingSubmission(
   capacityValidation: CapacityValidation
 ) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { settings: notificationSettings } = useNotificationSettings();
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -219,19 +231,20 @@ export function useBookingSubmission(
         throw new Error(errorParts.join("\n"));
       }
 
-      // Check cutoff deadline
-      const cutoff = getBookingCutoff(startTemplate);
-      const isAfterDeadline = isAfterCutoff(startTemplate);
+      // Check hard restriction (12-hour rule) - this is a hard block
+      const settings = await getNotificationWindowSettings();
+      const isWithinHardRestrict = await isWithinHardRestriction(startTemplate, settings);
       
-      if (isAfterDeadline && role !== "admin") {
-        // Non-admins cannot create bookings after cutoff
-        const cutoffMessage = getCutoffMessage(startTemplate);
+      if (isWithinHardRestrict) {
+        const hardRestrictionMessage = await getHardRestrictionMessage(startTemplate, settings);
         throw new Error(
-          `⚠️ Booking cutoff has passed.\n\n${cutoffMessage}\n\n` +
-          `Bookings cannot be created or edited after the cutoff deadline. ` +
-          `Please contact an administrator if this is an emergency.`
+          `⚠️ Hard Restriction: ${hardRestrictionMessage}\n\n` +
+          `This booking cannot be created. Please contact an administrator if this is an emergency.`
         );
       }
+
+      // Check notification window (not a hard block, but triggers emails)
+      const isAfterNotificationDeadline = await isAfterNotificationWindow(startTemplate, settings);
 
       const areasKeys = values.areas || [];
 
@@ -251,8 +264,11 @@ export function useBookingSubmission(
       // Get capacity template (use first week's capacity)
       const templateCapacity = weekManagement.capacityByWeek.get(0) || values.capacity || 1;
 
-      // Determine if this is a last-minute change
-      const lastMinuteChange = isAfterDeadline;
+      // Determine if this is a last-minute change (after notification window)
+      const lastMinuteChange = isAfterNotificationDeadline;
+      
+      // Get notification window deadline for cutoff_at field
+      const notificationDeadline = await getNotificationWindowDeadline(startTemplate, settings);
       
       const { data: booking, error: bookingError } = await supabase
         .from("bookings")
@@ -270,7 +286,7 @@ export function useBookingSubmission(
           is_locked: isLocked,
           status: "pending", // New bookings start as pending
           last_minute_change: lastMinuteChange,
-          cutoff_at: cutoff.toISOString(),
+          cutoff_at: notificationDeadline?.toISOString() || null,
           override_by: lastMinuteChange && role === "admin" ? userId : null,
         })
         .select("*")
@@ -344,7 +360,7 @@ export function useBookingSubmission(
             type: lastMinuteChange ? "last_minute_change" : "booking:created",
             title: lastMinuteChange ? "Last-Minute Booking Created" : "New Booking Created",
             message: lastMinuteChange
-              ? `Booking "${values.title}" was created after the cutoff deadline.`
+              ? `Booking "${values.title}" was created after the notification window deadline.`
               : `New booking "${values.title}" requires processing.`,
             link: `/bookings-team?booking=${booking.id}`,
             metadata: {
@@ -358,6 +374,130 @@ export function useBookingSubmission(
       } catch (taskError) {
         console.error("Failed to create tasks:", taskError);
         // Don't fail the booking creation if tasks fail
+      }
+
+      // Send emails if booking was created after notification window
+      if (lastMinuteChange) {
+        console.log("Last-minute booking detected, preparing to send emails...");
+        console.log("Notification settings:", notificationSettings);
+        
+        // If notification settings aren't loaded yet, fetch them
+        let settingsToUse = notificationSettings;
+        if (!settingsToUse) {
+          console.log("Notification settings not loaded, fetching...");
+          const { data: fetchedSettings } = await supabase
+            .from("notification_settings")
+            .select("*")
+            .eq("id", 1)
+            .single();
+          settingsToUse = fetchedSettings as typeof notificationSettings;
+        }
+
+        if (!settingsToUse) {
+          console.warn("No notification settings found, skipping email sending");
+          toast.error("Booking created, but notification settings not configured");
+        } else {
+          try {
+            // Get side name
+            const { data: sideData } = await supabase
+              .from("sides")
+              .select("name, key")
+              .eq("id", sideId)
+              .single();
+
+            const sideName = sideData?.name || values.sideKey;
+            
+            // Format racks
+            const racksList = templateRacks.length > 0
+              ? templateRacks.sort((a, b) => a - b).join(", ")
+              : "None assigned";
+
+            // Format date and time (British format)
+            const bookingDate = format(startTemplate, "EEEE d MMM yyyy");
+            const bookingTime = `${format(startTemplate, "HH:mm")} - ${format(endTemplate, "HH:mm")}`;
+
+            // Get creator name
+            const { data: creatorProfile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("id", userId)
+              .maybeSingle();
+            const creatorName = creatorProfile?.full_name || user?.email || "Unknown";
+
+            // Get email recipients from notification settings
+            console.log("Getting email recipients...");
+            const recipientEmails = await getEmailRecipients(settingsToUse);
+            console.log("Recipient emails:", recipientEmails);
+
+            // Send last-minute alert emails to staff
+            if (recipientEmails.length > 0) {
+              console.log(`Sending last-minute alert to ${recipientEmails.length} recipients...`);
+              const alertResult = await sendLastMinuteAlert(
+                {
+                  bookingTitle: values.title,
+                  bookingDate,
+                  bookingTime,
+                  side: sideName,
+                  racks: racksList,
+                  athletes: templateCapacity,
+                  createdBy: creatorName,
+                  createdAt: new Date().toLocaleString("en-GB", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                  bookingLink: `${window.location.origin}/bookings-team?booking=${booking.id}`,
+                  isEdit: false,
+                },
+                recipientEmails
+              );
+              console.log("Alert email result:", alertResult);
+            } else {
+              console.warn("No recipient emails found. Check notification settings configuration.");
+              toast.error("Booking created, but no email recipients configured");
+            }
+
+            // Send confirmation email to user (if they have email and preferences allow it)
+            if (user?.email) {
+              console.log("Sending confirmation email to user:", user.email);
+              const { data: userPreferences } = await supabase
+                .from("email_notification_preferences")
+                .select("receive_confirmation_emails")
+                .eq("user_id", userId)
+                .maybeSingle();
+
+              const shouldSendConfirmation = userPreferences?.receive_confirmation_emails ?? true;
+
+              if (shouldSendConfirmation) {
+                const confirmationResult = await sendUserConfirmation({
+                  toEmail: user.email,
+                  bookingTitle: values.title,
+                  bookingDate,
+                  bookingTime,
+                  side: sideName,
+                  racks: racksList,
+                  athletes: templateCapacity,
+                  bookingLink: `${window.location.origin}/my-bookings`,
+                  isEdit: false,
+                });
+                console.log("Confirmation email result:", confirmationResult);
+              } else {
+                console.log("User has disabled confirmation emails");
+              }
+            } else {
+              console.warn("User email not available for confirmation");
+            }
+          } catch (emailError) {
+            console.error("Failed to send emails:", emailError);
+            // Don't fail the booking creation if emails fail
+            toast.error("Booking created, but failed to send notification emails");
+          }
+        }
+      } else {
+        console.log("Booking created before notification window, no emails needed");
       }
 
       setSubmitMessage(

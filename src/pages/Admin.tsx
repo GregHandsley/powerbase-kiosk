@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { AdminSidebar } from "../components/admin/AdminSidebar";
 import { CapacityManagement } from "../components/admin/CapacityManagement";
 import { PeriodTypeCapacityManagement } from "../components/admin/PeriodTypeCapacityManagement";
+import { NotificationSettings } from "../components/admin/notification-settings/NotificationSettings";
 
 export function Admin() {
   const { user, profile, role, loading, signOut, signIn } = useAuth();
@@ -152,6 +153,7 @@ export function Admin() {
         <main className="flex-1 overflow-hidden p-6">
           {view === "capacity-schedule" && <CapacityManagement />}
           {view === "period-capacity" && <PeriodTypeCapacityManagement />}
+          {view === "notification-settings" && <NotificationSettings />}
         </main>
       </div>
     </div>

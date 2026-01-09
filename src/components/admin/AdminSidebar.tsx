@@ -12,6 +12,7 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
   const menuItems = [
     { path: "/admin?view=capacity-schedule", label: "Capacity Schedule", icon: "📊" },
     { path: "/admin?view=period-capacity", label: "Period Capacity", icon: "👥" },
+    { path: "/admin?view=notification-settings", label: "Notification Settings", icon: "🔔" },
   ];
 
   return (
