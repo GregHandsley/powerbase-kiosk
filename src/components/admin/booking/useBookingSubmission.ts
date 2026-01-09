@@ -248,6 +248,7 @@ export function useBookingSubmission(
           color: values.color || null,
           created_by: userId,
           is_locked: isLocked,
+          status: "pending", // New bookings start as pending
         })
         .select("*")
         .single();

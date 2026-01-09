@@ -6,6 +6,8 @@ import { KioskBase } from "./pages/KioskBase";
 import { LiveView } from "./pages/LiveView";
 import { Schedule } from "./pages/Schedule";
 import { Bookings } from "./pages/Bookings";
+import { MyBookings } from "./pages/MyBookings";
+import { BookingsTeam } from "./pages/BookingsTeam";
 import { Admin } from "./pages/Admin";
 import { TestLayout } from "./pages/TestLayout";
 import { KioskErrorScreen } from "./components/KioskErrorScreen";
@@ -30,10 +32,16 @@ export default function App() {
             Kiosk Base
           </Link>
           <Link to="/live-view" className="hover:text-white">
-            Live View
+            Session View
           </Link>
           <Link to="/schedule" className="hover:text-white">
             Schedule
+          </Link>
+          <Link to="/my-bookings" className="hover:text-white">
+            My Bookings
+          </Link>
+          <Link to="/bookings-team" className="hover:text-white">
+            Bookings Team
           </Link>
           <Link to="/test-layout" className="hover:text-white">
             Test
@@ -66,6 +74,8 @@ export default function App() {
           />
           <Route path="/live-view" element={<LiveView />} />
           <Route path="/schedule" element={<Schedule />} />
+          <Route path="/my-bookings" element={<MyBookings />} />
+          <Route path="/bookings-team" element={<BookingsTeam />} />
           <Route path="/test-layout" element={<TestLayout />} />
           <Route path="/bookings" element={<Bookings />} />
           <Route path="/admin" element={<Admin />} />

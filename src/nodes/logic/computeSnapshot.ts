@@ -25,6 +25,7 @@ export function computeSnapshotFromInstances(
     const bookingColor = inst.booking?.color ?? null;
     const isLocked = inst.booking?.is_locked ?? false;
     const createdBy = inst.booking?.created_by ?? null;
+    const status = inst.booking?.status;
 
     // current: start <= at < end
     if (start <= at && at < end) {
@@ -39,6 +40,7 @@ export function computeSnapshotFromInstances(
         color: bookingColor,
         isLocked,
         createdBy,
+        status,
       });
     }
 

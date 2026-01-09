@@ -3,11 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../../lib/supabaseClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { addWeeks, format } from "date-fns";
-import { formatTimeForInput, getTimeDifference } from "../../shared/dateUtils";
+import { formatTimeForInput, getTimeDifference, groupInstancesByWeek } from "../../shared/dateUtils";
 import type { ActiveInstance } from "../../../types/snapshot";
 import { checkCapacityViolations } from "../../admin/booking/useCapacityValidation";
 import type { ScheduleData } from "../../admin/capacity/scheduleUtils";
 import { parseExcludedDates } from "../../admin/capacity/scheduleUtils";
+import { useAuth } from "../../../context/AuthContext";
+import type { BookingStatus } from "../../../types/db";
 
 type SeriesInstance = {
   id: number;
@@ -25,6 +27,7 @@ export function useBookingEditor(
   initialSelectedInstances?: Set<number>
 ) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [capacity, setCapacity] = useState<number>(1);
@@ -43,6 +46,16 @@ export function useBookingEditor(
   const [extendWeeks, setExtendWeeks] = useState(1);
   const [extending, setExtending] = useState(false);
   const [showUpdateTimeConfirm, setShowUpdateTimeConfirm] = useState(false);
+  
+  // Track original values to detect any changes across all selected instances
+  const [originalValues, setOriginalValues] = useState<{
+    startTime: string;
+    endTime: string;
+    capacity: number;
+  } | null>(null);
+  
+  // Track if user has manually edited values (vs automatic updates from week navigation)
+  const [userHasEdited, setUserHasEdited] = useState(false);
 
   // Fetch all instances in the series (same booking_id)
   const { data: seriesInstances = [] } = useQuery<SeriesInstance[]>({
@@ -79,25 +92,40 @@ export function useBookingEditor(
   // Initialize times, capacity, and selected instances when booking changes
   useEffect(() => {
     if (booking) {
-      setStartTime(formatTimeForInput(booking.start));
-      setEndTime(formatTimeForInput(booking.end));
-      setCapacity(booking.capacity || 1);
+      const initialStartTime = formatTimeForInput(booking.start);
+      const initialEndTime = formatTimeForInput(booking.end);
+      const initialCapacity = booking.capacity || 1;
+      
+      setStartTime(initialStartTime);
+      setEndTime(initialEndTime);
+      setCapacity(initialCapacity);
+      
+      // Store original values for comparison
+      setOriginalValues({
+        startTime: initialStartTime,
+        endTime: initialEndTime,
+        capacity: initialCapacity,
+      });
+      
       if (initialSelectedInstances && initialSelectedInstances.size > 0) {
         setSelectedInstances(new Set(initialSelectedInstances));
       } else {
         setSelectedInstances(new Set([booking.instanceId]));
       }
-      setApplyToAll(false);
+      setApplyToAll(true); // Default to "Apply to all" for clarity
       if (!initialSelectedInstances || initialSelectedInstances.size === 0) {
         setCurrentWeekIndex(0);
       }
+      setUserHasEdited(false);
     } else {
       setStartTime("");
       setEndTime("");
       setCapacity(1);
       setSelectedInstances(new Set());
-      setApplyToAll(false);
+      setApplyToAll(true); // Default to "Apply to all"
       setCurrentWeekIndex(0);
+      setOriginalValues(null);
+      setUserHasEdited(false);
     }
     setError(null);
   }, [booking, initialSelectedInstances]);
@@ -107,26 +135,63 @@ export function useBookingEditor(
     if (applyToAll && booking && seriesInstances.length > 0) {
       setSelectedInstances(new Set(seriesInstances.map((inst) => inst.id)));
     } else if (!applyToAll && booking && seriesInstances.length > 0) {
+      // When unchecking "Apply to all", clear selection - user must manually select weeks
       if (!initialSelectedInstances || initialSelectedInstances.size === 0) {
-        setSelectedInstances(new Set([booking.instanceId]));
+        setSelectedInstances(new Set());
       }
     }
   }, [applyToAll, booking, seriesInstances, initialSelectedInstances]);
 
+  // Update capacity when navigating weeks (if not applying to all)
+  // Don't auto-select instances - user must manually select them
+  // Only update if user hasn't manually edited (to preserve their changes)
+  useEffect(() => {
+    if (!applyToAll && booking && seriesInstances.length > 0 && !userHasEdited) {
+      const instancesByWeek = groupInstancesByWeek(seriesInstances);
+      const weeks = Array.from(instancesByWeek.keys()).sort((a, b) => a - b);
+      const currentWeek = weeks[currentWeekIndex] ?? weeks[0] ?? null;
+      const currentWeekInstances = currentWeek
+        ? instancesByWeek.get(currentWeek) ?? []
+        : [];
+      
+      // Update capacity to show the capacity of the first instance in current week
+      // This helps user see what capacity is set for this week's sessions
+      if (currentWeekInstances.length > 0) {
+        const firstInstance = currentWeekInstances[0];
+        const instanceData = seriesInstances.find((inst) => inst.id === firstInstance.id);
+        if (instanceData?.capacity !== undefined) {
+          setCapacity(instanceData.capacity);
+        } else {
+          // If no capacity set, use the booking's capacity
+          setCapacity(booking.capacity || 1);
+        }
+      }
+    }
+  }, [currentWeekIndex, applyToAll, booking, seriesInstances, userHasEdited]);
+
   const hasTimeChanges = useMemo(() => {
-    if (!booking) return false;
+    if (!booking || !originalValues) return false;
     return (
-      startTime !== formatTimeForInput(booking.start) ||
-      endTime !== formatTimeForInput(booking.end)
+      startTime !== originalValues.startTime ||
+      endTime !== originalValues.endTime
     );
-  }, [booking, startTime, endTime]);
+  }, [booking, startTime, endTime, originalValues]);
 
   const hasCapacityChanges = useMemo(() => {
-    if (!booking) return false;
-    return capacity !== (booking.capacity || 1);
-  }, [booking, capacity]);
+    if (!booking || !originalValues) return false;
+    // Check if current capacity differs from original
+    // OR if user has manually edited (which means they made a change somewhere)
+    return capacity !== originalValues.capacity || userHasEdited;
+  }, [booking, capacity, originalValues, userHasEdited]);
 
-  const hasChanges = hasTimeChanges || hasCapacityChanges;
+  // Check if there are changes AND instances are selected
+  // The save button should be enabled if:
+  // 1. At least one instance is selected
+  // 2. AND there are any changes (time or capacity)
+  const hasChanges = useMemo(() => {
+    if (!booking || selectedInstances.size === 0) return false;
+    return hasTimeChanges || hasCapacityChanges;
+  }, [booking, selectedInstances.size, hasTimeChanges, hasCapacityChanges]);
 
   const handleSaveTime = async (): Promise<boolean> => {
     if (!booking || !hasChanges) {
@@ -152,14 +217,9 @@ export function useBookingEditor(
       return false;
     }
 
-    if (selectedInstances.size > 1) {
-      // Show confirmation modal if there are changes
-      setShowUpdateTimeConfirm(true);
-      return false; // Return false to indicate we need confirmation
-    }
-
-    // If only one session, proceed directly
-    return await performUpdate();
+    // Always show confirmation modal for any changes
+    setShowUpdateTimeConfirm(true);
+    return false; // Return false to indicate we need confirmation
   };
 
   const performUpdate = async (): Promise<boolean> => {
@@ -489,6 +549,37 @@ export function useBookingEditor(
       });
 
       await Promise.all(updates);
+
+      // Update booking status if it was previously processed
+      // When a processed booking is edited, reset status to 'pending'
+      if (booking?.bookingId && user?.id) {
+        const { data: currentBooking } = await supabase
+          .from("bookings")
+          .select("status")
+          .eq("id", booking.bookingId)
+          .maybeSingle();
+
+        if (currentBooking?.status === "processed") {
+          // Reset to pending and update edit tracking
+          await supabase
+            .from("bookings")
+            .update({
+              status: "pending" as BookingStatus,
+              last_edited_at: new Date().toISOString(),
+              last_edited_by: user.id,
+            })
+            .eq("id", booking.bookingId);
+        } else if (currentBooking?.status && currentBooking.status !== "draft" && currentBooking.status !== "pending") {
+          // For other statuses (confirmed, completed, cancelled), just update edit tracking
+          await supabase
+            .from("bookings")
+            .update({
+              last_edited_at: new Date().toISOString(),
+              last_edited_by: user.id,
+            })
+            .eq("id", booking.bookingId);
+        }
+      }
 
       await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
       await queryClient.invalidateQueries({
@@ -981,6 +1072,22 @@ export function useBookingEditor(
     }
   };
 
+  // Wrapper functions to track manual edits
+  const handleCapacityChange = (value: number) => {
+    setCapacity(value);
+    setUserHasEdited(true);
+  };
+
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value);
+    setUserHasEdited(true);
+  };
+
+  const handleEndTimeChange = (value: string) => {
+    setEndTime(value);
+    setUserHasEdited(true);
+  };
+
     return {
     // State
     startTime,
@@ -1002,9 +1109,9 @@ export function useBookingEditor(
     hasChanges,
     showUpdateTimeConfirm,
     // Setters
-    setStartTime,
-    setEndTime,
-    setCapacity,
+    setStartTime: handleStartTimeChange,
+    setEndTime: handleEndTimeChange,
+    setCapacity: handleCapacityChange,
     setError,
     setShowDeleteConfirm,
     setApplyToAll,

@@ -7,6 +7,7 @@ type SeriesInstance = {
   id: number;
   start: string;
   end: string;
+  capacity?: number;
 };
 
 type SeriesInstancesListProps = {
@@ -19,6 +20,7 @@ type SeriesInstancesListProps = {
   currentWeekIndex: number;
   onWeekIndexChange: (index: number) => void;
   disabled?: boolean;
+  showCapacity?: boolean; // Whether to show capacity for each instance
 };
 
 /**
@@ -34,6 +36,7 @@ export function SeriesInstancesList({
   currentWeekIndex,
   onWeekIndexChange,
   disabled = false,
+  showCapacity = false,
 }: SeriesInstancesListProps) {
   // Group instances by week
   const instancesByWeek = useMemo(
@@ -70,6 +73,11 @@ export function SeriesInstancesList({
           <span>Apply to all</span>
         </label>
       </div>
+      {applyToAll && (
+        <div className="mb-2 text-xs text-slate-400 bg-slate-800/30 border border-slate-700 rounded px-2 py-1">
+          All sessions are selected. Changes will apply to all {instances.length} sessions.
+        </div>
+      )}
 
       <WeekNavigation
         currentWeekIndex={currentWeekIndex}
@@ -102,11 +110,17 @@ export function SeriesInstancesList({
                   type="checkbox"
                   checked={isSelected}
                   onChange={() => onInstanceToggle(inst.id)}
-                  disabled={disabled}
-                  className="h-3 w-3 rounded border-slate-600 bg-slate-950"
+                  disabled={disabled || (applyToAll && isSelected)}
+                  className={clsx(
+                    "h-3 w-3 rounded border-slate-600 bg-slate-950",
+                    applyToAll && isSelected && "opacity-50 cursor-not-allowed"
+                  )}
                 />
                 <span className="flex-1">
                   {formatDateTime(inst.start)} - {formatDateTime(inst.end)}
+                  {showCapacity && inst.capacity !== undefined && (
+                    <span className="ml-2 text-slate-500">({inst.capacity} athletes)</span>
+                  )}
                   {isCurrent && (
                     <span className="ml-2 text-indigo-400">(Current)</span>
                   )}
@@ -117,7 +131,11 @@ export function SeriesInstancesList({
         </div>
       </div>
       <p className="text-[10px] text-slate-500 mt-1">
-        {selectedInstances.size} of {instances.length} sessions selected
+        {selectedInstances.size === 0 ? (
+          <span className="text-amber-500">No sessions selected. Please select at least one session to make changes.</span>
+        ) : (
+          <span>{selectedInstances.size} of {instances.length} sessions selected</span>
+        )}
       </p>
     </div>
   );

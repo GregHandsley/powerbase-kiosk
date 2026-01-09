@@ -30,8 +30,8 @@ export function UnavailableBlock({ block }: Props) {
         ...(isGeneralUser 
           ? {} 
           : {
-              backgroundColor: PERIOD_TYPE_COLORS[block.periodType].bg,
-              borderColor: PERIOD_TYPE_COLORS[block.periodType].border,
+        backgroundColor: PERIOD_TYPE_COLORS[block.periodType].bg,
+        borderColor: PERIOD_TYPE_COLORS[block.periodType].border,
             }
         ),
       }}
@@ -47,14 +47,14 @@ export function UnavailableBlock({ block }: Props) {
         {block.periodType}
       </div>
       {!isGeneralUser && (
-        <div
-          className={clsx(
-            "text-xs mt-1 text-center px-1",
-            PERIOD_TYPE_COLORS[block.periodType].text
-          )}
-        >
-          {block.startTime} - {block.endTime.split(':').slice(0, 2).join(':')}
-        </div>
+      <div
+        className={clsx(
+          "text-xs mt-1 text-center px-1",
+          PERIOD_TYPE_COLORS[block.periodType].text
+        )}
+      >
+        {block.startTime} - {block.endTime.split(':').slice(0, 2).join(':')}
+      </div>
       )}
     </div>
   );

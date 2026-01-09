@@ -68,17 +68,17 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
-      <ErrorBoundary FallbackComponent={ErrorFallback}>
-        <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
-            <AuthProvider>
-            <div className="app-shell">
-              <App />
-            </div>
-            </AuthProvider>
-          </BrowserRouter>
-        </QueryClientProvider>
-      </ErrorBoundary>
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+          <div className="app-shell">
+            <App />
+          </div>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
     </Sentry.ErrorBoundary>
   </React.StrictMode>
 );

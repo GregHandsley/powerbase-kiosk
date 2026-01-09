@@ -1,3 +1,5 @@
+import { format, parseISO } from "date-fns";
+
 /**
  * Utility functions for date and time formatting and manipulation
  */
@@ -24,6 +26,24 @@ export function formatDateTime(isoString: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/**
+ * Format a date in British format with day of the week
+ * e.g., "Monday 8 Jan 2026" (no commas)
+ */
+export function formatDateBritish(date: Date | string): string {
+  const dateObj = typeof date === "string" ? parseISO(date) : date;
+  return format(dateObj, "EEEE d MMM yyyy");
+}
+
+/**
+ * Format a date in British format with day of the week (short)
+ * e.g., "Mon 8 Jan 2026" (no commas)
+ */
+export function formatDateBritishShort(date: Date | string): string {
+  const dateObj = typeof date === "string" ? parseISO(date) : date;
+  return format(dateObj, "EEE d MMM yyyy");
 }
 
 /**

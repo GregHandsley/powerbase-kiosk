@@ -170,6 +170,15 @@ export function BookingEditorModal({
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">
             Number of Athletes
+            {applyToAll ? (
+              <span className="ml-2 text-xs text-slate-400 font-normal">
+                (applies to all {seriesInstances.length} sessions)
+              </span>
+            ) : (
+              <span className="ml-2 text-xs text-slate-400 font-normal">
+                (for selected sessions in current week)
+              </span>
+            )}
           </label>
           <input
             type="number"
@@ -180,6 +189,7 @@ export function BookingEditorModal({
               const value = parseInt(e.target.value, 10);
               if (!isNaN(value) && value >= 1 && value <= 100) {
                 setCapacity(value);
+                // Mark that user manually changed capacity (handled in useBookingEditor)
               }
             }}
             disabled={isLocked || saving}
@@ -197,6 +207,7 @@ export function BookingEditorModal({
           currentWeekIndex={currentWeekIndex}
           onWeekIndexChange={setCurrentWeekIndex}
           disabled={isLocked || saving || deleting}
+          showCapacity={!applyToAll}
         />
 
         {error && (

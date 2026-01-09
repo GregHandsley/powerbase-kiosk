@@ -8,14 +8,27 @@ export function useSnapshotFromSearchParams() {
   const [search, setSearch] = useSearchParams();
   const hasInitialized = useRef(false);
 
-  // Always reset to current date/time on mount/refresh
+  // Only set default date/time if not provided in URL
   useEffect(() => {
     if (hasInitialized.current) return;
     
     const params = new URLSearchParams(search);
-    params.set("date", todayString());
-    params.set("time", currentTimeString());
-    setSearch(params, { replace: true });
+    const hasDate = params.has("date");
+    const hasTime = params.has("time");
+    
+    // Only set defaults if params are missing
+    if (!hasDate) {
+      params.set("date", todayString());
+    }
+    if (!hasTime) {
+      params.set("time", currentTimeString());
+    }
+    
+    // Only update if we added defaults
+    if (!hasDate || !hasTime) {
+      setSearch(params, { replace: true });
+    }
+    
     hasInitialized.current = true;
   }, [search, setSearch]);
 

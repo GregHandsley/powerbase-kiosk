@@ -1,3 +1,5 @@
+import type { BookingStatus } from "./db";
+
 export interface ActiveInstance {
   instanceId: number;
   bookingId: number;
@@ -10,6 +12,7 @@ export interface ActiveInstance {
   isLocked: boolean;
   createdBy: string | null;
   capacity?: number; // Number of athletes in this booking instance
+  status?: BookingStatus; // Booking status (pending, processed, etc.)
 }
 
 export interface NextUseInfo {

@@ -63,7 +63,7 @@ export function BookingEditorActions({
           <button
             type="button"
             onClick={onSave}
-            disabled={saving || deleting || isLocked || !hasChanges}
+            disabled={saving || deleting || isLocked || !hasChanges || selectedInstancesCount === 0}
             className={clsx(
               "px-4 py-2 text-sm font-medium rounded-md",
               "bg-indigo-600 hover:bg-indigo-500 text-white",
