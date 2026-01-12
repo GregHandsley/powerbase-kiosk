@@ -1,9 +1,9 @@
-import { useMemo, useEffect, useRef } from "react";
-import { format } from "date-fns";
-import { Modal } from "../shared/Modal";
-import { BookingFormPanel } from "../admin/BookingFormPanel";
-import { formatTimeSlot, type TimeSlot } from "../admin/capacity/scheduleUtils";
-import type { BookingFormValues } from "../../schemas/bookingForm";
+import { useMemo } from 'react';
+import { format } from 'date-fns';
+import { Modal } from '../shared/Modal';
+import { BookingFormPanel } from '../admin/BookingFormPanel';
+import { formatTimeSlot, type TimeSlot } from '../admin/capacity/scheduleUtils';
+import type { BookingFormValues } from '../../schemas/bookingForm';
 
 type Props = {
   isOpen: boolean;
@@ -11,8 +11,8 @@ type Props = {
   initialDate: Date;
   initialTimeSlot: TimeSlot;
   initialRack: number;
-  initialSide: "Power" | "Base";
-  role: "admin" | "coach";
+  initialSide: 'Power' | 'Base';
+  role: 'admin' | 'coach';
   onSuccess?: () => void;
   /** Selected racks from drag selection */
   selectedRacks?: number[];
@@ -37,9 +37,9 @@ export function CreateBookingModal({
   endTimeSlot,
 }: Props) {
   // Calculate values for display and form
-  const dateStr = format(initialDate, "yyyy-MM-dd");
+  const dateStr = format(initialDate, 'yyyy-MM-dd');
   const timeStr = formatTimeSlot(initialTimeSlot);
-  
+
   // Calculate end time - use endTimeSlot if provided from drag selection, otherwise default to 1.5 hours after start
   const endTimeStr = useMemo(() => {
     if (endTimeSlot) {
@@ -50,19 +50,18 @@ export function CreateBookingModal({
     const endMinute = initialTimeSlot.minute + 30;
     const adjustedEndHour = endMinute >= 60 ? endHour + 1 : endHour;
     const adjustedEndMinute = endMinute >= 60 ? endMinute - 60 : endMinute;
-    return `${String(adjustedEndHour).padStart(2, "0")}:${String(adjustedEndMinute).padStart(2, "0")}`;
+    return `${String(adjustedEndHour).padStart(2, '0')}:${String(adjustedEndMinute).padStart(2, '0')}`;
   }, [endTimeSlot, initialTimeSlot]);
 
   // Calculate racks input - use selectedRacks if provided from drag selection, otherwise use initialRack
   const racksInput = useMemo(() => {
     if (selectedRacks && selectedRacks.length > 0) {
-      return selectedRacks.join(", ");
+      return selectedRacks.join(', ');
     }
     return String(initialRack);
   }, [selectedRacks, initialRack]);
 
   // Calculate initial form values
-  // Include selectedRacks and endTimeSlot in dependencies to ensure recalculation when they change
   const initialFormValues = useMemo<Partial<BookingFormValues>>(() => {
     return {
       sideKey: initialSide,
@@ -71,7 +70,7 @@ export function CreateBookingModal({
       endTime: endTimeStr,
       racksInput: racksInput,
     };
-  }, [initialSide, dateStr, timeStr, endTimeStr, racksInput, selectedRacks, endTimeSlot]);
+  }, [initialSide, dateStr, timeStr, endTimeStr, racksInput]);
 
   // Create a unique key that changes when the modal opens with new values
   // This forces BookingFormPanel to remount and reset the form
@@ -84,9 +83,12 @@ export function CreateBookingModal({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-100">Create New Booking</h2>
+            <h2 className="text-lg font-semibold text-slate-100">
+              Create New Booking
+            </h2>
             <p className="text-sm text-slate-400 mt-1">
-              Pre-filled for {format(initialDate, "EEEE, MMMM d")} at {timeStr} on Rack {initialRack} ({initialSide})
+              Pre-filled for {format(initialDate, 'EEEE, MMMM d')} at {timeStr}{' '}
+              on Rack {initialRack} ({initialSide})
             </p>
           </div>
           <button
@@ -95,15 +97,25 @@ export function CreateBookingModal({
             className="text-slate-400 hover:text-slate-200 transition-colors"
             aria-label="Close"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
-        
-        <BookingFormPanel 
+
+        <BookingFormPanel
           key={formKey}
-          role={role} 
+          role={role}
           initialValues={initialFormValues}
           onSuccess={() => {
             onSuccess?.();
@@ -114,4 +126,3 @@ export function CreateBookingModal({
     </Modal>
   );
 }
-

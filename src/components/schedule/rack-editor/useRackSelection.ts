@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../../../lib/supabaseClient";
-import { useAuth } from "../../../context/AuthContext";
-import type { ActiveInstance } from "../../../types/snapshot";
-import type { BookingStatus } from "../../../types/db";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../../lib/supabaseClient';
+import { useAuth } from '../../../context/AuthContext';
+import type { ActiveInstance } from '../../../types/snapshot';
+import type { BookingStatus } from '../../../types/db';
 
 type SeriesInstance = {
   id: number;
@@ -39,30 +39,34 @@ export function useRackSelection({
   const [isSelectingRacks, setIsSelectingRacks] = useState(false);
   const [selectedRacks, setSelectedRacks] = useState<number[]>([]);
   const [savingRacks, setSavingRacks] = useState(false);
-  const [selectedInstancesForRacks, setSelectedInstancesForRacks] = useState<Set<number>>(
-    new Set()
-  );
+  const [selectedInstancesForRacks, setSelectedInstancesForRacks] = useState<
+    Set<number>
+  >(new Set());
   const [applyRacksToAll, setApplyRacksToAll] = useState(false);
-  const [rackValidationError, setRackValidationError] = useState<string | null>(null);
-  const [savedSelectedInstances, setSavedSelectedInstances] = useState<Set<number>>(new Set());
+  const [rackValidationError, setRackValidationError] = useState<string | null>(
+    null
+  );
+  const [savedSelectedInstances, setSavedSelectedInstances] = useState<
+    Set<number>
+  >(new Set());
   const [rackSelectionWeekIndex, setRackSelectionWeekIndex] = useState(0);
   const [showUpdateRacksConfirm, setShowUpdateRacksConfirm] = useState(false);
   const isEnteringSelectionMode = useRef(false);
 
   // Fetch all instances in the series for rack selection
   const { data: seriesInstancesForRacks = [] } = useQuery({
-    queryKey: ["booking-series-racks", editingBooking?.bookingId],
+    queryKey: ['booking-series-racks', editingBooking?.bookingId],
     queryFn: async () => {
       if (!editingBooking) return [];
 
       const { data, error } = await supabase
-        .from("booking_instances")
-        .select("id, start, end, side_id")
-        .eq("booking_id", editingBooking.bookingId)
-        .order("start", { ascending: true });
+        .from('booking_instances')
+        .select('id, start, end, side_id')
+        .eq('booking_id', editingBooking.bookingId)
+        .order('start', { ascending: true });
 
       if (error) {
-        console.error("Error fetching series instances for racks:", error);
+        console.error('Error fetching series instances for racks:', error);
         return [];
       }
 
@@ -80,24 +84,24 @@ export function useRackSelection({
 
   // Fetch the booking's side key (Power/Base)
   const { data: bookingSide } = useQuery({
-    queryKey: ["side-key", sideIdForRacks],
+    queryKey: ['side-key', sideIdForRacks],
     queryFn: async () => {
       if (!sideIdForRacks) return null;
 
       const { data, error } = await supabase
-        .from("sides")
-        .select("key")
-        .eq("id", sideIdForRacks)
+        .from('sides')
+        .select('key')
+        .eq('id', sideIdForRacks)
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching side key:", error);
+        console.error('Error fetching side key:', error);
         return null;
       }
 
       const key = data?.key?.toLowerCase();
-      if (key === "power") return "Power";
-      if (key === "base") return "Base";
+      if (key === 'power') return 'Power';
+      if (key === 'base') return 'Base';
       return null;
     },
     enabled: isSelectingRacks && !!sideIdForRacks,
@@ -135,15 +139,21 @@ export function useRackSelection({
 
   const currentWeekInstancesForRacks = useMemo(
     () =>
-      currentWeekForRacks ? instancesByWeekForRacks.get(currentWeekForRacks) ?? [] : [],
+      currentWeekForRacks
+        ? (instancesByWeekForRacks.get(currentWeekForRacks) ?? [])
+        : [],
     [currentWeekForRacks, instancesByWeekForRacks]
   );
 
   // Calculate time range for current week to fetch overlapping bookings
   const currentWeekTimeRange: WeekTimeRange = useMemo(() => {
     if (currentWeekInstancesForRacks.length === 0) return null;
-    const starts = currentWeekInstancesForRacks.map((inst) => new Date(inst.start).getTime());
-    const ends = currentWeekInstancesForRacks.map((inst) => new Date(inst.end).getTime());
+    const starts = currentWeekInstancesForRacks.map((inst) =>
+      new Date(inst.start).getTime()
+    );
+    const ends = currentWeekInstancesForRacks.map((inst) =>
+      new Date(inst.end).getTime()
+    );
     return {
       start: new Date(Math.min(...starts)).toISOString(),
       end: new Date(Math.max(...ends)).toISOString(),
@@ -153,7 +163,7 @@ export function useRackSelection({
   // Fetch bookings for the current week to check conflicts
   const { data: bookingsForDisplay = [] } = useQuery({
     queryKey: [
-      "bookings-for-rack-selection",
+      'bookings-for-rack-selection',
       currentWeekTimeRange?.start,
       currentWeekTimeRange?.end,
       sideIdForRacks,
@@ -162,7 +172,7 @@ export function useRackSelection({
       if (!currentWeekTimeRange || !sideIdForRacks) return [];
 
       const { data, error } = await supabase
-        .from("booking_instances")
+        .from('booking_instances')
         .select(
           `
           id,
@@ -176,12 +186,12 @@ export function useRackSelection({
           )
         `
         )
-        .eq("side_id", sideIdForRacks)
-        .lt("start", currentWeekTimeRange.end)
-        .gt("end", currentWeekTimeRange.start);
+        .eq('side_id', sideIdForRacks)
+        .lt('start', currentWeekTimeRange.end)
+        .gt('end', currentWeekTimeRange.start);
 
       if (error) {
-        console.error("Error fetching bookings for rack selection:", error);
+        console.error('Error fetching bookings for rack selection:', error);
         return [];
       }
 
@@ -203,7 +213,7 @@ export function useRackSelection({
           start: r.start,
           end: r.end,
           racks: Array.isArray(r.racks) ? r.racks : [],
-          title: r.booking?.title ?? "Untitled",
+          title: r.booking?.title ?? 'Untitled',
           color: r.booking?.color ?? null,
         };
       }) as ActiveInstance[];
@@ -216,9 +226,14 @@ export function useRackSelection({
     if (!isSelectingRacks || !editingBooking) return;
 
     if (applyRacksToAll && seriesInstancesForRacks.length > 0) {
-      const allInstanceIds = new Set(seriesInstancesForRacks.map((inst) => inst.id));
+      const allInstanceIds = new Set(
+        seriesInstancesForRacks.map((inst) => inst.id)
+      );
       setSelectedInstancesForRacks((prev) => {
-        if (prev.size !== allInstanceIds.size || !Array.from(prev).every((id) => allInstanceIds.has(id))) {
+        if (
+          prev.size !== allInstanceIds.size ||
+          !Array.from(prev).every((id) => allInstanceIds.has(id))
+        ) {
           return allInstanceIds;
         }
         return prev;
@@ -244,7 +259,12 @@ export function useRackSelection({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applyRacksToAll, seriesInstancesForRacks.length, editingBooking?.instanceId, isSelectingRacks]);
+  }, [
+    applyRacksToAll,
+    seriesInstancesForRacks.length,
+    editingBooking?.instanceId,
+    isSelectingRacks,
+  ]);
 
   const startRackSelection = (selectedInstancesFromModal?: Set<number>) => {
     if (!editingBooking) return;
@@ -278,7 +298,11 @@ export function useRackSelection({
 
   // Validate racks for conflicts before saving
   const validateRacksForInstances = async (): Promise<string | null> => {
-    if (!editingBooking || selectedRacks.length === 0 || selectedInstancesForRacks.size === 0) {
+    if (
+      !editingBooking ||
+      selectedRacks.length === 0 ||
+      selectedInstancesForRacks.size === 0
+    ) {
       return null;
     }
 
@@ -293,7 +317,7 @@ export function useRackSelection({
     const sideId = instancesToCheck[0]?.sideId;
 
     if (!sideId) {
-      return "Unable to determine side for validation. Please try again.";
+      return 'Unable to determine side for validation. Please try again.';
     }
 
     const conflicts: Array<{
@@ -305,7 +329,7 @@ export function useRackSelection({
 
     for (const instance of instancesToCheck) {
       const { data: overlappingInstances, error } = await supabase
-        .from("booking_instances")
+        .from('booking_instances')
         .select(
           `
           id,
@@ -318,13 +342,13 @@ export function useRackSelection({
           )
         `
         )
-        .eq("side_id", sideId)
-        .lt("start", instance.end)
-        .gt("end", instance.start)
-        .neq("booking_id", editingBooking.bookingId);
+        .eq('side_id', sideId)
+        .lt('start', instance.end)
+        .gt('end', instance.start)
+        .neq('booking_id', editingBooking.bookingId);
 
       if (error) {
-        console.error("Error checking for conflicts:", error);
+        console.error('Error checking for conflicts:', error);
         return `Error checking for conflicts: ${error.message}`;
       }
 
@@ -338,11 +362,11 @@ export function useRackSelection({
           const formatDateTime = (isoString: string) => {
             const date = new Date(isoString);
             return date.toLocaleString([], {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
             });
           };
 
@@ -350,14 +374,19 @@ export function useRackSelection({
             instanceId: instance.id,
             instanceTime: `${formatDateTime(instance.start)} - ${formatDateTime(instance.end)}`,
             rack,
-            conflictingBooking: (conflictingInstance.booking as { title?: string })?.title ?? "Unknown",
+            conflictingBooking:
+              (conflictingInstance.booking as { title?: string })?.title ??
+              'Unknown',
           });
         }
       }
     }
 
     if (conflicts.length > 0) {
-      const conflictsByInstance = new Map<number, Array<{ rack: number; conflictingBooking: string }>>();
+      const conflictsByInstance = new Map<
+        number,
+        Array<{ rack: number; conflictingBooking: string }>
+      >();
       conflicts.forEach((conflict) => {
         if (!conflictsByInstance.has(conflict.instanceId)) {
           conflictsByInstance.set(conflict.instanceId, []);
@@ -368,29 +397,31 @@ export function useRackSelection({
         });
       });
 
-      let errorMessage = "Rack conflicts detected:\n\n";
+      let errorMessage = 'Rack conflicts detected:\n\n';
       conflictsByInstance.forEach((rackConflicts, instanceId) => {
-        const instance = instancesToCheck.find((inst) => inst.id === instanceId);
+        const instance = instancesToCheck.find(
+          (inst) => inst.id === instanceId
+        );
         const timeStr = instance
           ? `${new Date(instance.start).toLocaleString([], {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
             })} - ${new Date(instance.end).toLocaleString([], {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
             })}`
-          : "Unknown time";
+          : 'Unknown time';
         errorMessage += `Session: ${timeStr}\n`;
         rackConflicts.forEach(({ rack, conflictingBooking }) => {
           errorMessage += `  • Rack ${rack} is booked by "${conflictingBooking}"\n`;
         });
-        errorMessage += "\n";
+        errorMessage += '\n';
       });
 
       return errorMessage.trim();
@@ -403,7 +434,7 @@ export function useRackSelection({
     if (!editingBooking || selectedRacks.length === 0) return;
 
     if (selectedInstancesForRacks.size === 0) {
-      setRackValidationError("Please select at least one session to update");
+      setRackValidationError('Please select at least one session to update');
       return;
     }
 
@@ -431,9 +462,9 @@ export function useRackSelection({
       const instanceIds = Array.from(selectedInstancesForRacks);
       const updates = instanceIds.map(async (instanceId) => {
         const { error } = await supabase
-          .from("booking_instances")
+          .from('booking_instances')
           .update({ racks: selectedRacks })
-          .eq("id", instanceId);
+          .eq('id', instanceId);
 
         if (error) {
           throw new Error(error.message);
@@ -446,9 +477,9 @@ export function useRackSelection({
       // This ensures the bookings team sees the change and can reprocess it
       if (editingBooking.bookingId && user?.id) {
         const { data: currentBooking } = await supabase
-          .from("bookings")
-          .select("status")
-          .eq("id", editingBooking.bookingId)
+          .from('bookings')
+          .select('status')
+          .eq('id', editingBooking.bookingId)
           .maybeSingle();
 
         const updateData: {
@@ -461,23 +492,44 @@ export function useRackSelection({
         };
 
         // If booking was processed, reset to pending so bookings team can review the rack changes
-        if (currentBooking?.status === "processed") {
-          updateData.status = "pending";
+        if (currentBooking?.status === 'processed') {
+          updateData.status = 'pending';
         }
 
         await supabase
-          .from("bookings")
+          .from('bookings')
           .update(updateData)
-          .eq("id", editingBooking.bookingId);
+          .eq('id', editingBooking.bookingId);
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["schedule-bookings"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["booking-instances-debug"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["booking-series"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["booking-series-racks"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["bookings-team"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["my-bookings"], exact: false });
+      await queryClient.invalidateQueries({
+        queryKey: ['schedule-bookings'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['snapshot'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['booking-instances-debug'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['booking-series'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['booking-series-racks'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['bookings-team'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['my-bookings'],
+        exact: false,
+      });
 
       if (onAfterRackUpdate) {
         await onAfterRackUpdate();
@@ -489,8 +541,10 @@ export function useRackSelection({
       setShowUpdateRacksConfirm(false);
       setSavedSelectedInstances(new Set());
     } catch (err) {
-      console.error("Failed to save racks", err);
-      setRackValidationError(err instanceof Error ? err.message : "Failed to save racks");
+      console.error('Failed to save racks', err);
+      setRackValidationError(
+        err instanceof Error ? err.message : 'Failed to save racks'
+      );
     } finally {
       setSavingRacks(false);
     }
@@ -504,7 +558,8 @@ export function useRackSelection({
     const rackUsedByOther = bookingsForDisplay.some(
       // Allow racks already used by the same booking (any instance of it).
       // Only block racks occupied by *other* bookings.
-      (b) => b.bookingId !== editingBooking.bookingId && b.racks.includes(rackNumber)
+      (b) =>
+        b.bookingId !== editingBooking.bookingId && b.racks.includes(rackNumber)
     );
     if (rackUsedByOther) {
       return;
@@ -551,5 +606,3 @@ export function useRackSelection({
     handleRackClick,
   };
 }
-
-

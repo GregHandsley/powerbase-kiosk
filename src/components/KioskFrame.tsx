@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { KioskHeader } from "./KioskHeader";
+import type { ReactNode } from 'react';
+import { KioskHeader } from './KioskHeader';
 
 type Props = {
   title: string;
@@ -17,4 +17,3 @@ export function KioskFrame({ title, slotLabel, children }: Props) {
     </div>
   );
 }
-

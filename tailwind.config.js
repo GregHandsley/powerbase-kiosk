@@ -1,10 +1,10 @@
 /** @type {import('tailwindcss').Config} */
-import themeTokens from "./src/config/theme.js";
+import themeTokens from './src/config/theme.js';
 
 const { brand, sizing, spacing } = themeTokens;
 
 export default {
-  content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx,css}"],
+  content: ['./index.html', './src/**/*.{ts,tsx,js,jsx,css}'],
   theme: {
     extend: {
       colors: {
@@ -22,12 +22,12 @@ export default {
         },
       },
       fontSize: {
-        "kiosk-title": sizing.kioskTitle,
-        "kiosk-rack": sizing.kioskRackText,
-        "kiosk-meta": sizing.kioskMeta,
-        "admin-title": sizing.adminTitle,
-        "admin-body": sizing.adminBody,
-        "admin-small": sizing.adminSmall,
+        'kiosk-title': sizing.kioskTitle,
+        'kiosk-rack': sizing.kioskRackText,
+        'kiosk-meta': sizing.kioskMeta,
+        'admin-title': sizing.adminTitle,
+        'admin-body': sizing.adminBody,
+        'admin-small': sizing.adminSmall,
       },
       spacing: {
         xs: spacing.xs,
@@ -38,12 +38,12 @@ export default {
       },
       fontFamily: {
         sans: [
-          "system-ui",
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "\"SF Pro Text\"",
-          "\"Segoe UI\"",
-          "sans-serif",
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"SF Pro Text"',
+          '"Segoe UI"',
+          'sans-serif',
         ],
       },
     },

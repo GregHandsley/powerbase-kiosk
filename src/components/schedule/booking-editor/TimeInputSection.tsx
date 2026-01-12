@@ -1,5 +1,5 @@
-import { TimePicker } from "../../shared/TimePicker";
-import type { ClosedPeriod } from "../../admin/capacity/useClosedTimes";
+import { TimePicker } from '../../shared/TimePicker';
+import type { ClosedPeriod } from '../../admin/capacity/useClosedTimes';
 
 type TimeInputSectionProps = {
   startTime: string;
@@ -58,4 +58,3 @@ export function TimeInputSection({
     </div>
   );
 }
-

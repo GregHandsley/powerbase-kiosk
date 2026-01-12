@@ -1,6 +1,6 @@
-import type { RackRow } from "../RackListEditorCore";
-import type { ActiveInstance } from "../../../types/snapshot";
-import clsx from "clsx";
+import type { RackRow } from '../RackListEditorCore';
+import type { ActiveInstance } from '../../../types/snapshot';
+import clsx from 'clsx';
 
 type Props = {
   row: RackRow;
@@ -11,9 +11,9 @@ type Props = {
   hasConflict?: boolean;
   onClick?: () => void;
   /** Size variant - 'full' for live view, 'mini' for compact view */
-  variant?: "full" | "mini";
+  variant?: 'full' | 'mini';
   /** Reason why the platform is unavailable - for display purposes */
-  unavailableReason?: "booked" | "not-in-schedule" | null;
+  unavailableReason?: 'booked' | 'not-in-schedule' | null;
 };
 
 /**
@@ -22,13 +22,13 @@ type Props = {
  */
 export function RackCell({
   row,
-  booking,
+  // booking,
   isSelected = false,
   isDisabled = false,
   isClickable = false,
   hasConflict = false,
   onClick,
-  variant = "full",
+  variant = 'full',
   unavailableReason = null,
 }: Props) {
   const handleClick = () => {
@@ -38,22 +38,30 @@ export function RackCell({
   };
 
   const borderColor = hasConflict
-    ? "border-red-500"
+    ? 'border-red-500'
     : isSelected
-      ? "border-indigo-500"
+      ? 'border-indigo-500'
       : isDisabled
-        ? "border-slate-600"
-        : "border-slate-700";
+        ? 'border-slate-600'
+        : 'border-slate-700';
 
   const backgroundColor = hasConflict
-    ? variant === "mini" ? "bg-red-900/40" : "bg-red-900/30"
+    ? variant === 'mini'
+      ? 'bg-red-900/40'
+      : 'bg-red-900/30'
     : isSelected
-      ? variant === "mini" ? "bg-indigo-900/30" : "bg-indigo-600/20"
+      ? variant === 'mini'
+        ? 'bg-indigo-900/30'
+        : 'bg-indigo-600/20'
       : isDisabled
-        ? variant === "mini" ? "bg-slate-800/50" : "bg-slate-900/40 opacity-50"
-        : variant === "mini" ? "bg-slate-800/30" : "bg-slate-900/80";
+        ? variant === 'mini'
+          ? 'bg-slate-800/50'
+          : 'bg-slate-900/40 opacity-50'
+        : variant === 'mini'
+          ? 'bg-slate-800/30'
+          : 'bg-slate-900/80';
 
-  if (variant === "mini") {
+  if (variant === 'mini') {
     return (
       <div
         onClick={handleClick}
@@ -62,22 +70,22 @@ export function RackCell({
           gridRow: row.gridRow,
         }}
         className={clsx(
-          "flex flex-col items-center justify-center rounded border px-1 py-1 transition text-[10px] leading-tight",
+          'flex flex-col items-center justify-center rounded border px-1 py-1 transition text-[10px] leading-tight',
           borderColor,
           backgroundColor,
-          isClickable ? "cursor-pointer hover:bg-slate-700/50" : "",
-          isDisabled ? "cursor-not-allowed opacity-50" : "",
-          row.disabled ? "text-slate-600" : "text-slate-100"
+          isClickable ? 'cursor-pointer hover:bg-slate-700/50' : '',
+          isDisabled ? 'cursor-not-allowed opacity-50' : '',
+          row.disabled ? 'text-slate-600' : 'text-slate-100'
         )}
       >
         <span className="font-semibold text-[10px]">{row.label}</span>
         {!row.disabled && isDisabled && (
           <span className="text-[8px] text-slate-400 mt-0.5 leading-none">
-            {unavailableReason === "booked" 
-              ? "Booked" 
-              : unavailableReason === "not-in-schedule"
-              ? "Unavailable"
-              : "Unavailable"}
+            {unavailableReason === 'booked'
+              ? 'Booked'
+              : unavailableReason === 'not-in-schedule'
+                ? 'Unavailable'
+                : 'Unavailable'}
           </span>
         )}
       </div>
@@ -88,4 +96,3 @@ export function RackCell({
   // The full variant is actually handled by RackRowDroppable, so this is mainly for mini
   return null;
 }
-

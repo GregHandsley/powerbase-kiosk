@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
 type AspectRatioProps = {
   ratio?: number; // width / height, default 16/9
@@ -12,7 +12,7 @@ export function AspectRatio({ ratio = 16 / 9, children }: AspectRatioProps) {
         className="relative h-full max-h-full max-w-full"
         style={{ aspectRatio: `${ratio}` }}
       >
-      <div className="absolute inset-0">{children}</div>
+        <div className="absolute inset-0">{children}</div>
       </div>
     </div>
   );

@@ -1,5 +1,15 @@
-import { addDays, startOfWeek, endOfDay, isAfter, format, getDay, setHours, setMinutes, parse } from "date-fns";
-import { supabase } from "../lib/supabaseClient";
+import {
+  addDays,
+  startOfWeek,
+  // endOfDay,
+  isAfter,
+  format,
+  // getDay,
+  setHours,
+  setMinutes,
+  // parse,
+} from 'date-fns';
+import { supabase } from '../lib/supabaseClient';
 
 export interface NotificationWindowSettings {
   notification_window_enabled: boolean;
@@ -16,9 +26,11 @@ export interface NotificationWindowSettings {
 export async function getNotificationWindowSettings(): Promise<NotificationWindowSettings> {
   try {
     const { data, error } = await supabase
-      .from("notification_settings")
-      .select("notification_window_enabled, notification_window_day_of_week, notification_window_time, hard_restriction_enabled, hard_restriction_hours")
-      .eq("id", 1)
+      .from('notification_settings')
+      .select(
+        'notification_window_enabled, notification_window_day_of_week, notification_window_time, hard_restriction_enabled, hard_restriction_hours'
+      )
+      .eq('id', 1)
       .maybeSingle();
 
     if (error || !data) {
@@ -26,7 +38,7 @@ export async function getNotificationWindowSettings(): Promise<NotificationWindo
       return {
         notification_window_enabled: true,
         notification_window_day_of_week: 4, // Thursday
-        notification_window_time: "23:59:00",
+        notification_window_time: '23:59:00',
         hard_restriction_enabled: true,
         hard_restriction_hours: 12,
       };
@@ -34,18 +46,19 @@ export async function getNotificationWindowSettings(): Promise<NotificationWindo
 
     return {
       notification_window_enabled: data.notification_window_enabled ?? true,
-      notification_window_day_of_week: data.notification_window_day_of_week ?? 4,
-      notification_window_time: data.notification_window_time ?? "23:59:00",
+      notification_window_day_of_week:
+        data.notification_window_day_of_week ?? 4,
+      notification_window_time: data.notification_window_time ?? '23:59:00',
       hard_restriction_enabled: data.hard_restriction_enabled ?? true,
       hard_restriction_hours: data.hard_restriction_hours ?? 12,
     };
   } catch (err) {
-    console.error("Error fetching notification window settings:", err);
+    console.error('Error fetching notification window settings:', err);
     // Return defaults on error
     return {
       notification_window_enabled: true,
       notification_window_day_of_week: 4,
-      notification_window_time: "23:59:00",
+      notification_window_time: '23:59:00',
       hard_restriction_enabled: true,
       hard_restriction_hours: 12,
     };
@@ -63,15 +76,15 @@ export async function getNotificationWindowDeadline(
   date: Date,
   settings?: NotificationWindowSettings
 ): Promise<Date | null> {
-  const config = settings || await getNotificationWindowSettings();
-  
+  const config = settings || (await getNotificationWindowSettings());
+
   if (!config.notification_window_enabled) {
     return null; // Notification window is disabled
   }
 
   const startOfCurrentWeek = startOfWeek(date, { weekStartsOn: 1 }); // Monday
   const targetDayOfWeek = config.notification_window_day_of_week; // 0=Sunday, 1=Monday, etc.
-  
+
   // Calculate the target day (e.g., Thursday before the week starts)
   // We want the target day of the week BEFORE the week starts
   // If target is Thursday (4), and week starts Monday (1):
@@ -82,11 +95,13 @@ export async function getNotificationWindowDeadline(
   const daysFromMonday = targetDayOfWeek === 0 ? 6 : targetDayOfWeek - 1;
   const daysBeforeWeekStart = 7 - daysFromMonday;
   const targetDate = addDays(startOfCurrentWeek, -daysBeforeWeekStart);
-  
+
   // Parse the time (e.g., "23:59:00")
-  const [hours, minutes, seconds = 0] = config.notification_window_time.split(":").map(Number);
+  const [hours, minutes = 0] = config.notification_window_time
+    .split(':')
+    .map(Number);
   const deadline = setMinutes(setHours(targetDate, hours), minutes);
-  
+
   return deadline;
 }
 
@@ -115,15 +130,16 @@ export async function isWithinHardRestriction(
   sessionStartTime: Date,
   settings?: NotificationWindowSettings
 ): Promise<boolean> {
-  const config = settings || await getNotificationWindowSettings();
-  
+  const config = settings || (await getNotificationWindowSettings());
+
   if (!config.hard_restriction_enabled) {
     return false; // Hard restriction is disabled
   }
 
   const now = new Date();
-  const hoursUntilSession = (sessionStartTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-  
+  const hoursUntilSession =
+    (sessionStartTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
   return hoursUntilSession < config.hard_restriction_hours;
 }
 
@@ -139,10 +155,18 @@ export async function getNotificationWindowMessage(
 ): Promise<string> {
   const deadline = await getNotificationWindowDeadline(date, settings);
   if (!deadline) {
-    return "Notification window is disabled";
+    return 'Notification window is disabled';
   }
-  
-  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  const dayNames = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
   const dayName = dayNames[deadline.getDay()];
   return format(deadline, `'${dayName},' d MMM yyyy 'at' HH:mm`);
 }
@@ -157,12 +181,11 @@ export async function getHardRestrictionMessage(
   sessionStartTime: Date,
   settings?: NotificationWindowSettings
 ): Promise<string> {
-  const config = settings || await getNotificationWindowSettings();
-  
+  const config = settings || (await getNotificationWindowSettings());
+
   if (!config.hard_restriction_enabled) {
-    return "Hard restriction is disabled";
+    return 'Hard restriction is disabled';
   }
-  
+
   return `Bookings cannot be created or edited within ${config.hard_restriction_hours} hours of the session start time.`;
 }
-

@@ -1,29 +1,22 @@
 // src/pages/LiveView.tsx
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { useSnapshotFromSearchParams } from "../hooks/useSnapshotFromSearchParams";
-import { Clock } from "../components/Clock";
-import { RackListEditor } from "../components/schedule/RackListEditor";
-import { useLiveViewCapacity } from "../components/schedule/hooks/useLiveViewCapacity";
-import { supabase } from "../lib/supabaseClient";
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { useSnapshotFromSearchParams } from '../hooks/useSnapshotFromSearchParams';
+import { Clock } from '../components/Clock';
+import { RackListEditor } from '../components/schedule/RackListEditor';
+import { useLiveViewCapacity } from '../components/schedule/hooks/useLiveViewCapacity';
+import { supabase } from '../lib/supabaseClient';
 
-type SideMode = "power" | "base";
+type SideMode = 'power' | 'base';
 
 export function LiveView() {
   const navigate = useNavigate();
-  const {
-    date,
-    time,
-    power,
-    base,
-    update,
-    searchParams,
-    setSearchParams,
-  } = useSnapshotFromSearchParams();
+  const { date, time, power, base, update, searchParams, setSearchParams } =
+    useSnapshotFromSearchParams();
 
-  const sideParam = (searchParams.get("side") ?? "power").toLowerCase();
-  const initialSide: SideMode = sideParam === "base" ? "base" : "power";
+  const sideParam = (searchParams.get('side') ?? 'power').toLowerCase();
+  const initialSide: SideMode = sideParam === 'base' ? 'base' : 'power';
 
   const [sideMode, setSideMode] = useState<SideMode>(initialSide);
   const [timeInput, setTimeInput] = useState(time);
@@ -38,13 +31,15 @@ export function LiveView() {
     (mode: SideMode) => {
       setSideMode(mode);
       const params = new URLSearchParams(searchParams);
-      params.set("side", mode);
+      params.set('side', mode);
       setSearchParams(params, { replace: true });
     },
     [searchParams, setSearchParams]
   );
 
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
+    'idle'
+  );
 
   const handleDateChange = (newDate: string) => {
     const safeDate = newDate || date;
@@ -61,34 +56,34 @@ export function LiveView() {
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      setCopyState("copied");
-      setTimeout(() => setCopyState("idle"), 1500);
+      setCopyState('copied');
+      setTimeout(() => setCopyState('idle'), 1500);
     } catch {
-      setCopyState("error");
-      setTimeout(() => setCopyState("idle"), 1500);
+      setCopyState('error');
+      setTimeout(() => setCopyState('idle'), 1500);
     }
   };
 
   const handleAddBooking = () => {
     // Calculate end time as 90 minutes after start time
-    const [startHour, startMinute] = time.split(":").map(Number);
+    const [startHour, startMinute] = time.split(':').map(Number);
     const startTotalMinutes = startHour * 60 + startMinute;
     const endTotalMinutes = startTotalMinutes + 90;
     const endHour = Math.floor(endTotalMinutes / 60);
     const endMinute = endTotalMinutes % 60;
-    const endTime = `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
+    const endTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
 
     // Navigate to bookings page with pre-filled values
     const params = new URLSearchParams({
       date,
       startTime: time,
       endTime,
-      side: sideMode === "power" ? "Power" : "Base",
+      side: sideMode === 'power' ? 'Power' : 'Base',
     });
     navigate(`/bookings?${params.toString()}`);
   };
 
-  const selectedSnapshot = sideMode === "power" ? power : base;
+  const selectedSnapshot = sideMode === 'power' ? power : base;
 
   // Get capacity information for the selected date/time
   const { applicableSchedule, sideId } = useLiveViewCapacity({
@@ -101,7 +96,7 @@ export function LiveView() {
   // Include applicableSchedule in query key so it refetches when schedule changes (e.g., when date changes)
   const { data: currentCapacityUsage } = useQuery({
     queryKey: [
-      "live-view-capacity-usage",
+      'live-view-capacity-usage',
       sideId,
       date,
       time,
@@ -112,20 +107,28 @@ export function LiveView() {
       if (!sideId || !date || !time) return { used: 0, limit: null };
 
       // Combine date and time to get the exact datetime
-      const [year, month, day] = date.split("-").map(Number);
-      const [hour, minute] = time.split(":").map(Number);
-      const selectedDateTime = new Date(year, month - 1, day, hour, minute, 0, 0);
+      const [year, month, day] = date.split('-').map(Number);
+      const [hour, minute] = time.split(':').map(Number);
+      const selectedDateTime = new Date(
+        year,
+        month - 1,
+        day,
+        hour,
+        minute,
+        0,
+        0
+      );
 
       // Fetch all booking instances that overlap with this time
       const { data: instances, error } = await supabase
-        .from("booking_instances")
-        .select("id, start, end, capacity")
-        .eq("side_id", sideId)
-        .lte("start", selectedDateTime.toISOString())
-        .gt("end", selectedDateTime.toISOString());
+        .from('booking_instances')
+        .select('id, start, end, capacity')
+        .eq('side_id', sideId)
+        .lte('start', selectedDateTime.toISOString())
+        .gt('end', selectedDateTime.toISOString());
 
       if (error) {
-        console.error("Error fetching capacity usage:", error);
+        console.error('Error fetching capacity usage:', error);
         return { used: 0, limit: null };
       }
 
@@ -183,21 +186,23 @@ export function LiveView() {
             <div className="inline-flex rounded-md border border-slate-600 bg-slate-950 overflow-hidden">
               <button
                 type="button"
-                onClick={() => setSideModeAndUrl("power")}
-                className={`px-2 py-1 ${sideMode === "power"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800"
-                  }`}
+                onClick={() => setSideModeAndUrl('power')}
+                className={`px-2 py-1 ${
+                  sideMode === 'power'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800'
+                }`}
               >
                 Power
               </button>
               <button
                 type="button"
-                onClick={() => setSideModeAndUrl("base")}
-                className={`px-2 py-1 ${sideMode === "base"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800"
-                  }`}
+                onClick={() => setSideModeAndUrl('base')}
+                className={`px-2 py-1 ${
+                  sideMode === 'base'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800'
+                }`}
               >
                 Base
               </button>
@@ -220,11 +225,11 @@ export function LiveView() {
               onClick={handleCopyLink}
               className="px-3 py-1 rounded-md border border-slate-600 bg-slate-950 text-xs text-slate-100 hover:bg-slate-800"
             >
-              {copyState === "copied"
-                ? "Copied"
-                : copyState === "error"
-                  ? "Error"
-                  : "Copy link"}
+              {copyState === 'copied'
+                ? 'Copied'
+                : copyState === 'error'
+                  ? 'Error'
+                  : 'Copy link'}
             </button>
           </div>
 
@@ -239,7 +244,6 @@ export function LiveView() {
               Add Booking
             </button>
           </div>
-
         </div>
       </header>
 
@@ -261,9 +265,11 @@ export function LiveView() {
                 <span
                   className={(() => {
                     const percentage = (capacityUsed / capacityLimit) * 100;
-                    if (percentage >= 100) return "ml-2 text-sm font-medium text-red-400";
-                    if (percentage >= 80) return "ml-2 text-sm font-medium text-yellow-400";
-                    return "ml-2 text-sm font-medium text-green-400";
+                    if (percentage >= 100)
+                      return 'ml-2 text-sm font-medium text-red-400';
+                    if (percentage >= 80)
+                      return 'ml-2 text-sm font-medium text-yellow-400';
+                    return 'ml-2 text-sm font-medium text-green-400';
                   })()}
                 >
                   {capacityUsed} / {capacityLimit} athletes
@@ -276,17 +282,21 @@ export function LiveView() {
 
       {/* Rack list editor */}
       <section className="space-y-3">
-          <div className="flex items-center justify-between text-xs text-slate-300">
-            <span className="font-semibold">
-            {sideMode === "power" ? "Power" : "Base"} — {date} {time}
-            </span>
-            <span className="text-slate-400">
-            Snapshot at {selectedSnapshot.snapshot?.at ?? "…"}
-            </span>
-          </div>
+        <div className="flex items-center justify-between text-xs text-slate-300">
+          <span className="font-semibold">
+            {sideMode === 'power' ? 'Power' : 'Base'} — {date} {time}
+          </span>
+          <span className="text-slate-400">
+            Snapshot at {selectedSnapshot.snapshot?.at ?? '…'}
+          </span>
+        </div>
         <RackListEditor
           side={sideMode}
-          snapshot={sideMode === "power" ? power.snapshot ?? null : base.snapshot ?? null}
+          snapshot={
+            sideMode === 'power'
+              ? (power.snapshot ?? null)
+              : (base.snapshot ?? null)
+          }
           date={date}
           time={time}
         />
@@ -294,4 +304,3 @@ export function LiveView() {
     </div>
   );
 }
-

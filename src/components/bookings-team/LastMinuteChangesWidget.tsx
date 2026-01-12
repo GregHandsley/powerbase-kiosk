@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabaseClient";
-import { Link } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabaseClient';
+import { Link } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
 
 interface RecentActivity {
   id: number;
@@ -14,13 +14,13 @@ interface RecentActivity {
   creator_name: string | null;
   side_name: string;
   side_key: string;
-  activity_type: "created" | "edited";
+  activity_type: 'created' | 'edited';
   activity_date: string;
 }
 
 export function LastMinuteChangesWidget() {
   const { data: activities = [], isLoading } = useQuery({
-    queryKey: ["recent-booking-activity"],
+    queryKey: ['recent-booking-activity'],
     queryFn: async () => {
       // Get all bookings (created or edited) from the last 7 days
       const sevenDaysAgo = new Date();
@@ -28,7 +28,7 @@ export function LastMinuteChangesWidget() {
 
       // Fetch bookings created in last 7 days
       const { data: createdBookings, error: createdError } = await supabase
-        .from("bookings")
+        .from('bookings')
         .select(
           `
           id,
@@ -47,17 +47,17 @@ export function LastMinuteChangesWidget() {
           )
         `
         )
-        .gte("created_at", sevenDaysAgo.toISOString())
-        .order("created_at", { ascending: false })
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
         .limit(20);
 
       if (createdError) {
-        console.error("Error fetching created bookings:", createdError);
+        console.error('Error fetching created bookings:', createdError);
       }
 
       // Fetch bookings edited in last 7 days (but not created in last 7 days)
       const { data: editedBookings, error: editedError } = await supabase
-        .from("bookings")
+        .from('bookings')
         .select(
           `
           id,
@@ -76,14 +76,14 @@ export function LastMinuteChangesWidget() {
           )
         `
         )
-        .not("last_edited_at", "is", null)
-        .gte("last_edited_at", sevenDaysAgo.toISOString())
-        .lt("created_at", sevenDaysAgo.toISOString()) // Exclude ones created in last 7 days
-        .order("last_edited_at", { ascending: false })
+        .not('last_edited_at', 'is', null)
+        .gte('last_edited_at', sevenDaysAgo.toISOString())
+        .lt('created_at', sevenDaysAgo.toISOString()) // Exclude ones created in last 7 days
+        .order('last_edited_at', { ascending: false })
         .limit(20);
 
       if (editedError) {
-        console.error("Error fetching edited bookings:", editedError);
+        console.error('Error fetching edited bookings:', editedError);
       }
 
       // Combine and format
@@ -99,10 +99,13 @@ export function LastMinuteChangesWidget() {
           last_minute_change: booking.last_minute_change,
           cutoff_at: booking.cutoff_at,
           created_by: booking.created_by,
-          creator_name: (booking.creator as { full_name: string } | null)?.full_name || null,
-          side_name: (booking.side as { name: string } | null)?.name || "Unknown",
-          side_key: (booking.side as { key: string } | null)?.key || "unknown",
-          activity_type: "created",
+          creator_name:
+            (booking.creator as { full_name: string } | null)?.full_name ||
+            null,
+          side_name:
+            (booking.side as { name: string } | null)?.name || 'Unknown',
+          side_key: (booking.side as { key: string } | null)?.key || 'unknown',
+          activity_type: 'created',
           activity_date: booking.created_at,
         });
       });
@@ -117,21 +120,28 @@ export function LastMinuteChangesWidget() {
           last_minute_change: booking.last_minute_change,
           cutoff_at: booking.cutoff_at,
           created_by: booking.created_by,
-          creator_name: (booking.creator as { full_name: string } | null)?.full_name || null,
-          side_name: (booking.side as { name: string } | null)?.name || "Unknown",
-          side_key: (booking.side as { key: string } | null)?.key || "unknown",
-          activity_type: "edited",
+          creator_name:
+            (booking.creator as { full_name: string } | null)?.full_name ||
+            null,
+          side_name:
+            (booking.side as { name: string } | null)?.name || 'Unknown',
+          side_key: (booking.side as { key: string } | null)?.key || 'unknown',
+          activity_type: 'edited',
           activity_date: booking.last_edited_at || booking.created_at,
         });
       });
 
       // Sort by activity date (most recent first) and limit to 10
       return allActivities
-        .sort((a, b) => new Date(b.activity_date).getTime() - new Date(a.activity_date).getTime())
+        .sort(
+          (a, b) =>
+            new Date(b.activity_date).getTime() -
+            new Date(a.activity_date).getTime()
+        )
         .slice(0, 10);
 
       if (error) {
-        console.error("Error fetching last-minute changes:", error);
+        console.error('Error fetching last-minute changes:', error);
         return [];
       }
 
@@ -142,9 +152,10 @@ export function LastMinuteChangesWidget() {
         last_minute_change: booking.last_minute_change,
         cutoff_at: booking.cutoff_at,
         created_by: booking.created_by,
-        creator_name: (booking.creator as { full_name: string } | null)?.full_name || null,
-        side_name: (booking.side as { name: string } | null)?.name || "Unknown",
-        side_key: (booking.side as { key: string } | null)?.key || "unknown",
+        creator_name:
+          (booking.creator as { full_name: string } | null)?.full_name || null,
+        side_name: (booking.side as { name: string } | null)?.name || 'Unknown',
+        side_key: (booking.side as { key: string } | null)?.key || 'unknown',
       })) as LastMinuteChange[];
     },
     refetchInterval: 30000, // Refetch every 30 seconds
@@ -153,7 +164,9 @@ export function LastMinuteChangesWidget() {
   if (isLoading) {
     return (
       <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-slate-200 mb-3">Recent Booking Activity</h3>
+        <h3 className="text-sm font-semibold text-slate-200 mb-3">
+          Recent Booking Activity
+        </h3>
         <div className="text-sm text-slate-400">Loading...</div>
       </div>
     );
@@ -162,8 +175,12 @@ export function LastMinuteChangesWidget() {
   if (activities.length === 0) {
     return (
       <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-slate-200 mb-3">Recent Booking Activity</h3>
-        <div className="text-sm text-slate-400">No booking activity in the last 7 days</div>
+        <h3 className="text-sm font-semibold text-slate-200 mb-3">
+          Recent Booking Activity
+        </h3>
+        <div className="text-sm text-slate-400">
+          No booking activity in the last 7 days
+        </div>
       </div>
     );
   }
@@ -171,7 +188,9 @@ export function LastMinuteChangesWidget() {
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-slate-200">Recent Booking Activity</h3>
+        <h3 className="text-sm font-semibold text-slate-200">
+          Recent Booking Activity
+        </h3>
         <Link
           to="/bookings-team"
           className="text-xs text-slate-400 hover:text-slate-300 transition-colors"
@@ -199,20 +218,28 @@ export function LastMinuteChangesWidget() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-slate-400 capitalize">{activity.activity_type}</span>
+                  <span className="text-xs text-slate-400 capitalize">
+                    {activity.activity_type}
+                  </span>
                   <span className="text-xs text-slate-600">•</span>
-                  <span className="text-xs text-slate-400">{activity.side_name}</span>
+                  <span className="text-xs text-slate-400">
+                    {activity.side_name}
+                  </span>
                   {activity.creator_name && (
                     <>
                       <span className="text-xs text-slate-600">•</span>
-                      <span className="text-xs text-slate-400">{activity.creator_name}</span>
+                      <span className="text-xs text-slate-400">
+                        {activity.creator_name}
+                      </span>
                     </>
                   )}
                 </div>
               </div>
               <div className="text-right shrink-0">
                 <p className="text-xs text-slate-500">
-                  {formatDistanceToNow(new Date(activity.activity_date), { addSuffix: true })}
+                  {formatDistanceToNow(new Date(activity.activity_date), {
+                    addSuffix: true,
+                  })}
                 </p>
               </div>
             </div>
@@ -222,4 +249,3 @@ export function LastMinuteChangesWidget() {
     </div>
   );
 }
-

@@ -1,11 +1,21 @@
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { getSideIdByKeyNode, type SideKey } from "../../nodes/data/sidesNodes";
-import { useCapacityDefaults } from "./capacity/useCapacityDefaults";
-import { CapacityEditForm } from "./capacity/CapacityEditForm";
+import { useState, useEffect } from 'react';
+// import { format } from 'date-fns';
+// import { getSideIdByKeyNode, type SideKey } from '../../nodes/data/sidesNodes';
+import { useCapacityDefaults } from './capacity/useCapacityDefaults';
+import { CapacityEditForm } from './capacity/CapacityEditForm';
 
-type RecurrenceType = "single" | "weekday" | "weekend" | "all_future" | "weekly";
-type PeriodType = "High Hybrid" | "Low Hybrid" | "Performance" | "General User" | "Closed";
+type RecurrenceType =
+  | 'single'
+  | 'weekday'
+  | 'weekend'
+  | 'all_future'
+  | 'weekly';
+type PeriodType =
+  | 'High Hybrid'
+  | 'Low Hybrid'
+  | 'Performance'
+  | 'General User'
+  | 'Closed';
 
 type Props = {
   isOpen: boolean;
@@ -23,7 +33,7 @@ type Props = {
   initialTime: string; // HH:mm format
   initialEndTime?: string; // HH:mm format
   sideId: number;
-  sideKey: "Power" | "Base";
+  sideKey: 'Power' | 'Base';
   existingCapacity?: {
     capacity: number;
     periodType: PeriodType;
@@ -46,31 +56,42 @@ export function CapacityEditModal({
   existingRecurrenceType,
 }: Props) {
   const [periodType, setPeriodType] = useState<PeriodType>(
-    existingCapacity?.periodType || "General User"
+    existingCapacity?.periodType || 'General User'
   );
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(existingRecurrenceType || "single");
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
+    existingRecurrenceType || 'single'
+  );
   const [startTime, setStartTime] = useState(initialTime);
-  const [endTime, setEndTime] = useState(initialEndTime || "23:59");
+  const [endTime, setEndTime] = useState(initialEndTime || '23:59');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [capacityOverride, setCapacityOverride] = useState<number | null>(existingCapacity?.capacity || null);
+  const [capacityOverride, setCapacityOverride] = useState<number | null>(
+    existingCapacity?.capacity || null
+  );
   const [useOverride, setUseOverride] = useState(false);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<number[]>(existingCapacity?.platforms || []);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<number[]>(
+    existingCapacity?.platforms || []
+  );
 
   // Fetch default capacity and platforms
-  const { defaultCapacity, defaultPlatforms, loadingDefault } = useCapacityDefaults(
-    isOpen,
-    periodType,
-    sideId,
-    existingCapacity?.platforms
-  );
+  const { defaultCapacity, defaultPlatforms, loadingDefault } =
+    useCapacityDefaults(
+      isOpen,
+      periodType,
+      sideId,
+      existingCapacity?.platforms
+    );
 
   // Initialize selected platforms from defaults if not set
   // For "Closed" period type, always use empty array (no platforms)
   useEffect(() => {
-    if (periodType === "Closed") {
+    if (periodType === 'Closed') {
       setSelectedPlatforms([]);
-    } else if (isOpen && !existingCapacity?.platforms && defaultPlatforms.length > 0) {
+    } else if (
+      isOpen &&
+      !existingCapacity?.platforms &&
+      defaultPlatforms.length > 0
+    ) {
       setSelectedPlatforms(defaultPlatforms);
     }
   }, [isOpen, existingCapacity?.platforms, defaultPlatforms, periodType]);
@@ -94,25 +115,33 @@ export function CapacityEditModal({
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
-      setPeriodType(existingCapacity?.periodType || "General User");
+      setPeriodType(existingCapacity?.periodType || 'General User');
       // When editing existing, force to "single" to only edit that day
       // When creating new, allow any recurrence type
-      setRecurrenceType(existingCapacity ? "single" : (existingRecurrenceType || "single"));
+      setRecurrenceType(
+        existingCapacity ? 'single' : existingRecurrenceType || 'single'
+      );
       setStartTime(initialTime);
-      setEndTime(initialEndTime || "23:59");
+      setEndTime(initialEndTime || '23:59');
       // For "Closed" period type, always use empty array (no platforms)
-      if (existingCapacity?.periodType === "Closed") {
+      if (existingCapacity?.periodType === 'Closed') {
         setSelectedPlatforms([]);
       } else {
         setSelectedPlatforms(existingCapacity?.platforms || []);
       }
       setError(null);
     }
-  }, [isOpen, initialTime, initialEndTime, existingCapacity, existingRecurrenceType]);
+  }, [
+    isOpen,
+    initialTime,
+    initialEndTime,
+    existingCapacity,
+    existingRecurrenceType,
+  ]);
 
   // When period type changes to "Closed", enforce no platforms and capacity 0
   useEffect(() => {
-    if (periodType === "Closed") {
+    if (periodType === 'Closed') {
       setSelectedPlatforms([]);
       setCapacityOverride(0);
       setUseOverride(false);
@@ -123,33 +152,40 @@ export function CapacityEditModal({
 
   const handleSave = async () => {
     if (endTime <= startTime) {
-      setError("End time must be after start time");
+      setError('End time must be after start time');
       return;
     }
 
     // For "Closed" period type, enforce capacity 0 and no platforms
-    const finalCapacity = periodType === "Closed" ? 0 : (useOverride && capacityOverride !== null ? capacityOverride : defaultCapacity);
-    const finalPlatforms = periodType === "Closed" ? [] : selectedPlatforms;
+    const finalCapacity =
+      periodType === 'Closed'
+        ? 0
+        : useOverride && capacityOverride !== null
+          ? capacityOverride
+          : defaultCapacity;
+    const finalPlatforms = periodType === 'Closed' ? [] : selectedPlatforms;
 
     if (finalCapacity === null) {
-      setError("No default capacity set for this period type. Please set a default capacity first.");
+      setError(
+        'No default capacity set for this period type. Please set a default capacity first.'
+      );
       return;
     }
 
     if (finalCapacity < 0) {
-      setError("Capacity cannot be negative");
+      setError('Capacity cannot be negative');
       return;
     }
 
     // Validate that closed periods have no platforms
-    if (periodType === "Closed" && finalPlatforms.length > 0) {
-      setError("Closed periods cannot have platforms selected.");
+    if (periodType === 'Closed' && finalPlatforms.length > 0) {
+      setError('Closed periods cannot have platforms selected.');
       return;
     }
 
     // Validate that closed periods have capacity 0
-    if (periodType === "Closed" && finalCapacity !== 0) {
-      setError("Closed periods must have capacity of 0.");
+    if (periodType === 'Closed' && finalCapacity !== 0) {
+      setError('Closed periods must have capacity of 0.');
       return;
     }
 
@@ -167,7 +203,7 @@ export function CapacityEditModal({
       });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save capacity");
+      setError(err instanceof Error ? err.message : 'Failed to save capacity');
     } finally {
       setSaving(false);
     }
@@ -176,19 +212,21 @@ export function CapacityEditModal({
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log("[DELETE] Delete button clicked in CapacityEditModal", { hasOnDelete: !!onDelete });
+    console.log('[DELETE] Delete button clicked in CapacityEditModal', {
+      hasOnDelete: !!onDelete,
+    });
     if (!onDelete) {
-      console.warn("[DELETE] No onDelete handler provided");
+      console.warn('[DELETE] No onDelete handler provided');
       return;
     }
     // Don't show confirmation here - let the parent component handle it
     // The onDelete callback will trigger the delete confirmation in CapacityManagement
-    console.log("[DELETE] Calling onDelete callback");
+    console.log('[DELETE] Calling onDelete callback');
     onDelete();
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={onClose}
     >
@@ -198,13 +236,20 @@ export function CapacityEditModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-slate-100">Edit Capacity</h2>
+          <h2 className="text-lg font-semibold text-slate-100">
+            Edit Capacity
+          </h2>
           <button
             onClick={onClose}
             className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200"
             aria-label="Close"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -273,7 +318,7 @@ export function CapacityEditModal({
               disabled={saving}
               className="px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? "Saving..." : "Save"}
+              {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
         </div>

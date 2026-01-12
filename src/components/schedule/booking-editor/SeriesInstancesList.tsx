@@ -1,7 +1,7 @@
-import { useMemo } from "react";
-import clsx from "clsx";
-import { formatDateTime, groupInstancesByWeek } from "../../shared/dateUtils";
-import { WeekNavigation } from "./WeekNavigation";
+import { useMemo } from 'react';
+import clsx from 'clsx';
+import { formatDateTime, groupInstancesByWeek } from '../../shared/dateUtils';
+import { WeekNavigation } from './WeekNavigation';
 
 type SeriesInstance = {
   id: number;
@@ -51,7 +51,7 @@ export function SeriesInstancesList({
 
   const currentWeek = weeks[currentWeekIndex] ?? weeks[0] ?? null;
   const currentWeekInstances = currentWeek
-    ? instancesByWeek.get(currentWeek) ?? []
+    ? (instancesByWeek.get(currentWeek) ?? [])
     : [];
 
   if (instances.length <= 1) return null;
@@ -75,7 +75,8 @@ export function SeriesInstancesList({
       </div>
       {applyToAll && (
         <div className="mb-2 text-xs text-slate-400 bg-slate-800/30 border border-slate-700 rounded px-2 py-1">
-          All sessions are selected. Changes will apply to all {instances.length} sessions.
+          All sessions are selected. Changes will apply to all{' '}
+          {instances.length} sessions.
         </div>
       )}
 
@@ -98,12 +99,12 @@ export function SeriesInstancesList({
               <label
                 key={inst.id}
                 className={clsx(
-                  "flex items-center gap-2 text-xs px-2 py-1 rounded cursor-pointer",
+                  'flex items-center gap-2 text-xs px-2 py-1 rounded cursor-pointer',
                   isCurrent
-                    ? "bg-indigo-900/30 border border-indigo-700 text-indigo-200"
+                    ? 'bg-indigo-900/30 border border-indigo-700 text-indigo-200'
                     : isSelected
-                      ? "bg-slate-800/50 border border-slate-600 text-slate-200"
-                      : "text-slate-400 hover:bg-slate-800/30"
+                      ? 'bg-slate-800/50 border border-slate-600 text-slate-200'
+                      : 'text-slate-400 hover:bg-slate-800/30'
                 )}
               >
                 <input
@@ -112,14 +113,16 @@ export function SeriesInstancesList({
                   onChange={() => onInstanceToggle(inst.id)}
                   disabled={disabled || (applyToAll && isSelected)}
                   className={clsx(
-                    "h-3 w-3 rounded border-slate-600 bg-slate-950",
-                    applyToAll && isSelected && "opacity-50 cursor-not-allowed"
+                    'h-3 w-3 rounded border-slate-600 bg-slate-950',
+                    applyToAll && isSelected && 'opacity-50 cursor-not-allowed'
                   )}
                 />
                 <span className="flex-1">
                   {formatDateTime(inst.start)} - {formatDateTime(inst.end)}
                   {showCapacity && inst.capacity !== undefined && (
-                    <span className="ml-2 text-slate-500">({inst.capacity} athletes)</span>
+                    <span className="ml-2 text-slate-500">
+                      ({inst.capacity} athletes)
+                    </span>
                   )}
                   {isCurrent && (
                     <span className="ml-2 text-indigo-400">(Current)</span>
@@ -132,12 +135,16 @@ export function SeriesInstancesList({
       </div>
       <p className="text-[10px] text-slate-500 mt-1">
         {selectedInstances.size === 0 ? (
-          <span className="text-amber-500">No sessions selected. Please select at least one session to make changes.</span>
+          <span className="text-amber-500">
+            No sessions selected. Please select at least one session to make
+            changes.
+          </span>
         ) : (
-          <span>{selectedInstances.size} of {instances.length} sessions selected</span>
+          <span>
+            {selectedInstances.size} of {instances.length} sessions selected
+          </span>
         )}
       </p>
     </div>
   );
 }
-

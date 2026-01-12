@@ -1,5 +1,5 @@
-import clsx from "clsx";
-import type { ActiveInstance } from "../../../types/snapshot";
+import clsx from 'clsx';
+import type { ActiveInstance } from '../../../types/snapshot';
 
 type SeriesInstance = {
   id: number;
@@ -51,7 +51,9 @@ export function RackSelectionPanel({
             Select Platforms for {editingBooking?.title}
           </h3>
           <p className="text-xs text-slate-400 mt-1">
-            Click racks to select or deselect. Selected racks ({selectedRacks.length}) are highlighted. Racks used by other bookings are grayed out.
+            Click racks to select or deselect. Selected racks (
+            {selectedRacks.length}) are highlighted. Racks used by other
+            bookings are grayed out.
           </p>
           {rackValidationError && (
             <div className="mt-2 p-2 bg-red-900/20 border border-red-700 rounded-md">
@@ -80,18 +82,18 @@ export function RackSelectionPanel({
               !!rackValidationError
             }
             className={clsx(
-              "px-3 py-1.5 text-sm font-medium rounded-md",
+              'px-3 py-1.5 text-sm font-medium rounded-md',
               rackValidationError
-                ? "bg-red-600 hover:bg-red-500 text-white"
-                : "bg-indigo-600 hover:bg-indigo-500 text-white",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
+                ? 'bg-red-600 hover:bg-red-500 text-white'
+                : 'bg-indigo-600 hover:bg-indigo-500 text-white',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >
             {savingRacks
-              ? "Saving..."
+              ? 'Saving...'
               : rackValidationError
-                ? "Conflicts Detected"
-                : `Save${selectedInstancesForRacks.size > 1 ? ` (${selectedInstancesForRacks.size})` : ""}`}
+                ? 'Conflicts Detected'
+                : `Save${selectedInstancesForRacks.size > 1 ? ` (${selectedInstancesForRacks.size})` : ''}`}
           </button>
         </div>
       </div>
@@ -120,13 +122,15 @@ export function RackSelectionPanel({
             <div className="flex items-center justify-between mb-2">
               <button
                 type="button"
-                onClick={() => setRackSelectionWeekIndex((prev) => Math.max(0, prev - 1))}
+                onClick={() =>
+                  setRackSelectionWeekIndex((prev) => Math.max(0, prev - 1))
+                }
                 disabled={rackSelectionWeekIndex === 0 || savingRacks}
                 className={clsx(
-                  "px-2 py-1 text-xs rounded border",
+                  'px-2 py-1 text-xs rounded border',
                   rackSelectionWeekIndex === 0 || savingRacks
-                    ? "border-slate-700 text-slate-600 cursor-not-allowed"
-                    : "border-slate-600 text-slate-300 hover:bg-slate-800"
+                    ? 'border-slate-700 text-slate-600 cursor-not-allowed'
+                    : 'border-slate-600 text-slate-300 hover:bg-slate-800'
                 )}
               >
                 ← Previous Week
@@ -141,12 +145,16 @@ export function RackSelectionPanel({
                     Math.min(weeksForRacks.length - 1, prev + 1)
                   )
                 }
-                disabled={rackSelectionWeekIndex === weeksForRacks.length - 1 || savingRacks}
+                disabled={
+                  rackSelectionWeekIndex === weeksForRacks.length - 1 ||
+                  savingRacks
+                }
                 className={clsx(
-                  "px-2 py-1 text-xs rounded border",
-                  rackSelectionWeekIndex === weeksForRacks.length - 1 || savingRacks
-                    ? "border-slate-700 text-slate-600 cursor-not-allowed"
-                    : "border-slate-600 text-slate-300 hover:bg-slate-800"
+                  'px-2 py-1 text-xs rounded border',
+                  rackSelectionWeekIndex === weeksForRacks.length - 1 ||
+                    savingRacks
+                    ? 'border-slate-700 text-slate-600 cursor-not-allowed'
+                    : 'border-slate-600 text-slate-300 hover:bg-slate-800'
                 )}
               >
                 Next Week →
@@ -162,23 +170,23 @@ export function RackSelectionPanel({
                 const formatDateTime = (isoString: string) => {
                   const date = new Date(isoString);
                   return date.toLocaleString([], {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
                   });
                 };
                 return (
                   <label
                     key={inst.id}
                     className={clsx(
-                      "flex items-center gap-2 text-xs px-2 py-1 rounded cursor-pointer",
+                      'flex items-center gap-2 text-xs px-2 py-1 rounded cursor-pointer',
                       isCurrent
-                        ? "bg-indigo-900/30 border border-indigo-700 text-indigo-200"
+                        ? 'bg-indigo-900/30 border border-indigo-700 text-indigo-200'
                         : isSelected
-                          ? "bg-slate-800/50 border border-slate-600 text-slate-200"
-                          : "text-slate-400 hover:bg-slate-800/30"
+                          ? 'bg-slate-800/50 border border-slate-600 text-slate-200'
+                          : 'text-slate-400 hover:bg-slate-800/30'
                     )}
                   >
                     <input
@@ -198,7 +206,9 @@ export function RackSelectionPanel({
                     />
                     <span className="flex-1">
                       {formatDateTime(inst.start)} - {formatDateTime(inst.end)}
-                      {isCurrent && <span className="ml-2 text-indigo-400">(Current)</span>}
+                      {isCurrent && (
+                        <span className="ml-2 text-indigo-400">(Current)</span>
+                      )}
                     </span>
                   </label>
                 );
@@ -206,12 +216,11 @@ export function RackSelectionPanel({
             </div>
           </div>
           <p className="text-[10px] text-slate-500 mt-1">
-            {selectedInstancesForRacks.size} of {seriesInstancesForRacks.length} sessions selected
+            {selectedInstancesForRacks.size} of {seriesInstancesForRacks.length}{' '}
+            sessions selected
           </p>
         </div>
       )}
     </div>
   );
 }
-
-

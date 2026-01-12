@@ -1,9 +1,9 @@
-import { useMemo } from "react";
-import { motion } from "framer-motion";
-import type { SideLayout } from "../../config/layout";
-import type { SideSnapshot, ActiveInstance } from "../../types/snapshot";
-import type { ProfileRole } from "../../types/auth";
-import { groupContiguous } from "../../lib/groupContiguous";
+import { useMemo } from 'react';
+import { motion } from 'framer-motion';
+import type { SideLayout } from '../../config/layout';
+import type { SideSnapshot, ActiveInstance } from '../../types/snapshot';
+import type { ProfileRole } from '../../types/auth';
+import { groupContiguous } from '../../lib/groupContiguous';
 
 type Props = {
   layout: SideLayout;
@@ -48,16 +48,14 @@ export function EditableSideFloorplan({
     if (!iso) return null;
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
+    return d.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
     });
   }
 
   function computeBubblePosition(instance: ActiveInstance) {
-    const validRackNumbers = instance.racks.filter((n) =>
-      numberToIndex.has(n)
-    );
+    const validRackNumbers = instance.racks.filter((n) => numberToIndex.has(n));
     if (!validRackNumbers.length) return null;
 
     const groups = groupContiguous(validRackNumbers);
@@ -79,11 +77,11 @@ export function EditableSideFloorplan({
   }
 
   function handleEditRacks(instance: ActiveInstance) {
-    const current = instance.racks.join(", ");
-    const next = window.prompt("Enter rack numbers (comma-separated)", current);
+    const current = instance.racks.join(', ');
+    const next = window.prompt('Enter rack numbers (comma-separated)', current);
     if (next === null) return;
     const parsed = next
-      .split(",")
+      .split(',')
       .map((s) => s.trim())
       .filter(Boolean)
       .map((n) => Number(n))
@@ -120,10 +118,11 @@ export function EditableSideFloorplan({
           return (
             <motion.div
               key={inst.instanceId}
-              className={`absolute top-1/3 h-1/3 rounded-lg border text-[11px] flex flex-col justify-between px-2 py-1 cursor-grab active:cursor-grabbing ${editable
-                ? "border-indigo-400/80 bg-indigo-500/40"
-                : "border-slate-600/80 bg-slate-700/40"
-                }`}
+              className={`absolute top-1/3 h-1/3 rounded-lg border text-[11px] flex flex-col justify-between px-2 py-1 cursor-grab active:cursor-grabbing ${
+                editable
+                  ? 'border-indigo-400/80 bg-indigo-500/40'
+                  : 'border-slate-600/80 bg-slate-700/40'
+              }`}
               style={{
                 left: `${pos.leftPercent}%`,
                 width: `${pos.widthPercent}%`,
@@ -143,9 +142,7 @@ export function EditableSideFloorplan({
                 )}
               </div>
               <div className="flex items-center justify-between gap-1 text-[10px] text-slate-200 mt-0.5">
-                <span>
-                  Racks {inst.racks.join(", ")}
-                </span>
+                <span>Racks {inst.racks.join(', ')}</span>
                 <span className="text-slate-300">
                   {formatTime(inst.start)}–{formatTime(inst.end)}
                 </span>

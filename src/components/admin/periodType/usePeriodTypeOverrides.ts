@@ -1,8 +1,13 @@
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { supabase } from "../../../lib/supabaseClient";
+import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
+import { supabase } from '../../../lib/supabaseClient';
 
-type PeriodType = "High Hybrid" | "Low Hybrid" | "Performance" | "General User" | "Closed";
+type PeriodType =
+  | 'High Hybrid'
+  | 'Low Hybrid'
+  | 'Performance'
+  | 'General User'
+  | 'Closed';
 
 interface PeriodTypeOverride {
   id: number;
@@ -26,13 +31,13 @@ export function usePeriodTypeOverrides() {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const { data, error } = await supabase
-      .from("period_type_capacity_overrides")
-      .select("*")
-      .gte("date", format(thirtyDaysAgo, "yyyy-MM-dd"))
-      .order("date", { ascending: false });
+      .from('period_type_capacity_overrides')
+      .select('*')
+      .gte('date', format(thirtyDaysAgo, 'yyyy-MM-dd'))
+      .order('date', { ascending: false });
 
     if (error) {
-      console.error("Error fetching overrides:", error);
+      console.error('Error fetching overrides:', error);
       setLoading(false);
       return;
     }
@@ -51,4 +56,3 @@ export function usePeriodTypeOverrides() {
     refetch: fetchOverrides,
   };
 }
-

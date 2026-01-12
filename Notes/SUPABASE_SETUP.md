@@ -28,11 +28,13 @@ VITE_SENTRY_DSN=your-sentry-dsn
 ### 3. Verify Connection
 
 Start your dev server:
+
 ```bash
 npm run dev
 ```
 
 The app should now connect to your Supabase database. You can test by:
+
 - Trying to log in (if you have users)
 - Viewing the schedule (if you have bookings)
 - Checking the admin panel
@@ -79,10 +81,13 @@ Or copy-paste the contents into the SQL Editor and run.
 ## Verifying Your Setup
 
 ### Check Connection
+
 Open browser console and check for any Supabase connection errors.
 
 ### Test Queries
+
 You can test in the Supabase Dashboard → **Table Editor**:
+
 - Check if `sides` table exists and has data
 - Check if `profiles` table exists
 - Check if `bookings` table exists
@@ -92,15 +97,18 @@ You can test in the Supabase Dashboard → **Table Editor**:
 ## Troubleshooting
 
 ### "Invalid API key" error
+
 - Double-check your `VITE_SUPABASE_ANON_KEY` in `.env.local`
 - Make sure you're using the **anon** key, not the **service_role** key
 
 ### "Failed to fetch" error
+
 - Check your `VITE_SUPABASE_URL` is correct
 - Make sure your Supabase project is active
 - Check browser console for CORS errors
 
 ### Tables not found
+
 - Run the schema SQL file in Supabase Dashboard
 - Check that migrations have been applied
 - Verify table names match what the code expects
@@ -110,6 +118,7 @@ You can test in the Supabase Dashboard → **Table Editor**:
 ## Next Steps
 
 Once connected:
+
 1. ✅ Verify you can see data in the app
 2. ✅ Test creating a booking
 3. ✅ Test admin features
@@ -145,7 +154,7 @@ supabase db pull
 ```
 
 This allows you to:
+
 - Run migrations locally
 - Generate TypeScript types from your schema
 - Test migrations before applying to production
-

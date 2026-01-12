@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabaseClient";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabaseClient';
 
 type DebugInstanceRow = {
   id: number;
@@ -29,7 +29,9 @@ type RawDebugInstanceRow = {
 
 function normalizeInstance(row: RawDebugInstanceRow): DebugInstanceRow {
   const bookingRaw = row.booking ?? null;
-  const bookingObj = Array.isArray(bookingRaw) ? bookingRaw[0] ?? null : bookingRaw;
+  const bookingObj = Array.isArray(bookingRaw)
+    ? (bookingRaw[0] ?? null)
+    : bookingRaw;
 
   return {
     id: row.id,
@@ -41,11 +43,11 @@ function normalizeInstance(row: RawDebugInstanceRow): DebugInstanceRow {
     booking: bookingObj
       ? {
           title:
-            typeof bookingObj.title === "string" || bookingObj.title === null
+            typeof bookingObj.title === 'string' || bookingObj.title === null
               ? bookingObj.title
               : null,
           color:
-            typeof bookingObj.color === "string" || bookingObj.color === null
+            typeof bookingObj.color === 'string' || bookingObj.color === null
               ? bookingObj.color
               : null,
         }
@@ -56,21 +58,21 @@ function normalizeInstance(row: RawDebugInstanceRow): DebugInstanceRow {
 function formatTime(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("en-GB", {
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "short",
+  return d.toLocaleString('en-GB', {
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: 'short',
   });
 }
 
 export function InstancesDebugPanel() {
   const { data, error, isLoading } = useQuery({
-    queryKey: ["booking-instances-debug"],
+    queryKey: ['booking-instances-debug'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("booking_instances")
+        .from('booking_instances')
         .select(
           `
           id,
@@ -85,8 +87,8 @@ export function InstancesDebugPanel() {
           )
         `
         )
-        .gte("start", new Date().toISOString())
-        .order("start", { ascending: true })
+        .gte('start', new Date().toISOString())
+        .order('start', { ascending: true })
         .limit(30);
 
       if (error) {
@@ -135,17 +137,15 @@ export function InstancesDebugPanel() {
                   <td className="py-1 pr-2 text-slate-200">
                     {formatTime(inst.start)} → {formatTime(inst.end)}
                   </td>
-                  <td className="py-1 pr-2 text-slate-300">
-                    {inst.side_id}
-                  </td>
+                  <td className="py-1 pr-2 text-slate-300">{inst.side_id}</td>
                   <td className="py-1 pr-2 text-slate-200">
-                    {inst.booking?.title ?? "Untitled"}
+                    {inst.booking?.title ?? 'Untitled'}
                   </td>
                   <td className="py-1 pr-2 text-slate-300">
-                    {inst.racks?.join(", ") ?? "—"}
+                    {inst.racks?.join(', ') ?? '—'}
                   </td>
                   <td className="py-1 pr-2 text-slate-300">
-                    {inst.areas?.join(", ") ?? "—"}
+                    {inst.areas?.join(', ') ?? '—'}
                   </td>
                 </tr>
               ))}

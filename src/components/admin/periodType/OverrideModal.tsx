@@ -1,6 +1,11 @@
-import { format } from "date-fns";
+// import { format } from 'date-fns';
 
-type PeriodType = "High Hybrid" | "Low Hybrid" | "Performance" | "General User" | "Closed";
+type PeriodType =
+  | 'High Hybrid'
+  | 'Low Hybrid'
+  | 'Performance'
+  | 'General User'
+  | 'Closed';
 
 interface PeriodTypeOverride {
   id: number;
@@ -46,7 +51,13 @@ export function OverrideModal({
 }: Props) {
   if (!isOpen) return null;
 
-  const periodTypes: PeriodType[] = ["High Hybrid", "Low Hybrid", "Performance", "General User", "Closed"];
+  const periodTypes: PeriodType[] = [
+    'High Hybrid',
+    'Low Hybrid',
+    'Performance',
+    'General User',
+    'Closed',
+  ];
 
   return (
     <div
@@ -59,13 +70,18 @@ export function OverrideModal({
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-slate-100">
-            {editingOverride ? "Edit Override" : "Add Override"}
+            {editingOverride ? 'Edit Override' : 'Add Override'}
           </h3>
           <button
             onClick={onClose}
             className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -78,7 +94,9 @@ export function OverrideModal({
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Date</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Date
+            </label>
             <input
               type="date"
               value={overrideDate}
@@ -88,10 +106,14 @@ export function OverrideModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Period Type</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Period Type
+            </label>
             <select
               value={overridePeriodType}
-              onChange={(e) => setOverridePeriodType(e.target.value as PeriodType)}
+              onChange={(e) =>
+                setOverridePeriodType(e.target.value as PeriodType)
+              }
               className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
             >
               {periodTypes.map((pt) => (
@@ -103,18 +125,24 @@ export function OverrideModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Capacity</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Capacity
+            </label>
             <input
               type="number"
               min={0}
               value={overrideCapacity}
-              onChange={(e) => setOverrideCapacity(parseInt(e.target.value) || 0)}
+              onChange={(e) =>
+                setOverrideCapacity(parseInt(e.target.value) || 0)
+              }
               className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Notes (optional)</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Notes (optional)
+            </label>
             <textarea
               value={overrideNotes}
               onChange={(e) => setOverrideNotes(e.target.value)}
@@ -137,11 +165,10 @@ export function OverrideModal({
             disabled={loading}
             className="px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
           >
-            {loading ? "Saving..." : "Save"}
+            {loading ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>
     </div>
   );
 }
-

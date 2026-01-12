@@ -1,7 +1,17 @@
-import { format, getDay } from "date-fns";
+import { getDay } from 'date-fns';
 
-export type PeriodType = "High Hybrid" | "Low Hybrid" | "Performance" | "General User" | "Closed";
-export type RecurrenceType = "single" | "weekday" | "weekend" | "all_future" | "weekly";
+export type PeriodType =
+  | 'High Hybrid'
+  | 'Low Hybrid'
+  | 'Performance'
+  | 'General User'
+  | 'Closed';
+export type RecurrenceType =
+  | 'single'
+  | 'weekday'
+  | 'weekend'
+  | 'all_future'
+  | 'weekly';
 
 export type TimeSlot = {
   hour: number;
@@ -47,7 +57,10 @@ export function parseExcludedDates(excludedDates: unknown): string[] {
   return [];
 }
 
-export function isDateExcluded(schedule: ScheduleData, dateStr: string): boolean {
+export function isDateExcluded(
+  schedule: ScheduleData,
+  dateStr: string
+): boolean {
   const excludedDates = parseExcludedDates(schedule.excluded_dates);
   return excludedDates.includes(dateStr);
 }
@@ -57,8 +70,8 @@ export function isDateExcluded(schedule: ScheduleData, dateStr: string): boolean
  */
 function normalizeTime(timeStr: string): string {
   // Handle formats like "09:00:00" or "09:00"
-  const parts = timeStr.split(":");
-  return `${parts[0].padStart(2, "0")}:${parts[1]?.padStart(2, "0") || "00"}`;
+  const parts = timeStr.split(':');
+  return `${parts[0].padStart(2, '0')}:${parts[1]?.padStart(2, '0') || '00'}`;
 }
 
 /**
@@ -83,7 +96,7 @@ export function doesScheduleApply(
   const normalizedTimeStr = normalizeTime(timeStr);
   const normalizedStartTime = normalizeTime(schedule.start_time);
   const normalizedEndTime = normalizeTime(schedule.end_time);
-  
+
   // Check if the schedule's start_time matches or is before this time
   if (compareTimes(normalizedStartTime, normalizedTimeStr) > 0) return false;
   // Schedule applies if timeStr is in [start_time, end_time) - inclusive start, exclusive end
@@ -96,15 +109,26 @@ export function doesScheduleApply(
   }
 
   // Check if the schedule applies to this day
-  if (schedule.recurrence_type === "single") {
-    return schedule.day_of_week === dayOfWeek && schedule.start_date === dayDate;
-  } else if (schedule.recurrence_type === "weekday") {
-    return schedule.day_of_week === dayOfWeek && dayOfWeek >= 1 && dayOfWeek <= 5 && schedule.start_date <= dayDate;
-  } else if (schedule.recurrence_type === "weekend") {
-    return schedule.day_of_week === dayOfWeek && (dayOfWeek === 0 || dayOfWeek === 6) && schedule.start_date <= dayDate;
-  } else if (schedule.recurrence_type === "weekly") {
+  if (schedule.recurrence_type === 'single') {
+    return (
+      schedule.day_of_week === dayOfWeek && schedule.start_date === dayDate
+    );
+  } else if (schedule.recurrence_type === 'weekday') {
+    return (
+      schedule.day_of_week === dayOfWeek &&
+      dayOfWeek >= 1 &&
+      dayOfWeek <= 5 &&
+      schedule.start_date <= dayDate
+    );
+  } else if (schedule.recurrence_type === 'weekend') {
+    return (
+      schedule.day_of_week === dayOfWeek &&
+      (dayOfWeek === 0 || dayOfWeek === 6) &&
+      schedule.start_date <= dayDate
+    );
+  } else if (schedule.recurrence_type === 'weekly') {
     return schedule.day_of_week === dayOfWeek && schedule.start_date <= dayDate;
-  } else if (schedule.recurrence_type === "all_future") {
+  } else if (schedule.recurrence_type === 'all_future') {
     return schedule.day_of_week === dayOfWeek && schedule.start_date <= dayDate;
   }
   return false;
@@ -120,7 +144,7 @@ export function generateTimeSlots(): TimeSlot[] {
 }
 
 export function formatTimeSlot(slot: TimeSlot): string {
-  return `${String(slot.hour).padStart(2, "0")}:${String(slot.minute).padStart(2, "0")}`;
+  return `${String(slot.hour).padStart(2, '0')}:${String(slot.minute).padStart(2, '0')}`;
 }
 
 export function getCapacityKey(day: Date, timeSlot: TimeSlot): string {
@@ -128,4 +152,3 @@ export function getCapacityKey(day: Date, timeSlot: TimeSlot): string {
   const timeStr = formatTimeSlot(timeSlot);
   return `${dayOfWeek}-${timeStr}`;
 }
-

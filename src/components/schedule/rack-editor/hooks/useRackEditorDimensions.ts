@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 const BASE_HEIGHT = 900;
 
@@ -23,12 +23,12 @@ export function useRackEditorDimensions() {
     };
 
     updateDimensions();
-    window.addEventListener("resize", updateDimensions);
+    window.addEventListener('resize', updateDimensions);
     const ro = new ResizeObserver(updateDimensions);
     if (containerRef.current) ro.observe(containerRef.current);
 
     return () => {
-      window.removeEventListener("resize", updateDimensions);
+      window.removeEventListener('resize', updateDimensions);
       ro.disconnect();
     };
   }, []);
@@ -38,7 +38,10 @@ export function useRackEditorDimensions() {
   const BASE_WIDTH = BASE_HEIGHT * screenAspectRatio;
 
   // Zoom to fit - will be close to 1.0 since we matched the ratio
-  const zoomLevel = Math.min(availableWidth / BASE_WIDTH, availableHeight / BASE_HEIGHT);
+  const zoomLevel = Math.min(
+    availableWidth / BASE_WIDTH,
+    availableHeight / BASE_HEIGHT
+  );
 
   // Actual rendered dimensions
   const renderedHeight = BASE_HEIGHT * zoomLevel;
@@ -53,4 +56,3 @@ export function useRackEditorDimensions() {
     renderedWidth,
   };
 }
-

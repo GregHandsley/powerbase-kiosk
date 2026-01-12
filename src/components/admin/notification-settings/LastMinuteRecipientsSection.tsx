@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../../lib/supabaseClient";
-import type { NotificationSettings } from "../../../hooks/useNotificationSettings";
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../../lib/supabaseClient';
+import type { NotificationSettings } from '../../../hooks/useNotificationSettings';
 
 type Props = {
   settings: NotificationSettings;
@@ -10,28 +10,36 @@ type Props = {
 };
 
 const AVAILABLE_ROLES = [
-  { value: "admin", label: "Admins" },
-  { value: "bookings_team", label: "Bookings Team" },
-  { value: "coach", label: "Coaches" },
+  { value: 'admin', label: 'Admins' },
+  { value: 'bookings_team', label: 'Bookings Team' },
+  { value: 'coach', label: 'Coaches' },
 ];
 
-export function LastMinuteRecipientsSection({ settings, onUpdate, isUpdating }: Props) {
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(settings.last_minute_alert_roles || []);
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>(settings.last_minute_alert_user_ids || []);
+export function LastMinuteRecipientsSection({
+  settings,
+  onUpdate,
+  // isUpdating,
+}: Props) {
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(
+    settings.last_minute_alert_roles || []
+  );
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
+    settings.last_minute_alert_user_ids || []
+  );
 
   // Fetch all users for user selector
   // Note: Email is not in profiles table, it's in auth.users
   // We'll fetch profiles and get emails separately if needed
   const { data: allUsers = [] } = useQuery({
-    queryKey: ["all-users"],
+    queryKey: ['all-users'],
     queryFn: async () => {
       const { data: profiles, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, role")
-        .order("full_name", { ascending: true });
+        .from('profiles')
+        .select('id, full_name, role')
+        .order('full_name', { ascending: true });
 
       if (error) {
-        console.error("Error fetching users:", error);
+        console.error('Error fetching users:', error);
         return [];
       }
 
@@ -40,7 +48,7 @@ export function LastMinuteRecipientsSection({ settings, onUpdate, isUpdating }: 
       // Emails can be retrieved when actually sending emails
       return (profiles || []).map((profile) => ({
         id: profile.id,
-        name: profile.full_name || "Unknown",
+        name: profile.full_name || 'Unknown',
         role: profile.role,
       }));
     },
@@ -62,16 +70,21 @@ export function LastMinuteRecipientsSection({ settings, onUpdate, isUpdating }: 
     onUpdate({ last_minute_alert_user_ids: newUserIds });
   };
 
-  // Get users that match selected roles
-  const usersMatchingRoles = allUsers.filter((user) => selectedRoles.includes(user.role));
+  // // Get users that match selected roles
+  // const usersMatchingRoles = allUsers.filter((user) =>
+  //   selectedRoles.includes(user.role)
+  // );
 
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-6">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-base font-semibold text-slate-100">Last-Minute Alert Recipients</h3>
+          <h3 className="text-base font-semibold text-slate-100">
+            Last-Minute Alert Recipients
+          </h3>
           <p className="text-sm text-slate-400 mt-1">
-            Who should receive email alerts when bookings or changes are made after the notification window?
+            Who should receive email alerts when bookings or changes are made
+            after the notification window?
           </p>
         </div>
       </div>
@@ -84,7 +97,10 @@ export function LastMinuteRecipientsSection({ settings, onUpdate, isUpdating }: 
           </label>
           <div className="space-y-2">
             {AVAILABLE_ROLES.map((role) => (
-              <label key={role.value} className="flex items-center gap-2 cursor-pointer">
+              <label
+                key={role.value}
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <input
                   type="checkbox"
                   checked={selectedRoles.includes(role.value)}
@@ -104,10 +120,15 @@ export function LastMinuteRecipientsSection({ settings, onUpdate, isUpdating }: 
           </label>
           <div className="max-h-48 overflow-y-auto border border-slate-700 rounded-md p-2 space-y-2">
             {allUsers.length === 0 ? (
-              <div className="text-sm text-slate-400 text-center py-4">Loading users...</div>
+              <div className="text-sm text-slate-400 text-center py-4">
+                Loading users...
+              </div>
             ) : (
               allUsers.map((user) => (
-                <label key={user.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-800/50 p-2 rounded">
+                <label
+                  key={user.id}
+                  className="flex items-center gap-2 cursor-pointer hover:bg-slate-800/50 p-2 rounded"
+                >
                   <input
                     type="checkbox"
                     checked={selectedUserIds.includes(user.id)}
@@ -116,7 +137,9 @@ export function LastMinuteRecipientsSection({ settings, onUpdate, isUpdating }: 
                   />
                   <div className="flex-1">
                     <span className="text-sm text-slate-300">{user.name}</span>
-                    <span className="text-xs text-slate-600 ml-2 capitalize">• {user.role}</span>
+                    <span className="text-xs text-slate-600 ml-2 capitalize">
+                      • {user.role}
+                    </span>
                   </div>
                 </label>
               ))
@@ -124,28 +147,39 @@ export function LastMinuteRecipientsSection({ settings, onUpdate, isUpdating }: 
           </div>
           {selectedUserIds.length > 0 && (
             <p className="text-xs text-slate-400 mt-2">
-              {selectedUserIds.length} additional user{selectedUserIds.length !== 1 ? "s" : ""} selected
+              {selectedUserIds.length} additional user
+              {selectedUserIds.length !== 1 ? 's' : ''} selected
             </p>
           )}
         </div>
 
         {/* Preview */}
         <div className="pt-4 border-t border-slate-700">
-          <p className="text-xs font-medium text-slate-300 mb-2">Recipients Summary:</p>
+          <p className="text-xs font-medium text-slate-300 mb-2">
+            Recipients Summary:
+          </p>
           <div className="text-xs text-slate-400 space-y-1">
             {selectedRoles.length > 0 && (
               <div>
-                <span className="text-slate-300">Roles:</span>{" "}
-                {selectedRoles.map((r) => AVAILABLE_ROLES.find((role) => role.value === r)?.label).join(", ")}
+                <span className="text-slate-300">Roles:</span>{' '}
+                {selectedRoles
+                  .map(
+                    (r) =>
+                      AVAILABLE_ROLES.find((role) => role.value === r)?.label
+                  )
+                  .join(', ')}
               </div>
             )}
             {selectedUserIds.length > 0 && (
               <div>
-                <span className="text-slate-300">Additional Users:</span> {selectedUserIds.length}
+                <span className="text-slate-300">Additional Users:</span>{' '}
+                {selectedUserIds.length}
               </div>
             )}
             {selectedRoles.length === 0 && selectedUserIds.length === 0 && (
-              <div className="text-yellow-400">No recipients selected - no emails will be sent</div>
+              <div className="text-yellow-400">
+                No recipients selected - no emails will be sent
+              </div>
             )}
           </div>
         </div>
@@ -153,4 +187,3 @@ export function LastMinuteRecipientsSection({ settings, onUpdate, isUpdating }: 
     </div>
   );
 }
-

@@ -1,21 +1,21 @@
-import { useEffect } from "react";
-import { formatTimeForInput } from "../shared/dateUtils";
-import { useAuth } from "../../context/AuthContext";
-import type { ActiveInstance } from "../../types/snapshot";
-import { Modal } from "../shared/Modal";
-import { BookingEditorHeader } from "./booking-editor/BookingEditorHeader";
-import { TimeInputSection } from "./booking-editor/TimeInputSection";
-import { SeriesInstancesList } from "./booking-editor/SeriesInstancesList";
-import { ExtendBookingDialog } from "./booking-editor/ExtendBookingDialog";
-import { DeleteConfirmationDialog } from "./booking-editor/DeleteConfirmationDialog";
-import { UpdateTimeConfirmationDialog } from "./booking-editor/UpdateTimeConfirmationDialog";
-import { BookingEditorActions } from "./booking-editor/BookingEditorActions";
-import { useBookingEditor } from "./booking-editor/useBookingEditor";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabaseClient";
-import { useClosedTimes } from "../admin/capacity/useClosedTimes";
-import { format } from "date-fns";
-import { canEditBooking } from "../../utils/bookingPermissions";
+import { useEffect } from 'react';
+import { formatTimeForInput } from '../shared/dateUtils';
+import { useAuth } from '../../context/AuthContext';
+import type { ActiveInstance } from '../../types/snapshot';
+import { Modal } from '../shared/Modal';
+import { BookingEditorHeader } from './booking-editor/BookingEditorHeader';
+import { TimeInputSection } from './booking-editor/TimeInputSection';
+import { SeriesInstancesList } from './booking-editor/SeriesInstancesList';
+import { ExtendBookingDialog } from './booking-editor/ExtendBookingDialog';
+import { DeleteConfirmationDialog } from './booking-editor/DeleteConfirmationDialog';
+import { UpdateTimeConfirmationDialog } from './booking-editor/UpdateTimeConfirmationDialog';
+import { BookingEditorActions } from './booking-editor/BookingEditorActions';
+import { useBookingEditor } from './booking-editor/useBookingEditor';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabaseClient';
+import { useClosedTimes } from '../admin/capacity/useClosedTimes';
+import { format } from 'date-fns';
+import { canEditBooking } from '../../utils/bookingPermissions';
 
 type Props = {
   booking: ActiveInstance | null;
@@ -36,7 +36,7 @@ export function BookingEditorModal({
   isOpen,
   onClose,
   onClearRacks,
-  onSaveTime,
+  // onSaveTime,
   initialSelectedInstances,
   initialShowExtendDialog = false,
 }: Props) {
@@ -85,22 +85,27 @@ export function BookingEditorModal({
       setShowExtendDialog(true);
       setShowUpdateTimeConfirm(false);
     }
-  }, [isOpen, initialShowExtendDialog, setShowExtendDialog, setShowUpdateTimeConfirm]);
+  }, [
+    isOpen,
+    initialShowExtendDialog,
+    setShowExtendDialog,
+    setShowUpdateTimeConfirm,
+  ]);
 
   // Fetch the booking's side_id to get closed times
   const { data: bookingSideId } = useQuery({
-    queryKey: ["booking-side-id", booking?.instanceId],
+    queryKey: ['booking-side-id', booking?.instanceId],
     queryFn: async () => {
       if (!booking) return null;
 
       const { data, error } = await supabase
-        .from("booking_instances")
-        .select("side_id")
-        .eq("id", booking.instanceId)
+        .from('booking_instances')
+        .select('side_id')
+        .eq('id', booking.instanceId)
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching booking side_id:", error);
+        console.error('Error fetching booking side_id:', error);
         return null;
       }
 
@@ -110,16 +115,21 @@ export function BookingEditorModal({
   });
 
   // Get the date from the booking's start time
-  const bookingDate = booking ? format(new Date(booking.start), "yyyy-MM-dd") : null;
+  const bookingDate = booking
+    ? format(new Date(booking.start), 'yyyy-MM-dd')
+    : null;
 
   // Get closed times for the booking's date and side
-  const { closedTimes, closedPeriods } = useClosedTimes(bookingSideId ?? null, bookingDate);
+  const { closedTimes, closedPeriods } = useClosedTimes(
+    bookingSideId ?? null,
+    bookingDate
+  );
 
   if (!isOpen || !booking) return null;
 
   // Check if user has permission to edit this booking
   const canEdit = canEditBooking(booking, user?.id || null, role);
-  const isLocked = booking.isLocked && role !== "admin";
+  const isLocked = booking.isLocked && role !== 'admin';
 
   const handleCancel = () => {
     if (booking) {
@@ -158,15 +168,16 @@ export function BookingEditorModal({
   return (
     <Modal isOpen={isOpen} onClose={handleCancel}>
       <div className="space-y-4">
-        <BookingEditorHeader 
-          title={booking.title} 
-          isLocked={isLocked} 
-          mode={canEdit ? "edit" : "view"}
+        <BookingEditorHeader
+          title={booking.title}
+          isLocked={isLocked}
+          mode={canEdit ? 'edit' : 'view'}
         />
 
         {!canEdit && (
           <div className="p-3 bg-amber-900/20 border border-amber-700/50 rounded-md text-sm text-amber-200">
-            You don't have permission to edit this booking. Only the coach who created it or an admin can edit it.
+            You don't have permission to edit this booking. Only the coach who
+            created it or an admin can edit it.
           </div>
         )}
 
@@ -225,7 +236,9 @@ export function BookingEditorModal({
 
         {error && (
           <div className="rounded-md bg-red-900/20 border border-red-700/50 p-3">
-            <pre className="text-sm text-red-400 whitespace-pre-wrap font-sans">{error}</pre>
+            <pre className="text-sm text-red-400 whitespace-pre-wrap font-sans">
+              {error}
+            </pre>
           </div>
         )}
 
@@ -252,8 +265,8 @@ export function BookingEditorModal({
         <UpdateTimeConfirmationDialog
           isOpen={showUpdateTimeConfirm && !showExtendDialog && hasChanges}
           sessionCount={selectedInstances.size}
-          startTime={hasTimeChanges ? startTime : ""}
-          endTime={hasTimeChanges ? endTime : ""}
+          startTime={hasTimeChanges ? startTime : ''}
+          endTime={hasTimeChanges ? endTime : ''}
           capacity={hasCapacityChanges ? capacity : undefined}
           onCancel={() => setShowUpdateTimeConfirm(false)}
           onConfirm={handleConfirmUpdateTime}
@@ -263,13 +276,13 @@ export function BookingEditorModal({
 
         <DeleteConfirmationDialog
           isOpen={showDeleteConfirm !== null}
-          type={showDeleteConfirm ?? "selected"}
+          type={showDeleteConfirm ?? 'selected'}
           selectedInstances={selectedInstances}
           seriesInstances={seriesInstances}
           onCancel={() => setShowDeleteConfirm(null)}
           onConfirm={async () => {
             const success =
-              showDeleteConfirm === "selected"
+              showDeleteConfirm === 'selected'
                 ? await handleDeleteSelected()
                 : await handleDeleteSeries();
             if (success) {
@@ -284,12 +297,20 @@ export function BookingEditorModal({
           onEditRacks={canEdit ? handleClearRacks : undefined}
           onCancel={handleCancel}
           onSave={canEdit ? handleSave : undefined}
-          onDeleteSelected={canEdit ? () => setShowDeleteConfirm("selected") : undefined}
-          onDeleteSeries={canEdit ? () => setShowDeleteConfirm("series") : undefined}
-          onExtend={canEdit ? () => {
-            setShowExtendDialog(true);
-            setShowUpdateTimeConfirm(false); // Hide update confirmation when extending
-          } : undefined}
+          onDeleteSelected={
+            canEdit ? () => setShowDeleteConfirm('selected') : undefined
+          }
+          onDeleteSeries={
+            canEdit ? () => setShowDeleteConfirm('series') : undefined
+          }
+          onExtend={
+            canEdit
+              ? () => {
+                  setShowExtendDialog(true);
+                  setShowUpdateTimeConfirm(false); // Hide update confirmation when extending
+                }
+              : undefined
+          }
           saving={saving}
           deleting={deleting}
           hasChanges={hasChanges}

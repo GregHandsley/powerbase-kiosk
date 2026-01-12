@@ -1,4 +1,9 @@
-import { PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+import {
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 
 export function useDragSensors() {
   return useSensors(
@@ -16,4 +21,3 @@ export function useDragSensors() {
     })
   );
 }
-

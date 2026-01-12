@@ -1,5 +1,8 @@
-import { supabase } from "../../lib/supabaseClient";
-import type { BookingInstanceWithBookingRow, BookingStatus } from "../../types/db";
+import { supabase } from '../../lib/supabaseClient';
+import type {
+  BookingInstanceWithBookingRow,
+  BookingStatus,
+} from '../../types/db';
 
 type RawInstanceRow = {
   id: number;
@@ -12,10 +15,10 @@ type RawInstanceRow = {
   created_at: string;
   updated_at: string;
   booking?:
-    | { 
-        title?: unknown; 
-        color?: unknown; 
-        is_locked?: unknown; 
+    | {
+        title?: unknown;
+        color?: unknown;
+        is_locked?: unknown;
         created_by?: unknown;
         status?: unknown;
         processed_by?: unknown;
@@ -23,10 +26,10 @@ type RawInstanceRow = {
         last_edited_at?: unknown;
         last_edited_by?: unknown;
       }
-    | { 
-        title?: unknown; 
-        color?: unknown; 
-        is_locked?: unknown; 
+    | {
+        title?: unknown;
+        color?: unknown;
+        is_locked?: unknown;
         created_by?: unknown;
         status?: unknown;
         processed_by?: unknown;
@@ -37,9 +40,13 @@ type RawInstanceRow = {
     | null;
 };
 
-function normalizeInstanceRow(row: RawInstanceRow): BookingInstanceWithBookingRow {
+function normalizeInstanceRow(
+  row: RawInstanceRow
+): BookingInstanceWithBookingRow {
   const bookingRaw = row.booking ?? null;
-  const bookingObj = Array.isArray(bookingRaw) ? bookingRaw[0] ?? null : bookingRaw;
+  const bookingObj = Array.isArray(bookingRaw)
+    ? (bookingRaw[0] ?? null)
+    : bookingRaw;
 
   return {
     id: row.id,
@@ -49,43 +56,50 @@ function normalizeInstanceRow(row: RawInstanceRow): BookingInstanceWithBookingRo
     end: row.end,
     areas: Array.isArray(row.areas) ? (row.areas as unknown[]).map(String) : [],
     racks: Array.isArray(row.racks)
-      ? (row.racks as unknown[]).map((n) => Number(n)).filter((n) => !Number.isNaN(n))
+      ? (row.racks as unknown[])
+          .map((n) => Number(n))
+          .filter((n) => !Number.isNaN(n))
       : [],
     created_at: row.created_at,
     updated_at: row.updated_at,
     booking: bookingObj
       ? {
           title:
-            typeof bookingObj.title === "string" || bookingObj.title === null
+            typeof bookingObj.title === 'string' || bookingObj.title === null
               ? bookingObj.title
               : null,
           color:
-            typeof bookingObj.color === "string" || bookingObj.color === null
+            typeof bookingObj.color === 'string' || bookingObj.color === null
               ? bookingObj.color
               : null,
           is_locked: bookingObj.is_locked === true,
           created_by:
-            typeof bookingObj.created_by === "string" || bookingObj.created_by === null
+            typeof bookingObj.created_by === 'string' ||
+            bookingObj.created_by === null
               ? bookingObj.created_by
               : null,
           status:
-            typeof bookingObj.status === "string"
+            typeof bookingObj.status === 'string'
               ? (bookingObj.status as BookingStatus)
               : undefined,
           processed_by:
-            typeof bookingObj.processed_by === "string" || bookingObj.processed_by === null
+            typeof bookingObj.processed_by === 'string' ||
+            bookingObj.processed_by === null
               ? bookingObj.processed_by
               : undefined,
           processed_at:
-            typeof bookingObj.processed_at === "string" || bookingObj.processed_at === null
+            typeof bookingObj.processed_at === 'string' ||
+            bookingObj.processed_at === null
               ? bookingObj.processed_at
               : undefined,
           last_edited_at:
-            typeof bookingObj.last_edited_at === "string" || bookingObj.last_edited_at === null
+            typeof bookingObj.last_edited_at === 'string' ||
+            bookingObj.last_edited_at === null
               ? bookingObj.last_edited_at
               : undefined,
           last_edited_by:
-            typeof bookingObj.last_edited_by === "string" || bookingObj.last_edited_by === null
+            typeof bookingObj.last_edited_by === 'string' ||
+            bookingObj.last_edited_by === null
               ? bookingObj.last_edited_by
               : undefined,
         }
@@ -110,8 +124,8 @@ export async function getInstancesAtNode(sideId: number, atIso: string) {
   endOfNextDay.setDate(endOfNextDay.getDate() + 2); // today + next day
 
   // Try with status fields first (if migration has been run)
-  let query = supabase
-    .from("booking_instances")
+  const query = supabase
+    .from('booking_instances')
     .select(
       `
       id,
@@ -136,18 +150,22 @@ export async function getInstancesAtNode(sideId: number, atIso: string) {
       )
     `
     )
-    .eq("side_id", sideId)
-    .gte("start", startOfDay.toISOString())
-    .lt("start", endOfNextDay.toISOString())
-    .order("start", { ascending: true });
+    .eq('side_id', sideId)
+    .gte('start', startOfDay.toISOString())
+    .lt('start', endOfNextDay.toISOString())
+    .order('start', { ascending: true });
 
   let { data, error } = await query;
-  
+
   // If error is about missing columns, fallback to basic query (migration not run yet)
-  if (error && (error.message?.includes("does not exist") || error.message?.includes("column"))) {
+  if (
+    error &&
+    (error.message?.includes('does not exist') ||
+      error.message?.includes('column'))
+  ) {
     // Fallback to basic query without status fields
     const fallbackQuery = supabase
-      .from("booking_instances")
+      .from('booking_instances')
       .select(
         `
         id,
@@ -167,11 +185,11 @@ export async function getInstancesAtNode(sideId: number, atIso: string) {
         )
       `
       )
-      .eq("side_id", sideId)
-      .gte("start", startOfDay.toISOString())
-      .lt("start", endOfNextDay.toISOString())
-      .order("start", { ascending: true });
-    
+      .eq('side_id', sideId)
+      .gte('start', startOfDay.toISOString())
+      .lt('start', endOfNextDay.toISOString())
+      .order('start', { ascending: true });
+
     const fallbackResult = await fallbackQuery;
     if (!fallbackResult.error) {
       data = fallbackResult.data;
@@ -182,7 +200,9 @@ export async function getInstancesAtNode(sideId: number, atIso: string) {
     }
   }
 
-  const rows = (data ?? []).map((row) => normalizeInstanceRow(row as RawInstanceRow));
+  const rows = (data ?? []).map((row) =>
+    normalizeInstanceRow(row as RawInstanceRow)
+  );
 
   return {
     data: rows,
@@ -200,8 +220,8 @@ export async function getFutureInstancesForRackNode(
   toIso: string
 ) {
   // Try with status fields first (if migration has been run)
-  let query = supabase
-    .from("booking_instances")
+  const query = supabase
+    .from('booking_instances')
     .select(
       `
       id,
@@ -226,19 +246,23 @@ export async function getFutureInstancesForRackNode(
       )
     `
     )
-    .eq("side_id", sideId)
-    .contains("racks", [rackNumber])
-    .gte("start", fromIso)
-    .lt("start", toIso)
-    .order("start", { ascending: true });
+    .eq('side_id', sideId)
+    .contains('racks', [rackNumber])
+    .gte('start', fromIso)
+    .lt('start', toIso)
+    .order('start', { ascending: true });
 
   let { data, error } = await query;
-  
+
   // If error is about missing columns, fallback to basic query (migration not run yet)
-  if (error && (error.message?.includes("does not exist") || error.message?.includes("column"))) {
+  if (
+    error &&
+    (error.message?.includes('does not exist') ||
+      error.message?.includes('column'))
+  ) {
     // Fallback to basic query without status fields
     const fallbackQuery = supabase
-      .from("booking_instances")
+      .from('booking_instances')
       .select(
         `
         id,
@@ -258,12 +282,12 @@ export async function getFutureInstancesForRackNode(
         )
       `
       )
-      .eq("side_id", sideId)
-      .contains("racks", [rackNumber])
-      .gte("start", fromIso)
-      .lt("start", toIso)
-      .order("start", { ascending: true });
-    
+      .eq('side_id', sideId)
+      .contains('racks', [rackNumber])
+      .gte('start', fromIso)
+      .lt('start', toIso)
+      .order('start', { ascending: true });
+
     const fallbackResult = await fallbackQuery;
     if (!fallbackResult.error) {
       data = fallbackResult.data;
@@ -274,7 +298,9 @@ export async function getFutureInstancesForRackNode(
     }
   }
 
-  const rows = (data ?? []).map((row) => normalizeInstanceRow(row as RawInstanceRow));
+  const rows = (data ?? []).map((row) =>
+    normalizeInstanceRow(row as RawInstanceRow)
+  );
 
   return {
     data: rows,

@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
-import { useRef } from "react";
-import { useDroppable } from "@dnd-kit/core";
-import type { ActiveInstance } from "../../types/snapshot";
-import type { RackRow } from "./RackListEditorCore";
+import type { ReactNode } from 'react';
+import { useRef } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import type { ActiveInstance } from '../../types/snapshot';
+import type { RackRow } from './RackListEditorCore';
 
 type Props = {
   row: RackRow;
@@ -13,14 +13,14 @@ type Props = {
   isSelected?: boolean;
   isDisabled?: boolean;
   isClickable?: boolean;
-  unavailableReason?: "booked" | "not-in-schedule" | "closed" | null;
+  unavailableReason?: 'booked' | 'not-in-schedule' | 'closed' | null;
   onRackClick?: () => void;
 };
 
-export function RackRowDroppable({ 
-  row, 
-  booking, 
-  bookingContent, 
+export function RackRowDroppable({
+  row,
+  booking,
+  bookingContent,
   style,
   isSelectingRacks = false,
   isSelected = false,
@@ -31,16 +31,20 @@ export function RackRowDroppable({
 }: Props) {
   // Use a regular ref when selecting racks to avoid droppable interference
   const clickRef = useRef<HTMLDivElement>(null);
-  
+
   // Only use droppable when not in selection mode
   // Also disable if the rack is unavailable due to capacity schedules (e.g., General User)
   const droppableResult = useDroppable({
     id: row.id,
     data: { rackNumber: row.rackNumber },
-    disabled: row.disabled || row.rackNumber === null || isSelectingRacks || (unavailableReason === "not-in-schedule"),
+    disabled:
+      row.disabled ||
+      row.rackNumber === null ||
+      isSelectingRacks ||
+      unavailableReason === 'not-in-schedule',
   });
-  
-  const setNodeRef = isSelectingRacks 
+
+  const setNodeRef = isSelectingRacks
     ? (node: HTMLDivElement | null) => {
         clickRef.current = node;
       }
@@ -65,42 +69,42 @@ export function RackRowDroppable({
 
   const getBorderColor = () => {
     if (isSelectingRacks) {
-      if (isSelected) return "border-indigo-500";
-      if (isDisabled) return "border-slate-600";
-      return "border-slate-700";
+      if (isSelected) return 'border-indigo-500';
+      if (isDisabled) return 'border-slate-600';
+      return 'border-slate-700';
     }
 
-    if (row.disabled) return "border-slate-800";
+    if (row.disabled) return 'border-slate-800';
     // When not selecting racks, visually indicate racks that are reserved or closed
     // This applies even when there's no booking - check unavailableReason directly
-    if (unavailableReason === "closed") {
-      return "border-red-700";
+    if (unavailableReason === 'closed') {
+      return 'border-red-700';
     }
-    if (unavailableReason === "not-in-schedule") {
-      return "border-slate-700";
+    if (unavailableReason === 'not-in-schedule') {
+      return 'border-slate-700';
     }
-    if (isOver) return "border-indigo-500/70";
-    return "border-slate-800";
+    if (isOver) return 'border-indigo-500/70';
+    return 'border-slate-800';
   };
 
   const getBackgroundColor = () => {
     if (isSelectingRacks) {
-      if (isSelected) return "bg-indigo-600/20";
-      if (isDisabled) return "bg-slate-900/40 opacity-50";
-      return "bg-slate-900/80";
+      if (isSelected) return 'bg-indigo-600/20';
+      if (isDisabled) return 'bg-slate-900/40 opacity-50';
+      return 'bg-slate-900/80';
     }
 
-    if (row.disabled) return "bg-slate-850";
+    if (row.disabled) return 'bg-slate-850';
     // For coach view, dim racks that are reserved for General User or Closed (not in schedule)
     // This applies even when there's no booking - check unavailableReason directly
-    if (unavailableReason === "closed") {
-      return "bg-red-950/40";
+    if (unavailableReason === 'closed') {
+      return 'bg-red-950/40';
     }
-    if (unavailableReason === "not-in-schedule") {
-      return "bg-slate-900/40 opacity-60";
+    if (unavailableReason === 'not-in-schedule') {
+      return 'bg-slate-900/40 opacity-60';
     }
-    if (isOver) return "bg-slate-850";
-    return "bg-slate-900/80";
+    if (isOver) return 'bg-slate-850';
+    return 'bg-slate-900/80';
   };
 
   const borderColor = getBorderColor();
@@ -113,36 +117,37 @@ export function RackRowDroppable({
       onClick={handleClick}
       onMouseDown={handleMouseDown}
       className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-xl border-2 px-4 sm:px-5 py-4 sm:py-5 transition ${backgroundColor} ${borderColor} ${
-        isSelectingRacks && isClickable ? "cursor-pointer hover:bg-slate-800/60" : ""
-      } ${
-        isSelectingRacks && isDisabled ? "cursor-not-allowed" : ""
-      } ${
-        row.disabled ? "text-slate-600" : "text-slate-100"
+        isSelectingRacks && isClickable
+          ? 'cursor-pointer hover:bg-slate-800/60'
+          : ''
+      } ${isSelectingRacks && isDisabled ? 'cursor-not-allowed' : ''} ${
+        row.disabled ? 'text-slate-600' : 'text-slate-100'
       }`}
     >
       <div className="flex flex-col min-w-[100px] lg:min-w-[120px] flex-shrink-0">
-        <span className="font-semibold tracking-wide text-base sm:text-lg">{row.label}</span>
+        <span className="font-semibold tracking-wide text-base sm:text-lg">
+          {row.label}
+        </span>
         <span className="text-sm sm:text-base text-slate-400">
           {row.disabled
-            ? "Not bookable"
-            : unavailableReason === "closed"
-            ? "Closed"
-            : unavailableReason === "not-in-schedule"
-            ? "General User"
-            : unavailableReason === "booked"
-            ? "Assigned"
-            : booking
-            ? "Assigned"
-            : "Available"}
+            ? 'Not bookable'
+            : unavailableReason === 'closed'
+              ? 'Closed'
+              : unavailableReason === 'not-in-schedule'
+                ? 'General User'
+                : unavailableReason === 'booked'
+                  ? 'Assigned'
+                  : booking
+                    ? 'Assigned'
+                    : 'Available'}
         </span>
       </div>
-      <div 
+      <div
         className="flex-1 min-w-0 text-sm sm:text-base text-slate-200 flex justify-start items-start sm:items-center w-full"
-        style={isSelectingRacks ? { pointerEvents: "none" } : undefined}
+        style={isSelectingRacks ? { pointerEvents: 'none' } : undefined}
       >
         {bookingContent}
       </div>
     </div>
   );
 }
-

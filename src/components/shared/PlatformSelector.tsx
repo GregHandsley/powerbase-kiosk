@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import clsx from "clsx";
+import { useMemo } from 'react';
+import clsx from 'clsx';
 
 export type PlatformOption = {
   number: number;
@@ -30,19 +30,22 @@ export function PlatformSelector({
   availablePlatforms,
   selectedPlatforms,
   onSelectionChange,
-  label = "Platforms",
+  label = 'Platforms',
   disabled = false,
   className,
 }: Props) {
-  const selectedSet = useMemo(() => new Set(selectedPlatforms), [selectedPlatforms]);
+  const selectedSet = useMemo(
+    () => new Set(selectedPlatforms),
+    [selectedPlatforms]
+  );
 
   const handleToggle = (platformNumber: number) => {
     if (disabled) return;
-    
+
     const newSelection = selectedSet.has(platformNumber)
       ? selectedPlatforms.filter((n) => n !== platformNumber)
       : [...selectedPlatforms, platformNumber].sort((a, b) => a - b);
-    
+
     onSelectionChange(newSelection);
   };
 
@@ -61,11 +64,12 @@ export function PlatformSelector({
   };
 
   const bookablePlatforms = availablePlatforms.filter((p) => !p.disabled);
-  const allSelected = bookablePlatforms.length > 0 && 
+  const allSelected =
+    bookablePlatforms.length > 0 &&
     bookablePlatforms.every((p) => selectedSet.has(p.number));
 
   return (
-    <div className={clsx("space-y-2", className)}>
+    <div className={clsx('space-y-2', className)}>
       {label && (
         <div className="flex items-center justify-between">
           <label className="block text-sm font-medium">{label}</label>
@@ -76,8 +80,8 @@ export function PlatformSelector({
                 onClick={handleSelectAll}
                 disabled={disabled || allSelected}
                 className={clsx(
-                  "text-slate-400 hover:text-slate-200",
-                  (disabled || allSelected) && "opacity-50 cursor-not-allowed"
+                  'text-slate-400 hover:text-slate-200',
+                  (disabled || allSelected) && 'opacity-50 cursor-not-allowed'
                 )}
               >
                 Select all
@@ -88,8 +92,9 @@ export function PlatformSelector({
                 onClick={handleDeselectAll}
                 disabled={disabled || selectedPlatforms.length === 0}
                 className={clsx(
-                  "text-slate-400 hover:text-slate-200",
-                  (disabled || selectedPlatforms.length === 0) && "opacity-50 cursor-not-allowed"
+                  'text-slate-400 hover:text-slate-200',
+                  (disabled || selectedPlatforms.length === 0) &&
+                    'opacity-50 cursor-not-allowed'
                 )}
               >
                 Deselect all
@@ -101,7 +106,9 @@ export function PlatformSelector({
 
       <div className="border border-slate-700 rounded-md p-3 bg-slate-950/60 max-h-64 overflow-auto">
         {availablePlatforms.length === 0 ? (
-          <p className="text-slate-400 text-xs text-center py-2">No platforms available</p>
+          <p className="text-slate-400 text-xs text-center py-2">
+            No platforms available
+          </p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {availablePlatforms.map((platform) => {
@@ -112,11 +119,11 @@ export function PlatformSelector({
                 <label
                   key={platform.number}
                   className={clsx(
-                    "inline-flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors",
+                    'inline-flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors',
                     isSelected
-                      ? "bg-indigo-600/20 border-indigo-500 text-indigo-200"
-                      : "bg-slate-900/40 border-slate-600 text-slate-200 hover:border-slate-500",
-                    isDisabled && "opacity-50 cursor-not-allowed"
+                      ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200'
+                      : 'bg-slate-900/40 border-slate-600 text-slate-200 hover:border-slate-500',
+                    isDisabled && 'opacity-50 cursor-not-allowed'
                   )}
                 >
                   <input
@@ -136,11 +143,11 @@ export function PlatformSelector({
 
       {selectedPlatforms.length > 0 && (
         <p className="text-xs text-slate-400">
-          {selectedPlatforms.length} platform{selectedPlatforms.length !== 1 ? "s" : ""} selected:{" "}
-          {selectedPlatforms.join(", ")}
+          {selectedPlatforms.length} platform
+          {selectedPlatforms.length !== 1 ? 's' : ''} selected:{' '}
+          {selectedPlatforms.join(', ')}
         </p>
       )}
     </div>
   );
 }
-

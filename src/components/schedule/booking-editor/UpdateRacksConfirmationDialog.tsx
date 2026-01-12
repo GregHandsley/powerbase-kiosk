@@ -25,15 +25,18 @@ export function UpdateRacksConfirmationDialog({
   return (
     <div className="rounded-md bg-indigo-900/20 border border-indigo-700/50 p-4 space-y-3">
       <p className="text-sm font-medium text-indigo-300">
-        Update {sessionCount} selected session{sessionCount !== 1 ? "s" : ""} with the new racks?
+        Update {sessionCount} selected session{sessionCount !== 1 ? 's' : ''}{' '}
+        with the new racks?
       </p>
       <div className="text-xs text-indigo-400/80">
         <p>
-          <span className="font-medium">Racks:</span> {racks.sort((a, b) => a - b).join(", ")}
+          <span className="font-medium">Racks:</span>{' '}
+          {racks.sort((a, b) => a - b).join(', ')}
         </p>
       </div>
       <p className="text-xs text-indigo-400/70">
-        This will update the racks for {sessionCount} selected session{sessionCount !== 1 ? "s" : ""}.
+        This will update the racks for {sessionCount} selected session
+        {sessionCount !== 1 ? 's' : ''}.
       </p>
       <div className="flex gap-2">
         <button
@@ -50,10 +53,9 @@ export function UpdateRacksConfirmationDialog({
           disabled={saving || disabled}
           className="px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {saving ? "Updating..." : "Update"}
+          {saving ? 'Updating...' : 'Update'}
         </button>
       </div>
     </div>
   );
 }
-

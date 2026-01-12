@@ -1,24 +1,26 @@
-import { useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
-import { BookingFormPanel } from "../components/admin/BookingFormPanel";
-import { Clock } from "../components/Clock";
-import { useAuth } from "../context/AuthContext";
-import type { BookingFormValues } from "../schemas/bookingForm";
+import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { BookingFormPanel } from '../components/admin/BookingFormPanel';
+import { Clock } from '../components/Clock';
+import { useAuth } from '../context/AuthContext';
+import type { BookingFormValues } from '../schemas/bookingForm';
 
 export function Bookings() {
   const { user, profile, role, loading, signOut, signIn } = useAuth();
   const [searchParams] = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
 
   // Read URL params for pre-filled booking form
-  const initialBookingValues = useMemo<Partial<BookingFormValues> | undefined>(() => {
-    const date = searchParams.get("date");
-    const startTime = searchParams.get("startTime");
-    const endTime = searchParams.get("endTime");
-    const side = searchParams.get("side");
+  const initialBookingValues = useMemo<
+    Partial<BookingFormValues> | undefined
+  >(() => {
+    const date = searchParams.get('date');
+    const startTime = searchParams.get('startTime');
+    const endTime = searchParams.get('endTime');
+    const side = searchParams.get('side');
 
     if (!date || !startTime || !endTime || !side) {
       return undefined;
@@ -28,7 +30,7 @@ export function Bookings() {
       startDate: date,
       startTime,
       endTime,
-      sideKey: side === "Base" ? "Base" : "Power",
+      sideKey: side === 'Base' ? 'Base' : 'Power',
     };
   }, [searchParams]);
 
@@ -97,7 +99,7 @@ export function Bookings() {
               disabled={loginLoading}
               className="w-full mt-2 inline-flex items-center justify-center rounded-md bg-indigo-600 hover:bg-indigo-500 text-sm font-medium py-1.5 disabled:opacity-60"
             >
-              {loginLoading ? "Signing in..." : "Sign in"}
+              {loginLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
         </div>
@@ -105,15 +107,16 @@ export function Bookings() {
     );
   }
 
-  if (!role || (role !== "admin" && role !== "coach")) {
+  if (!role || (role !== 'admin' && role !== 'coach')) {
     return (
       <div className="p-4 space-y-4">
         <header className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold">Bookings</h1>
             <p className="text-slate-300 text-sm">
-              You are signed in as <span className="font-mono">{user.email}</span>,
-              but your profile does not grant admin / coach access.
+              You are signed in as{' '}
+              <span className="font-mono">{user.email}</span>, but your profile
+              does not grant admin / coach access.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -130,7 +133,7 @@ export function Bookings() {
     );
   }
 
-  const displayName = profile?.full_name || user.email || "Unknown";
+  const displayName = profile?.full_name || user.email || 'Unknown';
 
   return (
     <div className="p-4 space-y-4">
@@ -138,9 +141,9 @@ export function Bookings() {
         <div>
           <h1 className="text-lg font-semibold">Bookings</h1>
           <p className="text-slate-300 text-sm">
-            Signed in as{" "}
-            <span className="font-mono">{user.email ?? "unknown"}</span>{" "}
-            ({role}) – {displayName}
+            Signed in as{' '}
+            <span className="font-mono">{user.email ?? 'unknown'}</span> ({role}
+            ) – {displayName}
           </p>
         </div>
         <div className="flex items-center gap-3">

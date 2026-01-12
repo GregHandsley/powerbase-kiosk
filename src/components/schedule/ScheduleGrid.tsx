@@ -1,13 +1,13 @@
-import { useMemo } from "react";
-import { isSameDay } from "date-fns";
-import type { ScheduleGridProps } from "./grid/types";
-import { calculateBookingBlocksByRack } from "./grid/utils/bookingBlocks";
-import { calculateUnavailableBlocksByRack } from "./grid/utils/unavailableBlocks";
-import { useCurrentTimeIndicator } from "./grid/hooks/useCurrentTimeIndicator";
-import { useDragSelection } from "./grid/hooks/useDragSelection";
-import { ScheduleGridHeader } from "./grid/components/ScheduleGridHeader";
-import { ScheduleGridRow } from "./grid/components/ScheduleGridRow";
-import { CurrentTimeIndicator } from "./grid/components/CurrentTimeIndicator";
+import { useMemo } from 'react';
+import { isSameDay } from 'date-fns';
+import type { ScheduleGridProps } from './grid/types';
+import { calculateBookingBlocksByRack } from './grid/utils/bookingBlocks';
+import { calculateUnavailableBlocksByRack } from './grid/utils/unavailableBlocks';
+import { useCurrentTimeIndicator } from './grid/hooks/useCurrentTimeIndicator';
+import { useDragSelection } from './grid/hooks/useDragSelection';
+import { ScheduleGridHeader } from './grid/components/ScheduleGridHeader';
+import { ScheduleGridRow } from './grid/components/ScheduleGridRow';
+import { CurrentTimeIndicator } from './grid/components/CurrentTimeIndicator';
 
 export function ScheduleGrid({
   racks,
@@ -35,7 +35,13 @@ export function ScheduleGrid({
 
   // Calculate unavailable blocks (General User/Closed) for each rack
   const unavailableBlocksByRack = useMemo(
-    () => calculateUnavailableBlocksByRack(racks, timeSlots, slotCapacityData, bookingBlocksByRack),
+    () =>
+      calculateUnavailableBlocksByRack(
+        racks,
+        timeSlots,
+        slotCapacityData,
+        bookingBlocksByRack
+      ),
     [slotCapacityData, timeSlots, racks, bookingBlocksByRack]
   );
 
@@ -46,7 +52,7 @@ export function ScheduleGrid({
   const {
     gridRef,
     isDragging,
-    selectedRange,
+    // selectedRange,
     isSelectionValid,
     isCellSelected,
     handleMouseDown,
@@ -73,16 +79,19 @@ export function ScheduleGrid({
       <div className="flex-1 overflow-auto overflow-x-auto relative">
         {/* Current Time Indicator Line - Only show if viewing today */}
         {currentTimePosition && isToday && (
-          <CurrentTimeIndicator 
-            position={currentTimePosition} 
+          <CurrentTimeIndicator
+            position={currentTimePosition}
             isToday={isToday}
             numRacks={numRacks}
           />
         )}
-        
-        <div style={{ minWidth: "max-content" }}>
+
+        <div style={{ minWidth: 'max-content' }}>
           {/* Racks Header - Sticky */}
-          <ScheduleGridHeader racks={racks} gridTemplateColumns={gridTemplateColumns} />
+          <ScheduleGridHeader
+            racks={racks}
+            gridTemplateColumns={gridTemplateColumns}
+          />
 
           {/* Time Slots */}
           {timeSlots.map((slot, slotIndex) => (

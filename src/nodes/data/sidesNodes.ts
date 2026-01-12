@@ -1,6 +1,6 @@
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from '../../lib/supabaseClient';
 
-export type SideKey = "Power" | "Base";
+export type SideKey = 'Power' | 'Base';
 
 export interface SideRow {
   id: number;
@@ -10,9 +10,9 @@ export interface SideRow {
 
 export async function getSidesNode() {
   const { data, error } = await supabase
-    .from("sides")
-    .select("id,key,name")
-    .order("id", { ascending: true });
+    .from('sides')
+    .select('id,key,name')
+    .order('id', { ascending: true });
 
   return {
     data: (data ?? []) as SideRow[],
@@ -22,13 +22,13 @@ export async function getSidesNode() {
 
 export async function getSideIdByKeyNode(sideKey: SideKey): Promise<number> {
   const { data, error } = await supabase
-    .from("sides")
-    .select("id,key,name")
-    .eq("key", sideKey)
+    .from('sides')
+    .select('id,key,name')
+    .eq('key', sideKey)
     .maybeSingle();
 
   if (error) {
-    console.error("getSideIdByKeyNode error", error.message);
+    console.error('getSideIdByKeyNode error', error.message);
     throw new Error(`Failed to load side id for ${sideKey}`);
   }
 

@@ -1,15 +1,15 @@
-import { useEffect } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { supabase } from "../lib/supabaseClient";
-import { useAuth } from "../context/AuthContext";
+import { useEffect } from 'react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 
-export type NotificationType = 
-  | "last_minute_change"
-  | "booking:created"
-  | "booking:processed"
-  | "booking:edited"
-  | "booking:cancelled"
-  | "system:update";
+export type NotificationType =
+  | 'last_minute_change'
+  | 'booking:created'
+  | 'booking:processed'
+  | 'booking:edited'
+  | 'booking:cancelled'
+  | 'system:update';
 
 export interface Notification {
   id: number;
@@ -41,19 +41,19 @@ export function useNotifications() {
 
   // Fetch notifications
   const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ["notifications", user?.id],
+    queryKey: ['notifications', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
 
       const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
         .limit(50); // Limit to most recent 50
 
       if (error) {
-        console.error("Error fetching notifications:", error);
+        console.error('Error fetching notifications:', error);
         throw error;
       }
 
@@ -70,42 +70,48 @@ export function useNotifications() {
     const channel = supabase
       .channel(`notifications:${user.id}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
           filter: `user_id=eq.${user.id}`,
         },
         () => {
           // Immediately invalidate and refetch notifications when a new one is created
-          queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
+          queryClient.invalidateQueries({
+            queryKey: ['notifications', user.id],
+          });
         }
       )
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "UPDATE",
-          schema: "public",
-          table: "notifications",
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
           filter: `user_id=eq.${user.id}`,
         },
         () => {
           // Also invalidate on updates (e.g., when marked as read)
-          queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
+          queryClient.invalidateQueries({
+            queryKey: ['notifications', user.id],
+          });
         }
       )
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "DELETE",
-          schema: "public",
-          table: "notifications",
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
           filter: `user_id=eq.${user.id}`,
         },
         () => {
           // Invalidate on delete
-          queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
+          queryClient.invalidateQueries({
+            queryKey: ['notifications', user.id],
+          });
         }
       )
       .subscribe();
@@ -124,15 +130,15 @@ export function useNotifications() {
       if (!user?.id) return;
 
       const { error } = await supabase
-        .from("notifications")
+        .from('notifications')
         .update({ read_at: new Date().toISOString() })
-        .eq("id", notificationId)
-        .eq("user_id", user.id);
+        .eq('id', notificationId)
+        .eq('user_id', user.id);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
   });
 
@@ -142,15 +148,15 @@ export function useNotifications() {
       if (!user?.id) return;
 
       const { error } = await supabase
-        .from("notifications")
+        .from('notifications')
         .update({ read_at: new Date().toISOString() })
-        .eq("user_id", user.id)
-        .is("read_at", null);
+        .eq('user_id', user.id)
+        .is('read_at', null);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
   });
 
@@ -158,34 +164,38 @@ export function useNotifications() {
   const deleteNotificationMutation = useMutation({
     mutationFn: async (notificationId: number) => {
       if (!user?.id) {
-        throw new Error("User not authenticated");
+        throw new Error('User not authenticated');
       }
 
       const { data, error } = await supabase
-        .from("notifications")
+        .from('notifications')
         .delete()
-        .eq("id", notificationId)
-        .eq("user_id", user.id)
+        .eq('id', notificationId)
+        .eq('user_id', user.id)
         .select();
 
       if (error) {
-        console.error("Failed to delete notification:", error);
-        throw new Error(error.message || "Failed to delete notification");
+        console.error('Failed to delete notification:', error);
+        throw new Error(error.message || 'Failed to delete notification');
       }
 
       // If no rows were deleted, the notification might not belong to this user or doesn't exist
       if (!data || data.length === 0) {
-        console.warn(`Notification ${notificationId} not found or doesn't belong to user`);
+        console.warn(
+          `Notification ${notificationId} not found or doesn't belong to user`
+        );
         // Still invalidate to refresh the list
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
     onError: (error) => {
-      console.error("Error deleting notification:", error);
+      console.error('Error deleting notification:', error);
       // Show user-friendly error
-      alert(`Failed to delete notification: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `Failed to delete notification: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     },
   });
 
@@ -206,11 +216,13 @@ export function useNotifications() {
  * Service function to create a notification
  * This can be called from anywhere in the app
  */
-export async function createNotification(input: CreateNotificationInput): Promise<Notification | null> {
+export async function createNotification(
+  input: CreateNotificationInput
+): Promise<Notification | null> {
   const { userId, type, title, message, link, metadata } = input;
 
   const { data, error } = await supabase
-    .from("notifications")
+    .from('notifications')
     .insert({
       user_id: userId,
       type,
@@ -223,7 +235,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
     .single();
 
   if (error) {
-    console.error("Error creating notification:", error);
+    console.error('Error creating notification:', error);
     return null;
   }
 
@@ -235,7 +247,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
  */
 export async function createNotificationsForUsers(
   userIds: string[],
-  input: Omit<CreateNotificationInput, "userId">
+  input: Omit<CreateNotificationInput, 'userId'>
 ): Promise<Notification[]> {
   if (userIds.length === 0) return [];
 
@@ -249,12 +261,12 @@ export async function createNotificationsForUsers(
   }));
 
   const { data, error } = await supabase
-    .from("notifications")
+    .from('notifications')
     .insert(notifications)
     .select();
 
   if (error) {
-    console.error("Error creating notifications:", error);
+    console.error('Error creating notifications:', error);
     return [];
   }
 
@@ -264,14 +276,16 @@ export async function createNotificationsForUsers(
 /**
  * Get user IDs for a specific role (e.g., all bookings team members)
  */
-export async function getUserIdsByRole(role: "admin" | "coach" | "bookings_team"): Promise<string[]> {
+export async function getUserIdsByRole(
+  role: 'admin' | 'coach' | 'bookings_team'
+): Promise<string[]> {
   const { data, error } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("role", role);
+    .from('profiles')
+    .select('id')
+    .eq('role', role);
 
   if (error) {
-    console.error("Error fetching users by role:", error);
+    console.error('Error fetching users by role:', error);
     return [];
   }
 
@@ -283,24 +297,25 @@ export async function getUserIdsByRole(role: "admin" | "coach" | "bookings_team"
  * This clears notifications like "booking:created", "booking:edited", "last_minute_change"
  * that are no longer relevant once the booking is processed
  */
-export async function deleteNotificationsForBooking(bookingId: number): Promise<void> {
+export async function deleteNotificationsForBooking(
+  bookingId: number
+): Promise<void> {
   try {
     // Delete notifications that reference this booking in their metadata
     // Types that should be cleared: booking:created, booking:edited, last_minute_change
     // Note: booking_id in metadata is stored as a number, so we extract it as text and compare
     const { error } = await supabase
-      .from("notifications")
+      .from('notifications')
       .delete()
-      .eq("metadata->>booking_id", bookingId.toString())
-      .in("type", ["booking:created", "booking:edited", "last_minute_change"]);
+      .eq('metadata->>booking_id', bookingId.toString())
+      .in('type', ['booking:created', 'booking:edited', 'last_minute_change']);
 
     if (error) {
-      console.error("Error deleting notifications for booking:", error);
+      console.error('Error deleting notifications for booking:', error);
       // Don't throw - this is a cleanup operation, shouldn't fail the main process
     }
   } catch (err) {
-    console.error("Failed to delete notifications for booking:", err);
+    console.error('Failed to delete notifications for booking:', err);
     // Don't throw - this is a cleanup operation
   }
 }
-

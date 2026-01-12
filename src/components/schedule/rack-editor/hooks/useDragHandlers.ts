@@ -1,6 +1,6 @@
-import { useState } from "react";
-import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
-import type { ActiveInstance } from "../../../../types/snapshot";
+import { useState } from 'react';
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import type { ActiveInstance } from '../../../../types/snapshot';
 
 type UseDragHandlersProps = {
   assignments: Map<number, number[]>;
@@ -11,9 +11,9 @@ type UseDragHandlersProps = {
   availablePlatforms?: Set<number> | null;
 };
 
-export function useDragHandlers({ 
-  assignments, 
-  setAssignments, 
+export function useDragHandlers({
+  assignments,
+  setAssignments,
   initialAssignments,
   bookingById,
   availablePlatforms = null,
@@ -33,7 +33,7 @@ export function useDragHandlers({
       setDragError(null);
       return;
     }
-    
+
     const bookingId = active.data.current?.bookingId as number | undefined;
     const fromRack = active.data.current?.fromRack as number | undefined;
     if (!bookingId) {
@@ -44,8 +44,11 @@ export function useDragHandlers({
       setDragError(null);
       return;
     }
-    
-    const overRackNumber = over.data?.current?.rackNumber as number | null | undefined;
+
+    const overRackNumber = over.data?.current?.rackNumber as
+      | number
+      | null
+      | undefined;
     if (!overRackNumber) {
       setDragError(null);
       return; // only drop on bookable racks
@@ -54,7 +57,10 @@ export function useDragHandlers({
     // Check if the target rack is available in the capacity schedule
     // If availablePlatforms is null, all platforms are available (no restriction)
     // If availablePlatforms is a Set, only racks in that Set are available
-    if (availablePlatforms !== null && !availablePlatforms.has(overRackNumber)) {
+    if (
+      availablePlatforms !== null &&
+      !availablePlatforms.has(overRackNumber)
+    ) {
       setDragError(
         `Cannot move booking: Rack ${overRackNumber} is not available for booking (reserved for General User)`
       );
@@ -92,9 +98,14 @@ export function useDragHandlers({
     // No conflict, proceed with the move
     setDragError(null);
     setAssignments((prev) => {
-      const original = prev.get(bookingId) ?? initialAssignments.get(bookingId) ?? [];
-      const replaced = original.map((r) => (r === fromRack ? overRackNumber : r));
-      const newRacks = Array.from(new Set(replaced.length ? replaced : [overRackNumber]));
+      const original =
+        prev.get(bookingId) ?? initialAssignments.get(bookingId) ?? [];
+      const replaced = original.map((r) =>
+        r === fromRack ? overRackNumber : r
+      );
+      const newRacks = Array.from(
+        new Set(replaced.length ? replaced : [overRackNumber])
+      );
       const next = new Map(prev);
       next.set(bookingId, newRacks);
       return next;
@@ -144,4 +155,3 @@ function findConflictingBooking(
 
   return null;
 }
-

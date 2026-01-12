@@ -1,22 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "../../context/AuthContext";
-import { BookingFormSchema, type BookingFormValues } from "../../schemas/bookingForm";
-import { getSideIdByKeyNode, type SideKey } from "../../nodes/data/sidesNodes";
-import { useClosedTimes, isTimeRangeClosed } from "./capacity/useClosedTimes";
-import { useAreas } from "./booking/useAreas";
-import { useTimeDefaults } from "./booking/useTimeDefaults";
-import { useWeekManagement } from "./booking/useWeekManagement";
-import { useBookingSubmission } from "./booking/useBookingSubmission";
-import { useCapacityValidation } from "./booking/useCapacityValidation";
-import { BookingTimeInputs } from "./booking/BookingTimeInputs";
-import { BookingPlatformSelection } from "./booking/BookingPlatformSelection";
-import { CapacityDisplay } from "./booking/CapacityDisplay";
-import clsx from "clsx";
+import { useEffect, useMemo, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '../../context/AuthContext';
+import {
+  BookingFormSchema,
+  type BookingFormValues,
+} from '../../schemas/bookingForm';
+import { getSideIdByKeyNode, type SideKey } from '../../nodes/data/sidesNodes';
+import { useClosedTimes, isTimeRangeClosed } from './capacity/useClosedTimes';
+import { useAreas } from './booking/useAreas';
+import { useTimeDefaults } from './booking/useTimeDefaults';
+import { useWeekManagement } from './booking/useWeekManagement';
+import { useBookingSubmission } from './booking/useBookingSubmission';
+import { useCapacityValidation } from './booking/useCapacityValidation';
+import { BookingTimeInputs } from './booking/BookingTimeInputs';
+import { BookingPlatformSelection } from './booking/BookingPlatformSelection';
+import { CapacityDisplay } from './booking/CapacityDisplay';
+import clsx from 'clsx';
 
 type Props = {
-  role: "admin" | "coach";
+  role: 'admin' | 'coach';
   /** Optional initial values to pre-fill the form */
   initialValues?: Partial<BookingFormValues>;
   /** Callback when booking is successfully created */
@@ -30,23 +33,23 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   const todayStr = useMemo(() => {
     const d = new Date();
     const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   }, []);
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(BookingFormSchema),
     defaultValues: {
-      title: "",
-      sideKey: "Power",
+      title: '',
+      sideKey: 'Power',
       startDate: todayStr,
-      startTime: "07:00",
-      endTime: "08:30",
+      startTime: '07:00',
+      endTime: '08:30',
       weeks: 1,
-      racksInput: "",
+      racksInput: '',
       areas: [],
-      color: "#4f46e5",
+      color: '#4f46e5',
       isLocked: false,
       capacity: 1,
       ...initialValues,
@@ -58,15 +61,15 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
     if (initialValues) {
       // Use a deep comparison or stringify to ensure we detect changes
       const valuesToSet = {
-        title: "",
-        sideKey: "Power",
+        title: '',
+        sideKey: 'Power',
         startDate: todayStr,
-        startTime: "07:00",
-        endTime: "08:30",
+        startTime: '07:00',
+        endTime: '08:30',
         weeks: 1,
-        racksInput: "",
+        racksInput: '',
         areas: [],
-        color: "#4f46e5",
+        color: '#4f46e5',
         isLocked: false,
         capacity: 1,
         ...initialValues,
@@ -77,8 +80,8 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
 
   // Get side ID for closed times check
   const [sideId, setSideId] = useState<number | null>(null);
-  const sideKey = form.watch("sideKey");
-  const startDate = form.watch("startDate");
+  const sideKey = useWatch({ control: form.control, name: 'sideKey' });
+  const startDate = useWatch({ control: form.control, name: 'startDate' });
 
   useEffect(() => {
     getSideIdByKeyNode(sideKey as SideKey)
@@ -87,12 +90,18 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   }, [sideKey]);
 
   // Get closed times for the selected date and side
-  const { closedTimes, closedPeriods, isLoading: closedTimesLoading } = useClosedTimes(sideId, startDate || null);
-  
+  const {
+    closedTimes,
+    closedPeriods,
+    isLoading: closedTimesLoading,
+  } = useClosedTimes(sideId, startDate || null);
+
   // Check if selected times are closed
-    const startTime = form.watch("startTime");
-    const endTime = form.watch("endTime");
-    
+  const startTime = useWatch({ control: form.control, name: 'startTime' });
+  const endTime = useWatch({ control: form.control, name: 'endTime' });
+  const capacity = useWatch({ control: form.control, name: 'capacity' });
+  const weeks = useWatch({ control: form.control, name: 'weeks' });
+
   // Check if any time in the range is closed
   const timeRangeIsClosed = useMemo(() => {
     if (!startTime || !endTime) return false;
@@ -103,39 +112,41 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   const {
     endTimeManuallyChanged,
     setEndTimeManuallyChanged,
-    availableRanges,
     firstAvailableTime,
-  } = useTimeDefaults(form, sideId, startDate, closedTimes, closedTimesLoading, closedPeriods);
+  } = useTimeDefaults(
+    form,
+    sideId,
+    startDate,
+    closedTimes,
+    closedTimesLoading,
+    closedPeriods
+  );
 
   // Week-by-week management
   const weekManagement = useWeekManagement(form);
 
   // Capacity validation
   const capacityValidation = useCapacityValidation(
-    sideKey as "Power" | "Base",
+    sideKey as 'Power' | 'Base',
     startDate || null,
     startTime || null,
     endTime || null,
-    form.watch("capacity") || 1,
-    form.watch("weeks") || 1,
+    capacity || 1,
+    weeks || 1,
     weekManagement.racksByWeek,
     weekManagement.capacityByWeek
   );
 
   // Booking submission
-  const {
-    onSubmit,
-    submitMessage,
-    submitError,
-    submitting,
-  } = useBookingSubmission(
-    form,
-    role,
-    user?.id || null,
-    timeRangeIsClosed,
-    weekManagement,
-    capacityValidation
-  );
+  const { onSubmit, submitMessage, submitError, submitting } =
+    useBookingSubmission(
+      form,
+      role,
+      user?.id || null,
+      timeRangeIsClosed,
+      weekManagement,
+      capacityValidation
+    );
 
   // Call onSuccess when booking is successfully created
   useEffect(() => {
@@ -154,7 +165,8 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
         <div>
           <h2 className="text-sm font-semibold">Create Booking</h2>
           <p className="text-xs text-slate-300">
-            Define a weekly squad block and materialise platform allocations for the next few weeks.
+            Define a weekly squad block and materialise platform allocations for
+            the next few weeks.
           </p>
         </div>
         <span className="text-[10px] rounded-full bg-slate-800 px-2 py-1 text-slate-300">
@@ -173,7 +185,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
             <label className="block mb-1 font-medium">Title</label>
             <input
               className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
-              {...form.register("title")}
+              {...form.register('title')}
               placeholder="e.g. Loughborough S&C – Squad A"
             />
             {form.formState.errors.title && (
@@ -189,24 +201,28 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => form.setValue("sideKey", "Power", { shouldValidate: true })}
+                onClick={() =>
+                  form.setValue('sideKey', 'Power', { shouldValidate: true })
+                }
                 className={clsx(
-                  "flex-1 rounded-md border px-2 py-1 text-xs font-medium transition",
-                  form.watch("sideKey") === "Power"
-                    ? "bg-indigo-600 border-indigo-500 text-white"
-                    : "bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900"
+                  'flex-1 rounded-md border px-2 py-1 text-xs font-medium transition',
+                  sideKey === 'Power'
+                    ? 'bg-indigo-600 border-indigo-500 text-white'
+                    : 'bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900'
                 )}
               >
                 Power
               </button>
               <button
                 type="button"
-                onClick={() => form.setValue("sideKey", "Base", { shouldValidate: true })}
+                onClick={() =>
+                  form.setValue('sideKey', 'Base', { shouldValidate: true })
+                }
                 className={clsx(
-                  "flex-1 rounded-md border px-2 py-1 text-xs font-medium transition",
-                  form.watch("sideKey") === "Base"
-                    ? "bg-indigo-600 border-indigo-500 text-white"
-                    : "bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900"
+                  'flex-1 rounded-md border px-2 py-1 text-xs font-medium transition',
+                  sideKey === 'Base'
+                    ? 'bg-indigo-600 border-indigo-500 text-white'
+                    : 'bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900'
                 )}
               >
                 Base
@@ -222,17 +238,17 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
             firstAvailableTime={firstAvailableTime}
             endTimeManuallyChanged={endTimeManuallyChanged}
             onEndTimeChange={() => setEndTimeManuallyChanged(true)}
-              />
+          />
         </div>
 
         {/* Middle column: platforms */}
         <div className="space-y-2">
           <BookingPlatformSelection
             form={form}
-                sideKey={form.watch("sideKey")}
+            sideKey={sideKey}
             weekManagement={weekManagement}
           />
-          
+
           {/* Capacity validation display */}
           {startDate && startTime && endTime && (
             <CapacityDisplay
@@ -240,14 +256,14 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
               proposedCapacity={weekManagement.currentWeekCapacity}
             />
           )}
-          </div>
+        </div>
 
         {/* Right column: areas, color, lock, submit */}
         <div className="space-y-2">
           {/* Areas */}
           <div>
             <label className="block mb-1 font-medium">
-              Areas{" "}
+              Areas{' '}
               <span className="text-[10px] text-slate-400">(Coming soon)</span>
             </label>
             <div className="border border-slate-700 rounded-md p-2 max-h-32 overflow-auto bg-slate-950/60 opacity-50 pointer-events-none">
@@ -258,7 +274,9 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
                 <p className="text-red-400 text-[11px]">Error: {areasError}</p>
               )}
               {!areasLoading && !areasError && areas.length === 0 && (
-                <p className="text-slate-400 text-[11px]">No areas configured.</p>
+                <p className="text-slate-400 text-[11px]">
+                  No areas configured.
+                </p>
               )}
               {!areasLoading && !areasError && areas.length > 0 && (
                 <div className="grid grid-cols-2 gap-1">
@@ -272,10 +290,10 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
                         value={area.key}
                         disabled
                         className="h-3 w-3 rounded border-slate-600 bg-slate-950 cursor-not-allowed"
-                        {...form.register("areas")}
+                        {...form.register('areas')}
                       />
                       <span>
-                        {area.name}{" "}
+                        {area.name}{' '}
                         <span className="text-slate-500">({area.key})</span>
                       </span>
                     </label>
@@ -286,7 +304,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
             <p className="text-[10px] text-slate-500 mt-1 italic">
               Area selection will be available in a later update
             </p>
-        </div>
+          </div>
 
           {/* Colour */}
           <div>
@@ -295,24 +313,24 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
               <input
                 type="color"
                 className="w-10 h-7 rounded border border-slate-700 bg-slate-950"
-                {...form.register("color")}
+                {...form.register('color')}
               />
               <input
                 className="flex-1 rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
-                {...form.register("color")}
+                {...form.register('color')}
                 placeholder="#4f46e5"
               />
             </div>
           </div>
 
           {/* Locked booking */}
-          {role === "admin" && (
+          {role === 'admin' && (
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 id="isLocked"
                 className="h-3 w-3 rounded border-slate-600 bg-slate-950"
-                {...form.register("isLocked")}
+                {...form.register('isLocked')}
               />
               <label htmlFor="isLocked" className="text-xs">
                 Locked booking (coaches cannot move/modify)
@@ -324,18 +342,23 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
           <div className="pt-2">
             <button
               type="submit"
-              disabled={submitting || (!capacityValidation.isValid && !capacityValidation.isLoading)}
+              disabled={
+                submitting ||
+                (!capacityValidation.isValid && !capacityValidation.isLoading)
+              }
               className={clsx(
-                "w-full inline-flex items-center justify-center rounded-md py-1.5 text-xs font-medium",
-                "bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed",
-                !capacityValidation.isValid && !capacityValidation.isLoading && "bg-red-600 hover:bg-red-500"
+                'w-full inline-flex items-center justify-center rounded-md py-1.5 text-xs font-medium',
+                'bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed',
+                !capacityValidation.isValid &&
+                  !capacityValidation.isLoading &&
+                  'bg-red-600 hover:bg-red-500'
               )}
             >
               {submitting
-                ? "Creating booking..."
+                ? 'Creating booking...'
                 : !capacityValidation.isValid && !capacityValidation.isLoading
-                  ? "Cannot create: Capacity exceeded"
-                  : "Create booking"}
+                  ? 'Cannot create: Capacity exceeded'
+                  : 'Create booking'}
             </button>
           </div>
 

@@ -1,12 +1,31 @@
-import { useState, useEffect } from "react";
-import { addDays, format, startOfWeek, eachDayOfInterval, getDay } from "date-fns";
-import { supabase } from "../../../lib/supabaseClient";
-import type { ScheduleData, CapacityData, TimeSlot } from "./scheduleUtils";
-import { doesScheduleApply, parseExcludedDates, formatTimeSlot, getCapacityKey } from "./scheduleUtils";
+import { useState, useEffect } from 'react';
+import {
+  addDays,
+  format,
+  startOfWeek,
+  eachDayOfInterval,
+  getDay,
+} from 'date-fns';
+import { supabase } from '../../../lib/supabaseClient';
+import type { ScheduleData, CapacityData, TimeSlot } from './scheduleUtils';
+import {
+  doesScheduleApply,
+  parseExcludedDates,
+  formatTimeSlot,
+  getCapacityKey,
+} from './scheduleUtils';
 
-export function useCapacitySchedules(sideId: number | null, currentWeek: Date, refreshKey: number) {
-  const [capacityData, setCapacityData] = useState<Map<string, CapacityData>>(new Map());
-  const [scheduleData, setScheduleData] = useState<Map<number, ScheduleData>>(new Map());
+export function useCapacitySchedules(
+  sideId: number | null,
+  currentWeek: Date,
+  refreshKey: number
+) {
+  const [capacityData, setCapacityData] = useState<Map<string, CapacityData>>(
+    new Map()
+  );
+  const [scheduleData, setScheduleData] = useState<Map<number, ScheduleData>>(
+    new Map()
+  );
 
   useEffect(() => {
     if (!sideId) return;
@@ -16,14 +35,14 @@ export function useCapacitySchedules(sideId: number | null, currentWeek: Date, r
       const weekEnd = addDays(weekStart, 6);
 
       const { data, error } = await supabase
-        .from("capacity_schedules")
-        .select("*")
-        .eq("side_id", sideId)
-        .lte("start_date", format(weekEnd, "yyyy-MM-dd"))
-        .or(`end_date.is.null,end_date.gte.${format(weekStart, "yyyy-MM-dd")}`);
+        .from('capacity_schedules')
+        .select('*')
+        .eq('side_id', sideId)
+        .lte('start_date', format(weekEnd, 'yyyy-MM-dd'))
+        .or(`end_date.is.null,end_date.gte.${format(weekStart, 'yyyy-MM-dd')}`);
 
       if (error) {
-        console.error("Error fetching capacity data:", error);
+        console.error('Error fetching capacity data:', error);
         return;
       }
 
@@ -31,7 +50,9 @@ export function useCapacitySchedules(sideId: number | null, currentWeek: Date, r
       const scheduleMap = new Map<number, ScheduleData>();
       data?.forEach((schedule) => {
         const excludedDates = parseExcludedDates(schedule.excluded_dates);
-        const platforms = Array.isArray(schedule.platforms) ? schedule.platforms : [];
+        const platforms = Array.isArray(schedule.platforms)
+          ? schedule.platforms
+          : [];
         scheduleMap.set(schedule.id, {
           ...schedule,
           excluded_dates: excludedDates,
@@ -49,7 +70,7 @@ export function useCapacitySchedules(sideId: number | null, currentWeek: Date, r
 
       currentWeekDays.forEach((day) => {
         const dayOfWeek = getDay(day);
-        const dayDate = format(day, "yyyy-MM-dd");
+        const dayDate = format(day, 'yyyy-MM-dd');
 
         // Generate time slots for this day (30-minute increments)
         for (let hour = 0; hour < 24; hour++) {
@@ -61,7 +82,10 @@ export function useCapacitySchedules(sideId: number | null, currentWeek: Date, r
             // Find the most specific schedule that applies
             const applicableSchedule = data?.find((schedule) =>
               doesScheduleApply(
-                { ...schedule, excluded_dates: parseExcludedDates(schedule.excluded_dates) } as ScheduleData,
+                {
+                  ...schedule,
+                  excluded_dates: parseExcludedDates(schedule.excluded_dates),
+                } as ScheduleData,
                 dayOfWeek,
                 dayDate,
                 timeStr
@@ -69,7 +93,9 @@ export function useCapacitySchedules(sideId: number | null, currentWeek: Date, r
             );
 
             if (applicableSchedule) {
-              const platforms = Array.isArray(applicableSchedule.platforms) ? applicableSchedule.platforms : [];
+              const platforms = Array.isArray(applicableSchedule.platforms)
+                ? applicableSchedule.platforms
+                : [];
               capacityMap.set(key, {
                 capacity: applicableSchedule.capacity,
                 periodType: applicableSchedule.period_type,
@@ -92,4 +118,3 @@ export function useCapacitySchedules(sideId: number | null, currentWeek: Date, r
 
   return { capacityData, scheduleData };
 }
-

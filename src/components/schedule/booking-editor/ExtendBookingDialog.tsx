@@ -1,4 +1,4 @@
-import { formatDateTime } from "../../shared/dateUtils";
+import { formatDateTime } from '../../shared/dateUtils';
 
 type SeriesInstance = {
   id: number;
@@ -62,14 +62,12 @@ export function ExtendBookingDialog({
           <p className="font-medium mb-1">Current series:</p>
           <p>
             {seriesInstances.length} session
-            {seriesInstances.length !== 1 ? "s" : ""} • Last session:{" "}
-            {formatDateTime(
-              seriesInstances[seriesInstances.length - 1].start
-            )}
+            {seriesInstances.length !== 1 ? 's' : ''} • Last session:{' '}
+            {formatDateTime(seriesInstances[seriesInstances.length - 1].start)}
           </p>
           <p className="mt-1">
             After extension: {seriesInstances.length + extendWeeks} session
-            {seriesInstances.length + extendWeeks !== 1 ? "s" : ""}
+            {seriesInstances.length + extendWeeks !== 1 ? 's' : ''}
           </p>
         </div>
       )}
@@ -88,10 +86,9 @@ export function ExtendBookingDialog({
           disabled={extending || disabled || extendWeeks < 1}
           className="px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {extending ? "Extending..." : "Extend Booking"}
+          {extending ? 'Extending...' : 'Extend Booking'}
         </button>
       </div>
     </div>
   );
 }
-

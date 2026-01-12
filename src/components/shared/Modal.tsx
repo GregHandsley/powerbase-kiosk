@@ -1,26 +1,37 @@
-import { ReactNode } from "react";
-import clsx from "clsx";
+import { ReactNode } from 'react';
+import clsx from 'clsx';
 
 type ModalProps = {
   isOpen: boolean;
   onClose: () => void;
   children: ReactNode;
   className?: string;
-  maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl" | "6xl" | "7xl" | "full";
+  maxWidth?:
+    | 'sm'
+    | 'md'
+    | 'lg'
+    | 'xl'
+    | '2xl'
+    | '3xl'
+    | '4xl'
+    | '5xl'
+    | '6xl'
+    | '7xl'
+    | 'full';
 };
 
 const maxWidthClasses = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-lg",
-  xl: "max-w-xl",
-  "2xl": "max-w-2xl",
-  "3xl": "max-w-3xl",
-  "4xl": "max-w-4xl",
-  "5xl": "max-w-5xl",
-  "6xl": "max-w-6xl",
-  "7xl": "max-w-7xl",
-  full: "max-w-full",
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-lg',
+  xl: 'max-w-xl',
+  '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
+  '4xl': 'max-w-4xl',
+  '5xl': 'max-w-5xl',
+  '6xl': 'max-w-6xl',
+  '7xl': 'max-w-7xl',
+  full: 'max-w-full',
 };
 
 /**
@@ -31,7 +42,7 @@ export function Modal({
   onClose,
   children,
   className,
-  maxWidth = "md",
+  maxWidth = 'md',
 }: ModalProps) {
   if (!isOpen) return null;
 
@@ -46,7 +57,7 @@ export function Modal({
     >
       <div
         className={clsx(
-          "bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-h-[90vh] overflow-y-auto",
+          'bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-h-[90vh] overflow-y-auto',
           maxWidthClasses[maxWidth],
           className
         )}
@@ -56,4 +67,3 @@ export function Modal({
     </div>
   );
 }
-

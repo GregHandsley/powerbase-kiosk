@@ -1,4 +1,4 @@
-import { formatDateTime } from "../../shared/dateUtils";
+import { formatDateTime } from '../../shared/dateUtils';
 
 type SeriesInstance = {
   id: number;
@@ -8,7 +8,7 @@ type SeriesInstance = {
 
 type DeleteConfirmationDialogProps = {
   isOpen: boolean;
-  type: "selected" | "series";
+  type: 'selected' | 'series';
   selectedInstances: Set<number>;
   seriesInstances: SeriesInstance[];
   onCancel: () => void;
@@ -32,19 +32,19 @@ export function DeleteConfirmationDialog({
 }: DeleteConfirmationDialogProps) {
   if (!isOpen) return null;
 
-  const isSelected = type === "selected";
+  const isSelected = type === 'selected';
   const count = isSelected ? selectedInstances.size : seriesInstances.length;
 
   return (
     <div className="rounded-md bg-red-900/20 border border-red-700/50 p-4 space-y-3">
       <p className="text-sm font-medium text-red-300">
         {isSelected
-          ? `Delete ${count} selected session${count !== 1 ? "s" : ""}?`
-          : "Delete entire series?"}
+          ? `Delete ${count} selected session${count !== 1 ? 's' : ''}?`
+          : 'Delete entire series?'}
       </p>
       <p className="text-xs text-red-400/80">
         {isSelected
-          ? `This will delete ${count} selected session${count !== 1 ? "s" : ""}. Other sessions in the series will remain. This action cannot be undone.`
+          ? `This will delete ${count} selected session${count !== 1 ? 's' : ''}. Other sessions in the series will remain. This action cannot be undone.`
           : `This will delete all ${count} sessions in this series. This action cannot be undone.`}
       </p>
       {isSelected && selectedInstances.size > 0 && (
@@ -76,10 +76,9 @@ export function DeleteConfirmationDialog({
           disabled={deleting || disabled}
           className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-600 hover:bg-red-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {deleting ? "Deleting..." : "Delete"}
+          {deleting ? 'Deleting...' : 'Delete'}
         </button>
       </div>
     </div>
   );
 }
-

@@ -1,7 +1,20 @@
-import { format, eachDayOfInterval, addDays, startOfWeek, getDay } from "date-fns";
-import clsx from "clsx";
-import { PERIOD_TYPE_COLORS } from "./constants";
-import { generateTimeSlots, formatTimeSlot, getCapacityKey, type TimeSlot, type PeriodType, type CapacityData } from "./scheduleUtils";
+import {
+  format,
+  eachDayOfInterval,
+  addDays,
+  startOfWeek,
+  // getDay,
+} from 'date-fns';
+import clsx from 'clsx';
+import { PERIOD_TYPE_COLORS } from './constants';
+import {
+  // generateTimeSlots,
+  formatTimeSlot,
+  getCapacityKey,
+  type TimeSlot,
+  type PeriodType,
+  type CapacityData,
+} from './scheduleUtils';
 
 type Block = {
   startSlot: number;
@@ -41,8 +54,12 @@ function getMergedBlocks(
 
     if (cellData && cellData.periodType) {
       const periodType = cellData.periodType as PeriodType;
-      
-      if (currentBlock && currentBlock.periodType === periodType && currentBlock.capacity === cellData.capacity) {
+
+      if (
+        currentBlock &&
+        currentBlock.periodType === periodType &&
+        currentBlock.capacity === cellData.capacity
+      ) {
         // Continue the current block
       } else {
         // Close previous block if it exists
@@ -51,9 +68,10 @@ function getMergedBlocks(
           // The end time should be the time of the next slot after the block ends
           // If the block ends at slotIndex - 1, the end time is the time of slotIndex
           const endSlotIndex = slotIndex - 1;
-          const endTime = endSlotIndex < timeSlots.length - 1
-            ? formatTimeSlot(timeSlots[endSlotIndex + 1])
-            : formatTimeSlot(timeSlots[endSlotIndex]);
+          const endTime =
+            endSlotIndex < timeSlots.length - 1
+              ? formatTimeSlot(timeSlots[endSlotIndex + 1])
+              : formatTimeSlot(timeSlots[endSlotIndex]);
           blocks.push({
             startSlot: currentBlock.startSlot,
             endSlot: endSlotIndex,
@@ -64,7 +82,7 @@ function getMergedBlocks(
             endTime: endTime,
           });
         }
-        
+
         // Start new block
         currentBlock = {
           startSlot: slotIndex,
@@ -79,9 +97,10 @@ function getMergedBlocks(
         // The block ends at the previous slot (slotIndex - 1)
         // The end time should be the time of the next slot after the block ends
         const endSlotIndex = slotIndex - 1;
-        const endTime = endSlotIndex < timeSlots.length - 1
-          ? formatTimeSlot(timeSlots[endSlotIndex + 1])
-          : formatTimeSlot(timeSlots[endSlotIndex]);
+        const endTime =
+          endSlotIndex < timeSlots.length - 1
+            ? formatTimeSlot(timeSlots[endSlotIndex + 1])
+            : formatTimeSlot(timeSlots[endSlotIndex]);
         blocks.push({
           startSlot: currentBlock.startSlot,
           endSlot: endSlotIndex,
@@ -104,9 +123,10 @@ function getMergedBlocks(
     const lastSlot = timeSlots[lastSlotIndex];
     const endHour = lastSlot.minute === 30 ? lastSlot.hour + 1 : lastSlot.hour;
     const endMinute = lastSlot.minute === 30 ? 0 : 30;
-    const endTime = endHour < 24 
-      ? formatTimeSlot({ hour: endHour, minute: endMinute })
-      : formatTimeSlot(lastSlot);
+    const endTime =
+      endHour < 24
+        ? formatTimeSlot({ hour: endHour, minute: endMinute })
+        : formatTimeSlot(lastSlot);
     blocks.push({
       startSlot: currentBlock.startSlot,
       endSlot: lastSlotIndex,
@@ -146,10 +166,10 @@ export function CapacityCalendarGrid({
                 className="p-3 border-r border-slate-700 last:border-r-0 bg-slate-950/50 text-center"
               >
                 <div className="text-sm font-medium text-slate-200">
-                  {format(day, "EEE")}
+                  {format(day, 'EEE')}
                 </div>
                 <div className="text-xs text-slate-400 mt-0.5">
-                  {format(day, "M/d")}
+                  {format(day, 'M/d')}
                 </div>
               </div>
             ))}
@@ -168,9 +188,14 @@ export function CapacityCalendarGrid({
 
               {/* Day Cells */}
               {weekDays.map((day, dayIndex) => {
-                const mergedBlocks = getMergedBlocks(day, capacityData, timeSlots);
+                const mergedBlocks = getMergedBlocks(
+                  day,
+                  capacityData,
+                  timeSlots
+                );
                 const blockForThisSlot = mergedBlocks.find(
-                  (block) => slotIndex >= block.startSlot && slotIndex <= block.endSlot
+                  (block) =>
+                    slotIndex >= block.startSlot && slotIndex <= block.endSlot
                 );
                 const isBlockStart = blockForThisSlot?.startSlot === slotIndex;
                 const isInBlock = !!blockForThisSlot;
@@ -183,36 +208,55 @@ export function CapacityCalendarGrid({
                     {isBlockStart && blockForThisSlot && (
                       <div
                         className={clsx(
-                          "absolute left-0 right-0 border-l-4 border-t border-b border-r rounded-sm cursor-pointer transition-opacity hover:opacity-90 shadow-md",
+                          'absolute left-0 right-0 border-l-4 border-t border-b border-r rounded-sm cursor-pointer transition-opacity hover:opacity-90 shadow-md',
                           PERIOD_TYPE_COLORS[blockForThisSlot.periodType].bg,
-                          PERIOD_TYPE_COLORS[blockForThisSlot.periodType].border,
-                          "flex flex-col items-center justify-center p-2"
+                          PERIOD_TYPE_COLORS[blockForThisSlot.periodType]
+                            .border,
+                          'flex flex-col items-center justify-center p-2'
                         )}
                         style={{
                           top: 0,
                           height: `${blockForThisSlot.rowSpan * 50}px`,
                           zIndex: 5,
-                          margin: "2px 4px",
-                          left: "4px",
-                          right: "4px",
+                          margin: '2px 4px',
+                          left: '4px',
+                          right: '4px',
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onCellClick(day, timeSlots[blockForThisSlot.startSlot]);
+                          onCellClick(
+                            day,
+                            timeSlots[blockForThisSlot.startSlot]
+                          );
                         }}
                       >
-                        <div className={clsx("text-xs font-semibold", PERIOD_TYPE_COLORS[blockForThisSlot.periodType].text)}>
+                        <div
+                          className={clsx(
+                            'text-xs font-semibold',
+                            PERIOD_TYPE_COLORS[blockForThisSlot.periodType].text
+                          )}
+                        >
                           {blockForThisSlot.periodType}
                         </div>
-                        <div className={clsx("text-[10px] mt-1", PERIOD_TYPE_COLORS[blockForThisSlot.periodType].text)}>
-                          {blockForThisSlot.capacity} {blockForThisSlot.capacity === 1 ? "Athlete" : "Athletes"}
+                        <div
+                          className={clsx(
+                            'text-[10px] mt-1',
+                            PERIOD_TYPE_COLORS[blockForThisSlot.periodType].text
+                          )}
+                        >
+                          {blockForThisSlot.capacity}{' '}
+                          {blockForThisSlot.capacity === 1
+                            ? 'Athlete'
+                            : 'Athletes'}
                         </div>
                       </div>
                     )}
                     <div
                       className={clsx(
-                        "h-full w-full transition-colors",
-                        isInBlock && !isBlockStart ? "pointer-events-none" : "cursor-pointer hover:bg-slate-800/30"
+                        'h-full w-full transition-colors',
+                        isInBlock && !isBlockStart
+                          ? 'pointer-events-none'
+                          : 'cursor-pointer hover:bg-slate-800/30'
                       )}
                       onClick={() => {
                         if (!isInBlock || isBlockStart) {
@@ -230,4 +274,3 @@ export function CapacityCalendarGrid({
     </div>
   );
 }
-

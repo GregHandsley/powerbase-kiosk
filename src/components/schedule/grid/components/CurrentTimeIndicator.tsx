@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format } from 'date-fns';
 
 type Props = {
   position: { slotIndex: number; top: number };
@@ -17,17 +17,17 @@ export function CurrentTimeIndicator({ position, isToday, numRacks }: Props) {
       className="absolute left-0 z-30 pointer-events-none"
       style={{
         top: `${position.top}px`,
-        width: totalGridWidth ? `${totalGridWidth}px` : "100%",
-        minWidth: "100%",
+        width: totalGridWidth ? `${totalGridWidth}px` : '100%',
+        minWidth: '100%',
       }}
     >
       <div className="flex items-center w-full">
         {/* Time label on the left - sticky */}
         <div className="sticky left-0 z-30 bg-indigo-600 text-white text-xs font-mono px-2 py-0.5 rounded-r border-r-2 border-indigo-400 shadow-lg flex-shrink-0">
-          {format(new Date(), "HH:mm")}
+          {format(new Date(), 'HH:mm')}
         </div>
         {/* Line across all racks - spans the full remaining width */}
-        <div 
+        <div
           className="h-0.5 bg-indigo-500 shadow-[0_0_4px_rgba(99,102,241,0.8)] flex-1"
           style={{
             minWidth: numRacks ? `${numRacks * 120}px` : undefined,
@@ -37,4 +37,3 @@ export function CurrentTimeIndicator({ position, isToday, numRacks }: Props) {
     </div>
   );
 }
-

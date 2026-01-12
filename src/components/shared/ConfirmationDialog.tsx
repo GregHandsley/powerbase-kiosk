@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode } from 'react';
 
 type ConfirmationDialogProps = {
   isOpen: boolean;
@@ -8,7 +8,7 @@ type ConfirmationDialogProps = {
   cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
-  confirmVariant?: "danger" | "primary";
+  confirmVariant?: 'danger' | 'primary';
   loading?: boolean;
   children?: ReactNode;
 };
@@ -20,20 +20,20 @@ export function ConfirmationDialog({
   isOpen,
   title,
   message,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
   onConfirm,
   onCancel,
-  confirmVariant = "primary",
+  confirmVariant = 'primary',
   loading = false,
   children,
 }: ConfirmationDialogProps) {
   if (!isOpen) return null;
 
   const confirmButtonClass =
-    confirmVariant === "danger"
-      ? "bg-red-600 hover:bg-red-500 text-white"
-      : "bg-indigo-600 hover:bg-indigo-500 text-white";
+    confirmVariant === 'danger'
+      ? 'bg-red-600 hover:bg-red-500 text-white'
+      : 'bg-indigo-600 hover:bg-indigo-500 text-white';
 
   return (
     <div
@@ -67,11 +67,10 @@ export function ConfirmationDialog({
             disabled={loading}
             className={`px-4 py-2 text-sm font-medium rounded-md ${confirmButtonClass} disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            {loading ? "Processing..." : confirmLabel}
+            {loading ? 'Processing...' : confirmLabel}
           </button>
         </div>
       </div>
     </div>
   );
 }
-

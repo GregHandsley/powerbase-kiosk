@@ -15,12 +15,9 @@ export function ScheduleGridHeader({ racks, gridTemplateColumns }: Props) {
           key={rack}
           className="p-3 border-r border-slate-700 last:border-r-0 bg-slate-950/50 text-center min-w-[120px]"
         >
-          <div className="text-sm font-medium text-slate-200">
-            Rack {rack}
-          </div>
+          <div className="text-sm font-medium text-slate-200">Rack {rack}</div>
         </div>
       ))}
     </div>
   );
 }
-

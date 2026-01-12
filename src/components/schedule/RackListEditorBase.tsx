@@ -1,14 +1,14 @@
-import { useMemo } from "react";
-import type { SideSnapshot } from "../../types/snapshot";
-import { RackListEditorCore } from "./RackListEditorCore";
+import { useMemo } from 'react';
+import type { SideSnapshot } from '../../types/snapshot';
+import { RackListEditorCore } from './RackListEditorCore';
 import {
   makeBaseLayout,
   addColumnSpacer,
   addRowSpacer,
-} from "./shared/layouts";
-import { BASE_GRID_CONFIG } from "./shared/gridConfig";
+} from './shared/layouts';
+import { BASE_GRID_CONFIG } from './shared/gridConfig';
 
-type Props = { 
+type Props = {
   snapshot: SideSnapshot | null;
   date: string;
   time: string;
@@ -37,4 +37,3 @@ export function RackListEditorBase({ snapshot, date, time }: Props) {
     />
   );
 }
-

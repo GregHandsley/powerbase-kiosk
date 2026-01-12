@@ -1,5 +1,5 @@
-import { format } from "date-fns";
-import { supabase } from "../../../lib/supabaseClient";
+import { format } from 'date-fns';
+import { supabase } from '../../../lib/supabaseClient';
 
 type ScheduleToCheck = {
   side_id: number;
@@ -12,7 +12,7 @@ type ScheduleToCheck = {
 };
 
 function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
   return hours * 60 + minutes;
 }
 
@@ -35,9 +35,9 @@ export async function validateNoOverlaps(
   excludeScheduleIds: number[] = []
 ): Promise<string | null> {
   const { data: existingSchedules, error } = await supabase
-    .from("capacity_schedules")
-    .select("*")
-    .eq("side_id", sideId);
+    .from('capacity_schedules')
+    .select('*')
+    .eq('side_id', sideId);
 
   if (error) {
     return `Error checking for conflicts: ${error.message}`;
@@ -55,7 +55,15 @@ export async function validateNoOverlaps(
     recurrence: string;
   }> = [];
 
-  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const dayNames = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
 
   for (const newSchedule of schedulesToCheck) {
     for (const existing of schedulesToCheckAgainst) {
@@ -65,34 +73,60 @@ export async function validateNoOverlaps(
         continue;
       }
 
-      if (newSchedule.recurrence_type === "single" && existing.recurrence_type === "single") {
+      if (
+        newSchedule.recurrence_type === 'single' &&
+        existing.recurrence_type === 'single'
+      ) {
         appliesToSameDay = newSchedule.start_date === existing.start_date;
-      } else if (newSchedule.recurrence_type === "weekday" && existing.recurrence_type === "weekday") {
-        appliesToSameDay = newSchedule.day_of_week >= 1 && newSchedule.day_of_week <= 5;
-      } else if (newSchedule.recurrence_type === "weekend" && existing.recurrence_type === "weekend") {
-        appliesToSameDay = (newSchedule.day_of_week === 0 || newSchedule.day_of_week === 6);
-      } else if (newSchedule.recurrence_type === "weekly" && existing.recurrence_type === "weekly") {
+      } else if (
+        newSchedule.recurrence_type === 'weekday' &&
+        existing.recurrence_type === 'weekday'
+      ) {
+        appliesToSameDay =
+          newSchedule.day_of_week >= 1 && newSchedule.day_of_week <= 5;
+      } else if (
+        newSchedule.recurrence_type === 'weekend' &&
+        existing.recurrence_type === 'weekend'
+      ) {
+        appliesToSameDay =
+          newSchedule.day_of_week === 0 || newSchedule.day_of_week === 6;
+      } else if (
+        newSchedule.recurrence_type === 'weekly' &&
+        existing.recurrence_type === 'weekly'
+      ) {
         const newStart = new Date(newSchedule.start_date);
-        const existingEnd = existing.end_date ? new Date(existing.end_date) : null;
+        const existingEnd = existing.end_date
+          ? new Date(existing.end_date)
+          : null;
         if (!existingEnd || newStart <= existingEnd) {
           appliesToSameDay = true;
         }
-      } else if (newSchedule.recurrence_type === "all_future" && existing.recurrence_type === "all_future") {
+      } else if (
+        newSchedule.recurrence_type === 'all_future' &&
+        existing.recurrence_type === 'all_future'
+      ) {
         const newStart = new Date(newSchedule.start_date);
-        const existingEnd = existing.end_date ? new Date(existing.end_date) : null;
+        const existingEnd = existing.end_date
+          ? new Date(existing.end_date)
+          : null;
         if (!existingEnd || newStart <= existingEnd) {
           appliesToSameDay = true;
         }
       } else {
         const newStart = new Date(newSchedule.start_date);
         const existingStart = new Date(existing.start_date);
-        const existingEnd = existing.end_date ? new Date(existing.end_date) : null;
+        const existingEnd = existing.end_date
+          ? new Date(existing.end_date)
+          : null;
 
-        if (newSchedule.recurrence_type === "single") {
-          if (newStart >= existingStart && (!existingEnd || newStart <= existingEnd)) {
+        if (newSchedule.recurrence_type === 'single') {
+          if (
+            newStart >= existingStart &&
+            (!existingEnd || newStart <= existingEnd)
+          ) {
             appliesToSameDay = true;
           }
-        } else if (existing.recurrence_type === "single") {
+        } else if (existing.recurrence_type === 'single') {
           if (existingStart >= newStart) {
             appliesToSameDay = true;
           }
@@ -103,22 +137,26 @@ export async function validateNoOverlaps(
         }
       }
 
-      if (appliesToSameDay && doTimeRangesOverlap(
-        newSchedule.start_time,
-        newSchedule.end_time,
-        existing.start_time,
-        existing.end_time
-      )) {
-        const recurrenceLabel = newSchedule.recurrence_type === "single" 
-          ? format(new Date(newSchedule.start_date), "MMM d, yyyy")
-          : newSchedule.recurrence_type === "weekday" 
-            ? "Weekdays"
-            : newSchedule.recurrence_type === "weekend"
-              ? "Weekends"
-              : newSchedule.recurrence_type === "weekly"
-                ? "Weekly"
-                : "All future";
-        
+      if (
+        appliesToSameDay &&
+        doTimeRangesOverlap(
+          newSchedule.start_time,
+          newSchedule.end_time,
+          existing.start_time,
+          existing.end_time
+        )
+      ) {
+        const recurrenceLabel =
+          newSchedule.recurrence_type === 'single'
+            ? format(new Date(newSchedule.start_date), 'MMM d, yyyy')
+            : newSchedule.recurrence_type === 'weekday'
+              ? 'Weekdays'
+              : newSchedule.recurrence_type === 'weekend'
+                ? 'Weekends'
+                : newSchedule.recurrence_type === 'weekly'
+                  ? 'Weekly'
+                  : 'All future';
+
         conflicts.push({
           day: dayNames[newSchedule.day_of_week],
           time: `${newSchedule.start_time} - ${newSchedule.end_time}`,
@@ -131,11 +169,11 @@ export async function validateNoOverlaps(
 
   if (conflicts.length > 0) {
     const conflictMessages = conflicts.map(
-      (c) => `  • ${c.day} (${c.recurrence}) ${c.time}: Already booked as "${c.existingPeriod}"`
+      (c) =>
+        `  • ${c.day} (${c.recurrence}) ${c.time}: Already booked as "${c.existingPeriod}"`
     );
-    return `Schedule conflicts detected:\n${conflictMessages.join("\n")}\n\nPlease select a different time or remove the existing schedule first.`;
+    return `Schedule conflicts detected:\n${conflictMessages.join('\n')}\n\nPlease select a different time or remove the existing schedule first.`;
   }
 
   return null;
 }
-

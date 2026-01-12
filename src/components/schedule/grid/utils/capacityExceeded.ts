@@ -1,19 +1,19 @@
-import { format, getDay } from "date-fns";
-import type { TimeSlot } from "../../../admin/capacity/scheduleUtils";
-import type { ActiveInstance } from "../../../../types/snapshot";
+import { format, getDay } from 'date-fns';
+import type { TimeSlot } from '../../../admin/capacity/scheduleUtils';
+import type { ActiveInstance } from '../../../../types/snapshot';
 import {
   doesScheduleApply,
   parseExcludedDates,
   formatTimeSlot,
   type ScheduleData,
-} from "../../../admin/capacity/scheduleUtils";
+} from '../../../admin/capacity/scheduleUtils';
 
 /**
  * Combine date string (yyyy-mm-dd) and time string (HH:mm) into a Date object
  */
 function combineDateAndTime(dateStr: string, timeStr: string): Date {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const [hour, minute] = timeStr.split(":").map(Number);
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hour, minute] = timeStr.split(':').map(Number);
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
@@ -25,17 +25,17 @@ export function calculateCapacityExceededSlots(
   timeSlots: TimeSlot[],
   currentDate: Date,
   bookings: ActiveInstance[],
-  capacitySchedules: ScheduleData[],
-  sideId: number
+  capacitySchedules: ScheduleData[]
+  // sideId: number
 ): Map<number, Set<number>> {
   const capacityExceededBySlot = new Map<number, Set<number>>();
   const dayOfWeek = getDay(currentDate);
-  const dateStr = format(currentDate, "yyyy-MM-dd");
+  const dateStr = format(currentDate, 'yyyy-MM-dd');
 
   // For each time slot, calculate capacity usage
   timeSlots.forEach((slot, slotIndex) => {
     const timeStr = formatTimeSlot(slot);
-    
+
     // Find applicable schedule for this time slot
     const applicableSchedule = capacitySchedules.find((schedule) => {
       const scheduleData: ScheduleData = {
@@ -45,7 +45,7 @@ export function calculateCapacityExceededSlots(
       return doesScheduleApply(scheduleData, dayOfWeek, dateStr, timeStr);
     });
 
-    if (!applicableSchedule || applicableSchedule.period_type === "Closed") {
+    if (!applicableSchedule || applicableSchedule.period_type === 'Closed') {
       return; // No capacity limit or closed period
     }
 
@@ -62,7 +62,7 @@ export function calculateCapacityExceededSlots(
     bookings.forEach((booking) => {
       const bookingStart = new Date(booking.start);
       const bookingEnd = new Date(booking.end);
-      
+
       // Check if booking overlaps with this time slot
       // A booking overlaps if it starts before or at the slot time and ends after the slot time
       if (bookingStart <= slotDateTime && bookingEnd > slotDateTime) {
@@ -102,11 +102,11 @@ export function isRackAtCapacity(
   // Check if this rack is already booked - if so, it's not "at capacity" (it's just booked)
   const slot = timeSlots[slotIndex];
   if (!slot) return true;
-  
-  const dateStr = format(currentDate, "yyyy-MM-dd");
+
+  const dateStr = format(currentDate, 'yyyy-MM-dd');
   const timeStr = formatTimeSlot(slot);
   const slotDateTime = combineDateAndTime(dateStr, timeStr);
-  
+
   // If this rack is already booked, it's not "at capacity" (it's just booked)
   const isBooked = bookings.some((booking) => {
     const bookingStart = new Date(booking.start);
@@ -117,8 +117,7 @@ export function isRackAtCapacity(
       bookingEnd > slotDateTime
     );
   });
-  
+
   // At capacity if capacity is exceeded AND this rack is not already booked
   return !isBooked;
 }
-

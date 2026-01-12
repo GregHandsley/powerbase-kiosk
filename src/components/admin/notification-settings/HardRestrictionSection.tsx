@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { NotificationSettings } from "../../../hooks/useNotificationSettings";
+import { useState } from 'react';
+import type { NotificationSettings } from '../../../hooks/useNotificationSettings';
 
 type Props = {
   settings: NotificationSettings;
@@ -7,8 +7,14 @@ type Props = {
   isUpdating: boolean;
 };
 
-export function HardRestrictionSection({ settings, onUpdate, isUpdating }: Props) {
-  const [localEnabled, setLocalEnabled] = useState(settings.hard_restriction_enabled);
+export function HardRestrictionSection({
+  settings,
+  onUpdate,
+  // isUpdating,
+}: Props) {
+  const [localEnabled, setLocalEnabled] = useState(
+    settings.hard_restriction_enabled
+  );
   const [localHours, setLocalHours] = useState(settings.hard_restriction_hours);
 
   const handleSave = () => {
@@ -22,10 +28,13 @@ export function HardRestrictionSection({ settings, onUpdate, isUpdating }: Props
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-6">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-base font-semibold text-slate-100">Hard Restriction</h3>
+          <h3 className="text-base font-semibold text-slate-100">
+            Hard Restriction
+          </h3>
           <p className="text-sm text-slate-400 mt-1">
-            Prevents bookings from being created or edited within a specified number of hours before the session starts.
-            This is a hard block - bookings will be rejected.
+            Prevents bookings from being created or edited within a specified
+            number of hours before the session starts. This is a hard block -
+            bookings will be rejected.
           </p>
         </div>
       </div>
@@ -33,7 +42,9 @@ export function HardRestrictionSection({ settings, onUpdate, isUpdating }: Props
       <div className="space-y-4">
         {/* Enable/Disable Toggle */}
         <div className="flex items-center justify-between">
-          <label className="text-sm text-slate-200">Enable Hard Restriction</label>
+          <label className="text-sm text-slate-200">
+            Enable Hard Restriction
+          </label>
           <button
             type="button"
             onClick={() => {
@@ -41,12 +52,12 @@ export function HardRestrictionSection({ settings, onUpdate, isUpdating }: Props
               onUpdate({ hard_restriction_enabled: !localEnabled });
             }}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              localEnabled ? "bg-indigo-600" : "bg-slate-700"
+              localEnabled ? 'bg-indigo-600' : 'bg-slate-700'
             }`}
           >
             <span
               className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                localEnabled ? "translate-x-6" : "translate-x-1"
+                localEnabled ? 'translate-x-6' : 'translate-x-1'
               }`}
             />
           </button>
@@ -67,7 +78,8 @@ export function HardRestrictionSection({ settings, onUpdate, isUpdating }: Props
               className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
             <p className="text-xs text-slate-400 mt-1">
-              Bookings cannot be created or edited within {localHours} hours of the session start time.
+              Bookings cannot be created or edited within {localHours} hours of
+              the session start time.
             </p>
           </div>
         )}
@@ -75,4 +87,3 @@ export function HardRestrictionSection({ settings, onUpdate, isUpdating }: Props
     </div>
   );
 }
-

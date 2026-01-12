@@ -1,4 +1,4 @@
-import type { BookingStatus } from "./db";
+import type { BookingStatus } from './db';
 
 export interface ActiveInstance {
   instanceId: number;

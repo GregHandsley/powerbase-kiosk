@@ -1,14 +1,15 @@
-import { useState } from "react";
-import { useNotificationSettings } from "../../../hooks/useNotificationSettings";
-import { NotificationWindowSection } from "./NotificationWindowSection";
-import { HardRestrictionSection } from "./HardRestrictionSection";
-import { LastMinuteRecipientsSection } from "./LastMinuteRecipientsSection";
-import { ReminderScheduleSection } from "./ReminderScheduleSection";
-import { EmailServiceConfigSection } from "./EmailServiceConfigSection";
-import toast from "react-hot-toast";
+import { useState } from 'react';
+import { useNotificationSettings } from '../../../hooks/useNotificationSettings';
+import { NotificationWindowSection } from './NotificationWindowSection';
+import { HardRestrictionSection } from './HardRestrictionSection';
+import { LastMinuteRecipientsSection } from './LastMinuteRecipientsSection';
+import { ReminderScheduleSection } from './ReminderScheduleSection';
+import { EmailServiceConfigSection } from './EmailServiceConfigSection';
+import toast from 'react-hot-toast';
 
 export function NotificationSettings() {
-  const { settings, isLoading, updateSettings, isUpdating } = useNotificationSettings();
+  const { settings, isLoading, updateSettings, isUpdating } =
+    useNotificationSettings();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   if (isLoading) {
@@ -31,10 +32,12 @@ export function NotificationSettings() {
     try {
       await updateSettings(sectionUpdates);
       setHasUnsavedChanges(false);
-      toast.success("Settings saved successfully");
+      toast.success('Settings saved successfully');
     } catch (error) {
-      console.error("Failed to save settings:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to save settings");
+      console.error('Failed to save settings:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to save settings'
+      );
     }
   };
 
@@ -43,9 +46,12 @@ export function NotificationSettings() {
       {/* Header */}
       <div className="flex items-center justify-between shrink-0">
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Notification & Email Settings</h2>
+          <h2 className="text-lg font-semibold text-slate-100">
+            Notification & Email Settings
+          </h2>
           <p className="text-sm text-slate-400 mt-1">
-            Configure notification windows, email recipients, and reminder schedules
+            Configure notification windows, email recipients, and reminder
+            schedules
           </p>
         </div>
         {hasUnsavedChanges && (
@@ -93,16 +99,8 @@ export function NotificationSettings() {
           isUpdating={isUpdating}
         />
 
-        <EmailServiceConfigSection
-          settings={settings}
-          onUpdate={(updates) => {
-            setHasUnsavedChanges(true);
-            handleSave(updates);
-          }}
-          isUpdating={isUpdating}
-        />
+        <EmailServiceConfigSection />
       </div>
     </div>
   );
 }
-

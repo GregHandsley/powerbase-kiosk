@@ -1,4 +1,4 @@
-import clsx from "clsx";
+import clsx from 'clsx';
 
 type WeekNavigationProps = {
   currentWeekIndex: number;
@@ -27,10 +27,10 @@ export function WeekNavigation({
         onClick={onPrevious}
         disabled={currentWeekIndex === 0 || disabled}
         className={clsx(
-          "px-2 py-1 text-xs rounded border",
+          'px-2 py-1 text-xs rounded border',
           currentWeekIndex === 0 || disabled
-            ? "border-slate-700 text-slate-600 cursor-not-allowed"
-            : "border-slate-600 text-slate-300 hover:bg-slate-800"
+            ? 'border-slate-700 text-slate-600 cursor-not-allowed'
+            : 'border-slate-600 text-slate-300 hover:bg-slate-800'
         )}
       >
         ← Previous Week
@@ -43,10 +43,10 @@ export function WeekNavigation({
         onClick={onNext}
         disabled={currentWeekIndex === totalWeeks - 1 || disabled}
         className={clsx(
-          "px-2 py-1 text-xs rounded border",
+          'px-2 py-1 text-xs rounded border',
           currentWeekIndex === totalWeeks - 1 || disabled
-            ? "border-slate-700 text-slate-600 cursor-not-allowed"
-            : "border-slate-600 text-slate-300 hover:bg-slate-800"
+            ? 'border-slate-700 text-slate-600 cursor-not-allowed'
+            : 'border-slate-600 text-slate-300 hover:bg-slate-800'
         )}
       >
         Next Week →
@@ -54,4 +54,3 @@ export function WeekNavigation({
     </div>
   );
 }
-

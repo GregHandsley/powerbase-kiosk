@@ -1,8 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import { getSideIdByKeyNode, type SideKey } from "../nodes/data/sidesNodes";
-import { getInstancesAtNode } from "../nodes/data/instancesNodes";
-import { computeSnapshotFromInstances } from "../nodes/logic/computeSnapshot";
-import type { SideSnapshot } from "../types/snapshot";
+import { useQuery } from '@tanstack/react-query';
+import { getSideIdByKeyNode, type SideKey } from '../nodes/data/sidesNodes';
+import { getInstancesAtNode } from '../nodes/data/instancesNodes';
+import { computeSnapshotFromInstances } from '../nodes/logic/computeSnapshot';
+import type { SideSnapshot } from '../types/snapshot';
 
 type UseSideSnapshotResult = {
   snapshot: SideSnapshot | null;
@@ -15,14 +15,14 @@ export function useSideSnapshot(
   at?: Date
 ): UseSideSnapshotResult {
   const query = useQuery({
-    queryKey: ["snapshot", sideKey, at ? at.toISOString() : null],
+    queryKey: ['snapshot', sideKey, at ? at.toISOString() : null],
     queryFn: async () => {
       const effectiveAtIso = (at ?? new Date()).toISOString();
       const sideId = await getSideIdByKeyNode(sideKey);
       const { data, error } = await getInstancesAtNode(sideId, effectiveAtIso);
 
       if (error) {
-        console.error("getInstancesAtNode error", error.message);
+        console.error('getInstancesAtNode error', error.message);
         throw new Error(error.message);
       }
 

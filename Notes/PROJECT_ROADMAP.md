@@ -1,6 +1,7 @@
 # Powerbase Kiosk - Project Roadmap & Planning
 
 ## Overview
+
 This document outlines the planned features and implementation phases for the Powerbase Kiosk application.
 
 ---
@@ -10,12 +11,14 @@ This document outlines the planned features and implementation phases for the Po
 ### 1.1 Booking Status Tracking System
 
 **Core Requirements:**
+
 - Status workflow: `draft` → `pending` → `processed` → `confirmed` → `completed` / `cancelled`
 - Status changes trigger notifications
 - Edit detection: when a booking is edited after being processed, status resets to `pending`
 - Integration with bookings team workflow
 
 **Database Changes Needed:**
+
 - Add `status` field to `bookings` table (enum: draft, pending, processed, confirmed, completed, cancelled)
 - Add `processed_by` field (bookings team user ID)
 - Add `processed_at` timestamp
@@ -23,6 +26,7 @@ This document outlines the planned features and implementation phases for the Po
 - Add `last_edited_by` field
 
 **Key Features:**
+
 - Status badges/indicators throughout UI
 - Status filter in booking views
 - Status change history/audit trail
@@ -33,6 +37,7 @@ This document outlines the planned features and implementation phases for the Po
 ### 1.2 User Bookings Dashboard
 
 **Core Requirements:**
+
 - Personal dashboard for each user to view their bookings
 - Filter by status, date range, side (Power/Base)
 - Quick actions: Edit, Delete, Extend, View Live
@@ -40,6 +45,7 @@ This document outlines the planned features and implementation phases for the Po
 - List view with details
 
 **Pages/Components Needed:**
+
 - `/my-bookings` - Main user bookings page
 - Booking card component (reusable)
 - Booking detail view
@@ -47,6 +53,7 @@ This document outlines the planned features and implementation phases for the Po
 - Live view integration (see current session state)
 
 **Features:**
+
 - "View Live Session" button → opens Live View for that booking's time/date
 - Extend booking (duplicate with new end time)
 - Delete with confirmation
@@ -59,6 +66,7 @@ This document outlines the planned features and implementation phases for the Po
 ### 1.3 Bookings Team Integration
 
 **Core Requirements:**
+
 - Bookings team dashboard showing pending bookings
 - Ability to mark bookings as "processed"
 - Notifications for new bookings and edits
@@ -66,12 +74,14 @@ This document outlines the planned features and implementation phases for the Po
 - Bulk actions (process multiple at once)
 
 **Pages/Components Needed:**
+
 - `/bookings-team` - Bookings team dashboard
 - Processing queue view
 - Booking detail modal with processing action
 - Notification system integration
 
 **Workflow:**
+
 1. Coach creates booking → Status: `pending`
 2. Bookings team sees it in their queue
 3. Bookings team processes → Status: `processed`, `processed_by` set
@@ -83,6 +93,7 @@ This document outlines the planned features and implementation phases for the Po
 ### 1.4 Booking Cutoff & Last-Minute Changes
 
 **Core Requirements:**
+
 - Automatic cutoff: Bookings cannot be created/edited after previous Thursday of the week
 - Last-minute change detection (changes after cutoff)
 - Notification system for last-minute changes
@@ -90,6 +101,7 @@ This document outlines the planned features and implementation phases for the Po
 - Tracking dashboard for last-minute changes
 
 **Implementation:**
+
 - Cutoff calculation: Previous Thursday at 23:59:59
 - Validation in booking creation/editing
 - "Last-minute change" flag on bookings
@@ -97,6 +109,7 @@ This document outlines the planned features and implementation phases for the Po
 - Dashboard widget showing recent last-minute changes
 
 **Edge Cases:**
+
 - What if cutoff is a holiday?
 - Timezone considerations
 - Emergency override mechanism (admin only?)
@@ -108,12 +121,14 @@ This document outlines the planned features and implementation phases for the Po
 ### 2.1 Organization Management
 
 **Core Requirements:**
+
 - Multi-tenant support (multiple organizations)
 - Organization creation/management
 - Organization-specific settings
 - Organization isolation (users see only their org's data)
 
 **Database Changes:**
+
 - Add `organizations` table:
   - `id`, `name`, `slug`, `settings` (jsonb), `created_at`
 - Add `organization_id` to:
@@ -122,6 +137,7 @@ This document outlines the planned features and implementation phases for the Po
   - `sides` table? (or keep global?)
 
 **Features:**
+
 - Organization switcher (for super admins)
 - Organization settings page
 - Organization branding (optional future feature)
@@ -131,17 +147,20 @@ This document outlines the planned features and implementation phases for the Po
 ### 2.2 Invitation-Only System
 
 **Core Requirements:**
+
 - Remove public sign-up
 - Invitation system with email tokens
 - Invitation management (resend, revoke, expire)
 - Invitation acceptance flow
 
 **Database Changes:**
+
 - Add `invitations` table:
   - `id`, `email`, `token`, `organization_id`, `role`, `invited_by`, `expires_at`, `accepted_at`, `created_at`
 - Add `invitation_token` to `profiles` (temporary, until accepted)
 
 **Features:**
+
 - Invitation creation form (super admin only)
 - Email invitation with acceptance link
 - Invitation acceptance page
@@ -153,12 +172,14 @@ This document outlines the planned features and implementation phases for the Po
 ### 2.3 Role-Based Access Control (RBAC)
 
 **Core Requirements:**
+
 - Default roles: `super_admin`, `admin`, `bookings_team`, `coach`, `facility_manager`
 - Configurable permissions per user
 - Permission inheritance from roles
 - Permission overrides
 
 **Database Changes:**
+
 - Add `permissions` table:
   - `id`, `key`, `name`, `description`, `category`
 - Add `role_permissions` junction table
@@ -166,6 +187,7 @@ This document outlines the planned features and implementation phases for the Po
 - Update `profiles` table with `role` (already exists, may need expansion)
 
 **Default Permissions:**
+
 - `bookings:create`, `bookings:edit`, `bookings:delete`, `bookings:view_all`
 - `capacity:manage`, `capacity:view`
 - `users:invite`, `users:manage`, `users:view_all`
@@ -175,6 +197,7 @@ This document outlines the planned features and implementation phases for the Po
 - `notifications:view`
 
 **Features:**
+
 - Permission management UI (super admin)
 - User permission override UI
 - Permission checks throughout application
@@ -185,6 +208,7 @@ This document outlines the planned features and implementation phases for the Po
 ### 2.4 User Profile Management
 
 **Core Requirements:**
+
 - User profile pages (`/profile`)
 - Password change functionality
 - Email change (with verification)
@@ -192,6 +216,7 @@ This document outlines the planned features and implementation phases for the Po
 - Account deletion (with proper cleanup)
 
 **Features:**
+
 - Profile settings page
 - Password change form (with current password verification)
 - Email change flow (send verification email)
@@ -199,6 +224,7 @@ This document outlines the planned features and implementation phases for the Po
 - Activity log (optional - what they've done)
 
 **Security Considerations:**
+
 - Password strength requirements
 - Email verification for changes
 - Soft delete vs hard delete (GDPR compliance)
@@ -211,6 +237,7 @@ This document outlines the planned features and implementation phases for the Po
 ### 3.1 Notification System
 
 **Core Requirements:**
+
 - In-app notifications
 - Email notifications (optional)
 - Notification preferences per user
@@ -218,12 +245,14 @@ This document outlines the planned features and implementation phases for the Po
 - Unread count
 
 **Database Changes:**
+
 - Add `notifications` table:
   - `id`, `user_id`, `type`, `title`, `message`, `link`, `read_at`, `created_at`
 - Add `notification_preferences` table:
   - `user_id`, `type`, `in_app`, `email`, `enabled`
 
 **Notification Types:**
+
 - `booking:created`
 - `booking:processed`
 - `booking:edited`
@@ -233,6 +262,7 @@ This document outlines the planned features and implementation phases for the Po
 - `feedback:response`
 
 **Features:**
+
 - Notification bell/indicator in header
 - Notification dropdown/list
 - Mark as read/unread
@@ -244,24 +274,28 @@ This document outlines the planned features and implementation phases for the Po
 ### 3.2 Feedback System
 
 **Core Requirements:**
+
 - Simple feedback form
 - Slack integration (send to your Slack)
 - Feedback categorization
 - Optional: feedback response tracking
 
 **Implementation:**
+
 - Feedback button/modal (subtle, not overpowering)
 - Feedback form: category, message, optional screenshot
 - Slack webhook integration
 - Store feedback in database (optional, for tracking)
 
 **Categories:**
+
 - Bug report
 - Feature request
 - UI/UX improvement
 - General feedback
 
 **Features:**
+
 - "Send Feedback" button in header (subtle)
 - Feedback modal
 - Slack notification with context (user, page, etc.)
@@ -272,18 +306,21 @@ This document outlines the planned features and implementation phases for the Po
 ### 3.3 System Updates/Announcements
 
 **Core Requirements:**
+
 - Admin-controlled announcements
 - Targeted announcements (by role, organization)
 - Dismissible notifications
 - Update history
 
 **Database Changes:**
+
 - Add `announcements` table:
   - `id`, `title`, `message`, `type` (info/warning/success), `target_roles`, `target_organizations`, `published_at`, `expires_at`, `created_by`
 - Add `announcement_dismissals` table:
   - `user_id`, `announcement_id`, `dismissed_at`
 
 **Features:**
+
 - Announcement banner (top of page, dismissible)
 - Announcement center/history
 - Rich text support (markdown?)
@@ -297,12 +334,14 @@ This document outlines the planned features and implementation phases for the Po
 ### 4.1 Kiosk Capacity Display
 
 **Core Requirements:**
+
 - Show capacity information on kiosk displays (like Live View)
 - Display on both Power and Base kiosks
 - Current capacity usage vs limit
 - Visual indicator (green/yellow/red)
 
 **Implementation:**
+
 - Add capacity display component to kiosk header
 - Fetch capacity data for current time slot
 - Show: "X / Y athletes" with color coding
@@ -313,6 +352,7 @@ This document outlines the planned features and implementation phases for the Po
 ### 4.2 Kiosk Visual Improvements
 
 **Core Requirements:**
+
 - Improve overall kiosk appearance
 - Better typography and spacing
 - Enhanced floorplan visualization
@@ -320,6 +360,7 @@ This document outlines the planned features and implementation phases for the Po
 - Responsive design for different screen sizes
 
 **Areas to Improve:**
+
 - Header design
 - Floorplan rendering
 - Booking block styling
@@ -331,6 +372,7 @@ This document outlines the planned features and implementation phases for the Po
 ## 📋 **Implementation Priority & Phases**
 
 ### **Phase 1: Foundation (Weeks 1-4)**
+
 1. Booking status tracking system
 2. User bookings dashboard
 3. Bookings team integration
@@ -341,6 +383,7 @@ This document outlines the planned features and implementation phases for the Po
 ---
 
 ### **Phase 2: User Management (Weeks 5-8)**
+
 1. Organization management
 2. Invitation-only system
 3. Role-based permissions
@@ -351,6 +394,7 @@ This document outlines the planned features and implementation phases for the Po
 ---
 
 ### **Phase 3: Communication (Weeks 9-10)**
+
 1. Notification system
 2. Feedback system
 3. System updates/announcements
@@ -360,6 +404,7 @@ This document outlines the planned features and implementation phases for the Po
 ---
 
 ### **Phase 4: Polish (Weeks 11-12)**
+
 1. Kiosk capacity display
 2. Kiosk visual improvements
 
@@ -370,6 +415,7 @@ This document outlines the planned features and implementation phases for the Po
 ## 🔧 **Technical Considerations**
 
 ### Database Migrations Needed
+
 - Booking status fields
 - Organizations table
 - Invitations table
@@ -379,6 +425,7 @@ This document outlines the planned features and implementation phases for the Po
 - Various junction tables
 
 ### New Pages/Routes Needed
+
 - `/my-bookings` - User bookings dashboard
 - `/bookings-team` - Bookings team dashboard
 - `/profile` - User profile
@@ -390,11 +437,13 @@ This document outlines the planned features and implementation phases for the Po
 - `/announcements` - Announcement center
 
 ### External Integrations
+
 - Slack webhook (for feedback)
 - Email service (for invitations, notifications)
 - Optional: Email service provider (SendGrid, Mailgun, etc.)
 
 ### Security Considerations
+
 - Invitation token security (cryptographically secure)
 - Permission checks on all routes
 - Organization data isolation
@@ -407,6 +456,7 @@ This document outlines the planned features and implementation phases for the Po
 ## 📊 **Industry Standards to Follow**
 
 ### User Management
+
 - **Password Policy:** Minimum 8 characters, complexity requirements, expiration (optional)
 - **Account Lockout:** After X failed login attempts
 - **Password Reset:** Secure token-based flow
@@ -414,17 +464,20 @@ This document outlines the planned features and implementation phases for the Po
 - **Audit Trail:** Track user actions (who did what, when)
 
 ### Booking Workflow
+
 - **Status Lifecycle:** Clear state machine
 - **Cutoff Rules:** Industry standard is 2-7 days before
 - **Last-Minute Changes:** Require approval/escalation
 - **Notifications:** Don't spam, but ensure important updates are seen
 
 ### Multi-Tenancy
+
 - **Data Isolation:** Strict separation between organizations
 - **Organization Admin:** Each org has admin(s)
 - **Super Admin:** Platform-level administration
 
 ### Permissions
+
 - **Principle of Least Privilege:** Default to minimal permissions
 - **Role Inheritance:** Permissions cascade from roles
 - **Override Capability:** Admins can grant specific permissions
@@ -435,17 +488,20 @@ This document outlines the planned features and implementation phases for the Po
 ## 🎨 **UX Considerations**
 
 ### Feedback System
+
 - **Subtle Placement:** Small button in header, not intrusive
 - **Context-Aware:** Pre-fill current page/feature
 - **Quick Submission:** Minimal fields, optional details
 
 ### Notifications
+
 - **Non-Intrusive:** Bell icon with badge, not popups
 - **Grouping:** Group similar notifications
 - **Dismissible:** Easy to clear
 - **Preferences:** User controls what they see
 
 ### Announcements
+
 - **Banner Style:** Top of page, dismissible
 - **Priority Levels:** Info, warning, urgent
 - **Expiration:** Auto-hide after date
@@ -456,6 +512,7 @@ This document outlines the planned features and implementation phases for the Po
 ## 🔄 **Workflow Examples**
 
 ### Booking Creation Flow
+
 1. Coach creates booking → Status: `pending`
 2. Notification sent to bookings team
 3. Bookings team processes → Status: `processed`
@@ -463,11 +520,13 @@ This document outlines the planned features and implementation phases for the Po
 5. Coach can view in "My Bookings" dashboard
 
 ### Booking Edit Flow (Before Cutoff)
+
 1. Coach edits booking → Status remains or updates appropriately
 2. If already processed → Status: `pending` (needs reprocessing)
 3. Notification sent to bookings team
 
 ### Booking Edit Flow (After Cutoff - Last Minute)
+
 1. Coach attempts edit → Validation blocks or warns
 2. If override allowed → Status: `pending`, `last_minute_change: true`
 3. Notifications sent to:
@@ -476,6 +535,7 @@ This document outlines the planned features and implementation phases for the Po
 4. Appears in "Last Minute Changes" dashboard
 
 ### Invitation Flow
+
 1. Super admin creates invitation
 2. Email sent with secure token
 3. User clicks link → Accepts invitation
@@ -539,4 +599,3 @@ This document outlines the planned features and implementation phases for the Po
 ---
 
 **This is a living document - update as priorities and requirements evolve.**
-

@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
-import { addDays, format } from "date-fns";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { generateTimeSlots, type TimeSlot } from "../components/admin/capacity/scheduleUtils";
+import { useMemo, useState } from 'react';
+import { addDays, format } from 'date-fns';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  generateTimeSlots,
+  type TimeSlot,
+} from '../components/admin/capacity/scheduleUtils';
 
 type SlotCapacityData = {
   availablePlatforms: Set<number> | null;
@@ -9,41 +12,47 @@ type SlotCapacityData = {
   periodType: string | null;
   periodEndTime?: string;
 };
-import { ScheduleGrid } from "../components/schedule/ScheduleGrid";
-import { DayNavigationHeader } from "../components/schedule/DayNavigationHeader";
-import { makeBaseLayout, makePowerLayout } from "../components/schedule/shared/layouts";
-import { useScheduleDayCapacity } from "../components/schedule/hooks/useScheduleDayCapacity";
-import { calculateCapacityExceededSlots } from "../components/schedule/grid/utils/capacityExceeded";
-import type { ScheduleData } from "../components/admin/capacity/scheduleUtils";
-import { BookingEditorModal } from "../components/schedule/BookingEditorModal";
-import { MiniScheduleFloorplan } from "../components/shared/MiniScheduleFloorplan";
-import { RackSelectionPanel } from "../components/schedule/rack-editor/RackSelectionPanel";
-import { CreateBookingModal } from "../components/schedule/CreateBookingModal";
-import { UpdateRacksConfirmationDialog } from "../components/schedule/booking-editor/UpdateRacksConfirmationDialog";
-import { useRackSelection } from "../components/schedule/rack-editor/useRackSelection";
-import { useAuth } from "../context/AuthContext";
-import { supabase } from "../lib/supabaseClient";
-import type { ActiveInstance } from "../types/snapshot";
-import { canEditBooking } from "../utils/bookingPermissions";
+import { ScheduleGrid } from '../components/schedule/ScheduleGrid';
+import { DayNavigationHeader } from '../components/schedule/DayNavigationHeader';
+import {
+  makeBaseLayout,
+  makePowerLayout,
+} from '../components/schedule/shared/layouts';
+import { useScheduleDayCapacity } from '../components/schedule/hooks/useScheduleDayCapacity';
+import { calculateCapacityExceededSlots } from '../components/schedule/grid/utils/capacityExceeded';
+import type { ScheduleData } from '../components/admin/capacity/scheduleUtils';
+import { BookingEditorModal } from '../components/schedule/BookingEditorModal';
+import { MiniScheduleFloorplan } from '../components/shared/MiniScheduleFloorplan';
+import { RackSelectionPanel } from '../components/schedule/rack-editor/RackSelectionPanel';
+import { CreateBookingModal } from '../components/schedule/CreateBookingModal';
+import { UpdateRacksConfirmationDialog } from '../components/schedule/booking-editor/UpdateRacksConfirmationDialog';
+import { useRackSelection } from '../components/schedule/rack-editor/useRackSelection';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabaseClient';
+import type { ActiveInstance } from '../types/snapshot';
+import { canEditBooking } from '../utils/bookingPermissions';
 
 type NewBookingContext = {
   date: Date;
   timeSlot: TimeSlot;
   rack: number;
-  side: "Power" | "Base";
+  side: 'Power' | 'Base';
   selectedRacks?: number[]; // For drag selection
   endTimeSlot?: TimeSlot; // For drag selection end time
 } | null;
 
 export function Schedule() {
   const { user, role } = useAuth();
-  const [selectedSide, setSelectedSide] = useState<"Power" | "Base">("Power");
+  const [selectedSide, setSelectedSide] = useState<'Power' | 'Base'>('Power');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(null);
-  const [newBookingContext, setNewBookingContext] = useState<NewBookingContext>(null);
+  const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(
+    null
+  );
+  const [newBookingContext, setNewBookingContext] =
+    useState<NewBookingContext>(null);
   const queryClient = useQueryClient();
   const allTimeSlots = generateTimeSlots();
-  const sideKey = selectedSide === "Power" ? "power" : "base";
+  const sideKey = selectedSide === 'Power' ? 'power' : 'base';
 
   const {
     isSelectingRacks,
@@ -78,7 +87,12 @@ export function Schedule() {
   });
 
   // Get capacity data for the day
-  const { sideId, slotCapacityData, isLoading: capacityLoading, capacitySchedules } = useScheduleDayCapacity({
+  const {
+    sideId,
+    slotCapacityData,
+    isLoading: capacityLoading,
+    capacitySchedules,
+  } = useScheduleDayCapacity({
     side: sideKey,
     date: currentDate,
     timeSlots: allTimeSlots,
@@ -119,7 +133,8 @@ export function Schedule() {
 
   // Get racks from layout definitions (same approach as LiveView)
   const rackNumbers = useMemo(() => {
-    const layout = selectedSide === "Base" ? makeBaseLayout() : makePowerLayout();
+    const layout =
+      selectedSide === 'Base' ? makeBaseLayout() : makePowerLayout();
     // Extract unique rack numbers, filtering out null (platforms) and disabled racks
     const racks = layout
       .filter((row) => row.rackNumber !== null && !row.disabled)
@@ -128,8 +143,8 @@ export function Schedule() {
     return racks;
   }, [selectedSide]);
 
-  const navigateDay = (direction: "prev" | "next") => {
-    setCurrentDate((prev) => addDays(prev, direction === "next" ? 1 : -1));
+  const navigateDay = (direction: 'prev' | 'next') => {
+    setCurrentDate((prev) => addDays(prev, direction === 'next' ? 1 : -1));
   };
 
   const goToToday = () => {
@@ -137,19 +152,19 @@ export function Schedule() {
   };
 
   // Fetch bookings for the selected date
-  const dateStr = format(currentDate, "yyyy-MM-dd");
+  const dateStr = format(currentDate, 'yyyy-MM-dd');
   const startOfDay = new Date(currentDate);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(currentDate);
   endOfDay.setHours(23, 59, 59, 999);
 
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
-    queryKey: ["schedule-bookings", sideId, dateStr],
+    queryKey: ['schedule-bookings', sideId, dateStr],
     queryFn: async () => {
       if (!sideId) return [];
 
       const { data, error } = await supabase
-        .from("booking_instances")
+        .from('booking_instances')
         .select(
           `
           id,
@@ -168,13 +183,13 @@ export function Schedule() {
           )
         `
         )
-        .eq("side_id", sideId)
-        .lt("start", endOfDay.toISOString()) // instance starts before end of day
-        .gt("end", startOfDay.toISOString()) // instance ends after start of day
-        .order("start", { ascending: true });
+        .eq('side_id', sideId)
+        .lt('start', endOfDay.toISOString()) // instance starts before end of day
+        .gt('end', startOfDay.toISOString()) // instance ends after start of day
+        .order('start', { ascending: true });
 
       if (error) {
-        console.error("[Schedule] Error fetching bookings:", error);
+        console.error('[Schedule] Error fetching bookings:', error);
         return [];
       }
 
@@ -202,11 +217,11 @@ export function Schedule() {
           end: r.end,
           racks: Array.isArray(r.racks) ? r.racks : [],
           areas: Array.isArray(r.areas) ? r.areas : [],
-          title: r.booking?.title ?? "Untitled",
+          title: r.booking?.title ?? 'Untitled',
           color: r.booking?.color ?? null,
           isLocked: r.booking?.is_locked ?? false,
           createdBy: r.booking?.created_by ?? null,
-          capacity: typeof r.capacity === "number" ? r.capacity : undefined,
+          capacity: typeof r.capacity === 'number' ? r.capacity : undefined,
         };
       }) as ActiveInstance[];
     },
@@ -215,7 +230,12 @@ export function Schedule() {
 
   // Calculate capacity-exceeded slots (after bookings are fetched)
   const capacityExceededBySlot = useMemo(() => {
-    if (!sideId || !capacitySchedules || capacitySchedules.length === 0 || bookings.length === 0) {
+    if (
+      !sideId ||
+      !capacitySchedules ||
+      capacitySchedules.length === 0 ||
+      bookings.length === 0
+    ) {
       return new Map<number, Set<number>>();
     }
 
@@ -259,14 +279,19 @@ export function Schedule() {
   const handleCloseNewBookingModal = () => {
     setNewBookingContext(null);
     // Refresh bookings after closing (in case a booking was created)
-    queryClient.invalidateQueries({ queryKey: ["schedule-bookings"], exact: false });
+    queryClient.invalidateQueries({
+      queryKey: ['schedule-bookings'],
+      exact: false,
+    });
   };
 
   const handleEditBooking = (booking: ActiveInstance) => {
     // Check if user has permission to edit this booking
     if (!canEditBooking(booking, user?.id || null, role)) {
       // Show error message or prevent opening modal
-      alert("You don't have permission to edit this booking. Only the coach who created it or an admin can edit it.");
+      alert(
+        "You don't have permission to edit this booking. Only the coach who created it or an admin can edit it."
+      );
       return;
     }
     setEditingBooking(booking);
@@ -280,7 +305,10 @@ export function Schedule() {
       enteringSelectionModeRef.current = false; // Reset the flag
     }
     // Invalidate schedule bookings query when modal closes to refresh the grid
-    queryClient.invalidateQueries({ queryKey: ["schedule-bookings"], exact: false });
+    queryClient.invalidateQueries({
+      queryKey: ['schedule-bookings'],
+      exact: false,
+    });
   };
 
   return (
@@ -293,7 +321,7 @@ export function Schedule() {
             Manage bookings and availability by rack and time.
           </p>
         </div>
-        
+
         {/* Day Navigation */}
         <DayNavigationHeader
           currentDate={currentDate}
@@ -331,7 +359,7 @@ export function Schedule() {
             handleCancelRackSelection={handleCancelRackSelection}
             handleSaveRacks={handleSaveRacks}
           />
-          
+
           {/* Mini Schedule Floorplan for rack selection */}
           {currentWeekTimeRange && (
             <div className="border border-slate-700 rounded-lg bg-slate-900/60 p-4">
@@ -351,7 +379,9 @@ export function Schedule() {
                 showTitle={true}
                 allowConflictingRacks={false}
                 ignoreBookings={false}
-                excludeInstanceIds={new Set(seriesInstancesForRacks.map((inst) => inst.id))}
+                excludeInstanceIds={
+                  new Set(seriesInstancesForRacks.map((inst) => inst.id))
+                }
               />
             </div>
           )}
@@ -359,24 +389,25 @@ export function Schedule() {
       )}
 
       {/* Schedule Grid */}
-      {!isSelectingRacks && (bookingsLoading || capacityLoading ? (
-        <div className="flex items-center justify-center p-8">
-          <p className="text-sm text-slate-400">Loading...</p>
-        </div>
-      ) : (
-        <ScheduleGrid
-          racks={rackNumbers}
-          timeSlots={timeSlots}
-          selectedSide={selectedSide}
-          bookings={bookings}
-          currentDate={currentDate}
-          slotCapacityData={filteredSlotCapacityData}
-          capacityExceededBySlot={capacityExceededBySlot}
-          onCellClick={handleCellClick}
-          onBookingClick={handleEditBooking}
-          onDragSelection={handleDragSelection}
-        />
-      ))}
+      {!isSelectingRacks &&
+        (bookingsLoading || capacityLoading ? (
+          <div className="flex items-center justify-center p-8">
+            <p className="text-sm text-slate-400">Loading...</p>
+          </div>
+        ) : (
+          <ScheduleGrid
+            racks={rackNumbers}
+            timeSlots={timeSlots}
+            selectedSide={selectedSide}
+            bookings={bookings}
+            currentDate={currentDate}
+            slotCapacityData={filteredSlotCapacityData}
+            capacityExceededBySlot={capacityExceededBySlot}
+            onCellClick={handleCellClick}
+            onBookingClick={handleEditBooking}
+            onDragSelection={handleDragSelection}
+          />
+        ))}
 
       {/* Booking Editor Modal */}
       <BookingEditorModal
@@ -398,7 +429,7 @@ export function Schedule() {
           initialTimeSlot={newBookingContext.timeSlot}
           initialRack={newBookingContext.rack}
           initialSide={newBookingContext.side}
-          role={role || "coach"}
+          role={role || 'coach'}
           selectedRacks={newBookingContext.selectedRacks}
           endTimeSlot={newBookingContext.endTimeSlot}
           onSuccess={handleCloseNewBookingModal}
@@ -419,4 +450,3 @@ export function Schedule() {
     </div>
   );
 }
-

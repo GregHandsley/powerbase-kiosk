@@ -1,4 +1,4 @@
-import "../../../styles/floorplan.css";
+import '../../../styles/floorplan.css';
 
 type Props = {
   viewBoxWidth: number;
@@ -20,7 +20,13 @@ export function FloorShell({
   return (
     <>
       {/* outer background */}
-      <rect className="fp-bg-outer" x={0} y={0} width={viewBoxWidth} height={viewBoxHeight} />
+      <rect
+        className="fp-bg-outer"
+        x={0}
+        y={0}
+        width={viewBoxWidth}
+        height={viewBoxHeight}
+      />
 
       {/* main floor block as an L-shape with top-left cut-out */}
       <path
@@ -167,4 +173,3 @@ export function FloorShell({
     </>
   );
 }
-

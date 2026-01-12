@@ -1,5 +1,5 @@
-import { Link, useLocation } from "react-router-dom";
-import clsx from "clsx";
+import { Link, useLocation } from 'react-router-dom';
+import clsx from 'clsx';
 
 type Props = {
   isOpen: boolean;
@@ -10,9 +10,21 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
   const location = useLocation();
 
   const menuItems = [
-    { path: "/admin?view=capacity-schedule", label: "Capacity Schedule", icon: "📊" },
-    { path: "/admin?view=period-capacity", label: "Period Capacity", icon: "👥" },
-    { path: "/admin?view=notification-settings", label: "Notification Settings", icon: "🔔" },
+    {
+      path: '/admin?view=capacity-schedule',
+      label: 'Capacity Schedule',
+      icon: '📊',
+    },
+    {
+      path: '/admin?view=period-capacity',
+      label: 'Period Capacity',
+      icon: '👥',
+    },
+    {
+      path: '/admin?view=notification-settings',
+      label: 'Notification Settings',
+      icon: '🔔',
+    },
   ];
 
   return (
@@ -20,8 +32,8 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
       {/* Sidebar */}
       <aside
         className={clsx(
-          "bg-slate-900 border-r border-slate-700 transition-all duration-300 flex flex-col shrink-0",
-          isOpen ? "w-64" : "w-0 overflow-hidden"
+          'bg-slate-900 border-r border-slate-700 transition-all duration-300 flex flex-col shrink-0',
+          isOpen ? 'w-64' : 'w-0 overflow-hidden'
         )}
       >
         <div className="p-4 border-b border-slate-700">
@@ -51,18 +63,21 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
 
         <nav className="flex-1 p-2 space-y-1">
           {menuItems.map((item) => {
-            const currentView = new URLSearchParams(location.search).get("view") || "capacity-schedule";
-            const itemView = item.path.split("view=")[1];
-            const isActive = location.pathname === "/admin" && currentView === itemView;
+            const currentView =
+              new URLSearchParams(location.search).get('view') ||
+              'capacity-schedule';
+            const itemView = item.path.split('view=')[1];
+            const isActive =
+              location.pathname === '/admin' && currentView === itemView;
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 className={clsx(
-                  "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                  'flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
                   isActive
-                    ? "bg-indigo-600 text-white"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 )}
               >
                 <span>{item.icon}</span>
@@ -98,4 +113,3 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
     </>
   );
 }
-

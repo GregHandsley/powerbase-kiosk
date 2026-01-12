@@ -1,10 +1,10 @@
 // Utility functions for sending different types of emails
-import { render } from "@react-email/render";
-import { sendEmail } from "./emailService";
-import { LastMinuteAlert } from "./templates/LastMinuteAlert";
-import { UserConfirmation } from "./templates/UserConfirmation";
-import { DailyReminder } from "./templates/DailyReminder";
-import { format } from "date-fns";
+import { render } from '@react-email/render';
+import { sendEmail } from './emailService';
+import { LastMinuteAlert } from './templates/LastMinuteAlert';
+import { UserConfirmation } from './templates/UserConfirmation';
+import { DailyReminder } from './templates/DailyReminder';
+import { format } from 'date-fns';
 
 export interface LastMinuteAlertData {
   bookingTitle: string;
@@ -75,16 +75,16 @@ export async function sendLastMinuteAlert(
     });
 
     if (!result.success) {
-      console.error("Failed to send last-minute alert:", result.error);
+      console.error('Failed to send last-minute alert:', result.error);
       return { success: false, error: result.error };
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Error in sendLastMinuteAlert:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Unknown error" 
+    console.error('Error in sendLastMinuteAlert:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -120,16 +120,16 @@ export async function sendUserConfirmation(
     });
 
     if (!result.success) {
-      console.error("Failed to send user confirmation:", result.error);
+      console.error('Failed to send user confirmation:', result.error);
       return { success: false, error: result.error };
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Error in sendUserConfirmation:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Unknown error" 
+    console.error('Error in sendUserConfirmation:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -151,7 +151,7 @@ export async function sendDailyReminder(
     />
   );
 
-  const subject = `Daily Booking Summary - ${format(new Date(data.date), "d MMM yyyy")}`;
+  const subject = `Daily Booking Summary - ${format(new Date(data.date), 'd MMM yyyy')}`;
 
   await sendEmail({
     to: recipients,
@@ -159,4 +159,3 @@ export async function sendDailyReminder(
     html,
   });
 }
-

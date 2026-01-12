@@ -10,6 +10,5 @@ export const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
 
 // Will be injected by Vite define(), fallback to "dev"
 declare const __APP_VERSION__: string | undefined;
-export const APP_VERSION = typeof __APP_VERSION__ !== "undefined"
-  ? __APP_VERSION__
-  : "dev";
+export const APP_VERSION =
+  typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';

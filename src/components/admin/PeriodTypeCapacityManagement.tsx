@@ -1,19 +1,24 @@
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { getSideIdByKeyNode } from "../../nodes/data/sidesNodes";
-import { usePeriodTypeDefaults } from "./periodType/usePeriodTypeDefaults";
-import { usePeriodTypeOverrides } from "./periodType/usePeriodTypeOverrides";
-import { useSaveDefault } from "./periodType/useSaveDefault";
-import { useSaveOverride } from "./periodType/useSaveOverride";
-import { useDeleteBooking } from "./periodType/useDeleteBooking";
-import { PeriodTypeDefaultsSection } from "./periodType/PeriodTypeDefaultsSection";
-import { PeriodTypeOverridesSection } from "./periodType/PeriodTypeOverridesSection";
-import { OverrideModal } from "./periodType/OverrideModal";
-import { DeleteOverrideDialog } from "./periodType/DeleteOverrideDialog";
-import { DeleteBookingDialog } from "./periodType/DeleteBookingDialog";
-import { supabase } from "../../lib/supabaseClient";
+import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
+import { getSideIdByKeyNode } from '../../nodes/data/sidesNodes';
+import { usePeriodTypeDefaults } from './periodType/usePeriodTypeDefaults';
+import { usePeriodTypeOverrides } from './periodType/usePeriodTypeOverrides';
+import { useSaveDefault } from './periodType/useSaveDefault';
+import { useSaveOverride } from './periodType/useSaveOverride';
+import { useDeleteBooking } from './periodType/useDeleteBooking';
+import { PeriodTypeDefaultsSection } from './periodType/PeriodTypeDefaultsSection';
+import { PeriodTypeOverridesSection } from './periodType/PeriodTypeOverridesSection';
+import { OverrideModal } from './periodType/OverrideModal';
+import { DeleteOverrideDialog } from './periodType/DeleteOverrideDialog';
+import { DeleteBookingDialog } from './periodType/DeleteBookingDialog';
+import { supabase } from '../../lib/supabaseClient';
 
-type PeriodType = "High Hybrid" | "Low Hybrid" | "Performance" | "General User" | "Closed";
+type PeriodType =
+  | 'High Hybrid'
+  | 'Low Hybrid'
+  | 'Performance'
+  | 'General User'
+  | 'Closed';
 
 interface PeriodTypeOverride {
   id: number;
@@ -28,60 +33,75 @@ export function PeriodTypeCapacityManagement() {
   const [powerSideId, setPowerSideId] = useState<number | null>(null);
   const [baseSideId, setBaseSideId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [expandedOverrides, setExpandedOverrides] = useState<Set<number>>(new Set());
-  const [selectedInstances, setSelectedInstances] = useState<Map<number, Set<number>>>(new Map());
+  const [expandedOverrides, setExpandedOverrides] = useState<Set<number>>(
+    new Set()
+  );
+  const [selectedInstances, setSelectedInstances] = useState<
+    Map<number, Set<number>>
+  >(new Map());
   const [showOverrideModal, setShowOverrideModal] = useState(false);
-  const [editingOverride, setEditingOverride] = useState<PeriodTypeOverride | null>(null);
-  const [overrideDate, setOverrideDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [overridePeriodType, setOverridePeriodType] = useState<PeriodType>("High Hybrid");
+  const [editingOverride, setEditingOverride] =
+    useState<PeriodTypeOverride | null>(null);
+  const [overrideDate, setOverrideDate] = useState(
+    format(new Date(), 'yyyy-MM-dd')
+  );
+  const [overridePeriodType, setOverridePeriodType] =
+    useState<PeriodType>('High Hybrid');
   const [overrideCapacity, setOverrideCapacity] = useState(0);
-  const [overrideNotes, setOverrideNotes] = useState("");
-  const [deletingOverrideId, setDeletingOverrideId] = useState<number | null>(null);
+  const [overrideNotes, setOverrideNotes] = useState('');
+  const [deletingOverrideId, setDeletingOverrideId] = useState<number | null>(
+    null
+  );
   const [deletingBooking, setDeletingBooking] = useState<{
     bookingId: number;
     instanceIds: number[];
-    type: "selected" | "series";
+    type: 'selected' | 'series';
   } | null>(null);
 
   // Fetch side IDs
   useEffect(() => {
-    getSideIdByKeyNode("Power").then(setPowerSideId).catch(console.error);
-    getSideIdByKeyNode("Base").then(setBaseSideId).catch(console.error);
+    getSideIdByKeyNode('Power').then(setPowerSideId).catch(console.error);
+    getSideIdByKeyNode('Base').then(setBaseSideId).catch(console.error);
   }, []);
 
   // Fetch defaults and overrides
-  const { defaults, loading: defaultsLoading, refetch: refetchDefaults } = usePeriodTypeDefaults();
-  const { overrides, loading: overridesLoading, refetch: refetchOverrides } = usePeriodTypeOverrides();
+  const {
+    defaults,
+    loading: defaultsLoading,
+    refetch: refetchDefaults,
+  } = usePeriodTypeDefaults();
+  const {
+    overrides,
+    loading: overridesLoading,
+    refetch: refetchOverrides,
+  } = usePeriodTypeOverrides();
 
   const loading = defaultsLoading || overridesLoading;
 
   // Save default
-  const { saveDefault: handleSaveDefault, loading: savingDefault } = useSaveDefault(
-    defaults,
-    powerSideId,
-    baseSideId,
-    async () => {
+  const { saveDefault: handleSaveDefault, loading: savingDefault } =
+    useSaveDefault(defaults, powerSideId, baseSideId, async () => {
       await refetchDefaults();
-    }
-  );
+    });
 
   // Save override
-  const { saveOverride: handleSaveOverride, loading: savingOverride } = useSaveOverride(
-    editingOverride,
-    overrideDate,
-    overridePeriodType,
-    overrideCapacity,
-    overrideNotes,
-    () => {
-      refetchOverrides();
-      setShowOverrideModal(false);
-      setEditingOverride(null);
-      setOverrideDate(format(new Date(), "yyyy-MM-dd"));
-      setOverridePeriodType("High Hybrid");
-      setOverrideCapacity(0);
-      setOverrideNotes("");
-    }
-  );
+  const { saveOverride: handleSaveOverride, loading: savingOverride } =
+    useSaveOverride(
+      editingOverride,
+      overrideDate,
+      overridePeriodType,
+      overrideCapacity,
+      overrideNotes,
+      () => {
+        refetchOverrides();
+        setShowOverrideModal(false);
+        setEditingOverride(null);
+        setOverrideDate(format(new Date(), 'yyyy-MM-dd'));
+        setOverridePeriodType('High Hybrid');
+        setOverrideCapacity(0);
+        setOverrideNotes('');
+      }
+    );
 
   // Delete override
   const confirmDeleteOverride = async () => {
@@ -89,24 +109,29 @@ export function PeriodTypeCapacityManagement() {
 
     try {
       const { error } = await supabase
-        .from("period_type_capacity_overrides")
+        .from('period_type_capacity_overrides')
         .delete()
-        .eq("id", deletingOverrideId);
+        .eq('id', deletingOverrideId);
 
       if (error) throw error;
 
       refetchOverrides();
       setDeletingOverrideId(null);
     } catch (error) {
-      console.error("Error deleting override:", error);
-      setErrorMessage("Failed to delete override. Please try again.");
+      console.error('Error deleting override:', error);
+      setErrorMessage('Failed to delete override. Please try again.');
       setDeletingOverrideId(null);
       setTimeout(() => setErrorMessage(null), 5000);
     }
   };
 
   // Delete booking
-  const { deleteSelectedInstances, deleteSeries, loading: deletingBookingLoading, error: deleteBookingError } = useDeleteBooking(refetchOverrides);
+  const {
+    deleteSelectedInstances,
+    deleteSeries,
+    loading: deletingBookingLoading,
+    error: deleteBookingError,
+  } = useDeleteBooking(refetchOverrides);
 
   // Show error from delete booking hook
   useEffect(() => {
@@ -116,7 +141,10 @@ export function PeriodTypeCapacityManagement() {
     }
   }, [deleteBookingError]);
 
-  const handleDeleteSelectedInstances = async (bookingId: number, instanceIds: number[]) => {
+  const handleDeleteSelectedInstances = async (
+    bookingId: number,
+    instanceIds: number[]
+  ) => {
     const success = await deleteSelectedInstances(bookingId, instanceIds);
     if (success) {
       setDeletingBooking(null);
@@ -153,19 +181,19 @@ export function PeriodTypeCapacityManagement() {
   const toggleInstanceSelection = (bookingId: number, instanceId: number) => {
     const newSelected = new Map(selectedInstances);
     const bookingSelected = newSelected.get(bookingId) || new Set<number>();
-    
+
     if (bookingSelected.has(instanceId)) {
       bookingSelected.delete(instanceId);
     } else {
       bookingSelected.add(instanceId);
     }
-    
+
     if (bookingSelected.size === 0) {
       newSelected.delete(bookingId);
     } else {
       newSelected.set(bookingId, bookingSelected);
     }
-    
+
     setSelectedInstances(newSelected);
   };
 
@@ -174,7 +202,7 @@ export function PeriodTypeCapacityManagement() {
     setOverrideDate(override.date);
     setOverridePeriodType(override.period_type);
     setOverrideCapacity(override.capacity);
-    setOverrideNotes(override.notes || "");
+    setOverrideNotes(override.notes || '');
     setShowOverrideModal(true);
   };
 
@@ -187,9 +215,12 @@ export function PeriodTypeCapacityManagement() {
       {/* Header */}
       <div className="flex items-center justify-between shrink-0">
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Period Type Capacity</h2>
+          <h2 className="text-lg font-semibold text-slate-100">
+            Period Type Capacity
+          </h2>
           <p className="text-sm text-slate-400 mt-1">
-            Set default capacity and platforms for each period type per side (Power/Base) and override for specific dates
+            Set default capacity and platforms for each period type per side
+            (Power/Base) and override for specific dates
           </p>
         </div>
       </div>
@@ -198,15 +229,25 @@ export function PeriodTypeCapacityManagement() {
       {errorMessage && (
         <div className="bg-red-900/20 border border-red-700 rounded-md p-3 flex items-center justify-between">
           <p className="text-sm text-red-400">{errorMessage}</p>
-                      <button
+          <button
             onClick={() => setErrorMessage(null)}
             className="text-red-400 hover:text-red-300"
             aria-label="Dismiss"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
-                  </button>
+          </button>
         </div>
       )}
 
@@ -231,13 +272,13 @@ export function PeriodTypeCapacityManagement() {
         onDeleteSelectedInstances={handleDeleteSelectedInstances}
         onDeleteSeries={handleDeleteSeries}
         onAddOverride={() => {
-              setEditingOverride(null);
-              setOverrideDate(format(new Date(), "yyyy-MM-dd"));
-              setOverridePeriodType("High Hybrid");
-              setOverrideCapacity(0);
-              setOverrideNotes("");
-              setShowOverrideModal(true);
-            }}
+          setEditingOverride(null);
+          setOverrideDate(format(new Date(), 'yyyy-MM-dd'));
+          setOverridePeriodType('High Hybrid');
+          setOverrideCapacity(0);
+          setOverrideNotes('');
+          setShowOverrideModal(true);
+        }}
         loading={deletingBookingLoading}
       />
 
@@ -277,7 +318,7 @@ export function PeriodTypeCapacityManagement() {
           instanceCount={deletingBooking.instanceIds.length}
           onClose={() => setDeletingBooking(null)}
           onConfirm={async () => {
-            if (deletingBooking.type === "selected") {
+            if (deletingBooking.type === 'selected') {
               await handleDeleteSelectedInstances(
                 deletingBooking.bookingId,
                 deletingBooking.instanceIds

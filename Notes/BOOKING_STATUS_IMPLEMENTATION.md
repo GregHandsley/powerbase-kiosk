@@ -3,6 +3,7 @@
 ## ✅ Completed
 
 ### 1. Database Migration
+
 - Created `migrations/add_booking_status_fields.sql`
 - Added `booking_status` enum type with values: `draft`, `pending`, `processed`, `confirmed`, `completed`, `cancelled`
 - Added columns to `bookings` table:
@@ -14,54 +15,64 @@
 - Added indexes for performance
 
 ### 2. TypeScript Types
+
 - Updated `src/types/db.ts`:
   - Added `BookingStatus` type
   - Extended `BookingInstanceWithBookingRow` to include status fields
   - Added `BookingRow` interface with all status fields
 
 ### 3. Booking Creation
+
 - Updated `useBookingSubmission.ts` to set `status: "pending"` for new bookings
 
 ### 4. Booking Editing Logic
+
 - Updated `useBookingEditor.ts`:
   - When a booking with status `processed` is edited, it resets to `pending`
   - Updates `last_edited_at` and `last_edited_by` on any edit
   - Tracks who made the edit and when
 
 ### 5. Status Badge Component
+
 - Created `src/components/shared/StatusBadge.tsx`:
   - Color-coded badges for each status
   - Three sizes: sm, md, lg
   - Accessible with proper labels
 
 ### 6. Status Display in UI
+
 - Updated `ActiveInstance` type to include `status`
 - Updated `computeSnapshot.ts` to include status from booking data
 - Added status badge to `DraggableBooking` component in schedule view
 - Status now appears on booking blocks in the schedule
 
 ### 7. Database Queries
+
 - Updated `instancesNodes.ts` to fetch status fields in booking queries
 - All booking queries now include status information
 
 ## 📋 Next Steps (Phase 1.1 Remaining)
 
 ### Status Filter Component
+
 - Create filter dropdown for booking lists
 - Filter by status in admin views
 - Filter by status in user bookings dashboard (when implemented)
 
 ### Status Change Handler
+
 - Create UI for bookings team to mark bookings as "processed"
 - Add status change modal/confirmation
 - Track status change history (optional audit trail)
 
 ### Visual Indicators
+
 - Add status indicators to admin booking list
 - Add status indicators to booking editor modal
 - Highlight bookings needing attention (pending for X days)
 
 ### Notifications (Phase 3)
+
 - Send notifications when status changes
 - Notify bookings team of new pending bookings
 - Notify coaches when booking is processed
@@ -99,6 +110,7 @@ draft → pending → processed → confirmed → completed
 ```
 
 **Business Rules:**
+
 - New bookings start as `pending`
 - Bookings team marks as `processed`
 - If edited after `processed`, status resets to `pending`
@@ -116,7 +128,7 @@ draft → pending → processed → confirmed → completed
 ## 🚀 Ready for Next Phase
 
 The foundation for booking status tracking is complete. Next steps:
+
 1. Bookings Team Dashboard (Phase 1.3)
 2. User Bookings Dashboard (Phase 1.2)
 3. Status filtering and management UI
-

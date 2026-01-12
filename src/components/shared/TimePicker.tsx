@@ -1,7 +1,7 @@
-import clsx from "clsx";
-import { useEffect } from "react";
+import clsx from 'clsx';
+import { useEffect } from 'react';
 
-import type { ClosedPeriod } from "../admin/capacity/useClosedTimes";
+import type { ClosedPeriod } from '../admin/capacity/useClosedTimes';
 
 type TimePickerProps = {
   value: string; // HH:MM format
@@ -29,10 +29,10 @@ export function TimePicker({
   disableAutoAdjust = false,
   isEndTime = false,
 }: TimePickerProps) {
-  const [hour, minute] = value.split(":").map(Number);
+  const [hour, minute] = value.split(':').map(Number);
 
   const formatTime = (h: number, m: number) => {
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
   // Helper to check if a specific time is closed
@@ -40,12 +40,14 @@ export function TimePicker({
   // (because a booking can end exactly when the gym closes)
   const isTimeClosed = (timeStr: string): boolean => {
     if (closedPeriods.length > 0) {
-      const [timeHour, timeMinute] = timeStr.split(":").map(Number);
+      const [timeHour, timeMinute] = timeStr.split(':').map(Number);
       const timeMinutes = timeHour * 60 + timeMinute;
 
       for (const period of closedPeriods) {
-        const [startHour, startMinute] = period.startTime.split(":").map(Number);
-        const [endHour, endMinute] = period.endTime.split(":").map(Number);
+        const [startHour, startMinute] = period.startTime
+          .split(':')
+          .map(Number);
+        const [endHour, endMinute] = period.endTime.split(':').map(Number);
         const startMinutes = startHour * 60 + startMinute;
         const endMinutes = endHour * 60 + endMinute;
 
@@ -63,7 +65,7 @@ export function TimePicker({
     }
 
     // Fallback to hour-level checking
-    const hourTimeStr = `${String(parseInt(timeStr.split(":")[0], 10)).padStart(2, "0")}:00`;
+    const hourTimeStr = `${String(parseInt(timeStr.split(':')[0], 10)).padStart(2, '0')}:00`;
     return closedTimes.has(hourTimeStr);
   };
 
@@ -77,7 +79,12 @@ export function TimePicker({
     const time15 = formatTime(h, 15);
     const time30 = formatTime(h, 30);
     const time45 = formatTime(h, 45);
-    return !isTimeClosed(time00) || !isTimeClosed(time15) || !isTimeClosed(time30) || !isTimeClosed(time45);
+    return (
+      !isTimeClosed(time00) ||
+      !isTimeClosed(time15) ||
+      !isTimeClosed(time30) ||
+      !isTimeClosed(time45)
+    );
   });
 
   // Filter minutes for the current hour - check each minute individually
@@ -91,14 +98,16 @@ export function TimePicker({
   });
 
   // Ensure the current minute is valid for the current hour
-  const validMinute = availableMinutes.includes(minute) 
-    ? minute 
-    : (availableMinutes.length > 0 ? availableMinutes[0] : minute);
+  const validMinute = availableMinutes.includes(minute)
+    ? minute
+    : availableMinutes.length > 0
+      ? availableMinutes[0]
+      : minute;
 
   // Auto-adjust if current time is invalid (only if auto-adjust is enabled)
   useEffect(() => {
     if (disableAutoAdjust) return; // Don't auto-adjust when editing existing bookings
-    
+
     const currentTime = formatTime(hour, minute);
     if (isTimeClosed(currentTime) || !availableMinutes.includes(minute)) {
       // Current time is closed or minute is not available, find first available time
@@ -110,7 +119,10 @@ export function TimePicker({
         }
         // If no minutes available in current hour, move to next available hour
         const currentHourIndex = availableHours.indexOf(hour);
-        if (currentHourIndex >= 0 && currentHourIndex < availableHours.length - 1) {
+        if (
+          currentHourIndex >= 0 &&
+          currentHourIndex < availableHours.length - 1
+        ) {
           const nextHour = availableHours[currentHourIndex + 1];
           const minutesForNextHour = [0, 15, 30, 45].filter((m) => {
             const timeStr = formatTime(nextHour, m);
@@ -133,10 +145,20 @@ export function TimePicker({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hour, minute, availableHours, availableMinutes, closedPeriods, disableAutoAdjust]);
+  }, [
+    hour,
+    minute,
+    availableHours,
+    availableMinutes,
+    closedPeriods,
+    disableAutoAdjust,
+  ]);
 
   return (
-    <div className={clsx("inline-flex items-center gap-1", className)} style={{ minWidth: 0 }}>
+    <div
+      className={clsx('inline-flex items-center gap-1', className)}
+      style={{ minWidth: 0 }}
+    >
       <select
         value={hour}
         onChange={(e) => {
@@ -146,31 +168,41 @@ export function TimePicker({
             const timeStr = formatTime(newHour, m);
             return !isTimeClosed(timeStr);
           });
-          const firstAvailableMinute = minutesForNewHour.length > 0 ? minutesForNewHour[0] : 0;
+          const firstAvailableMinute =
+            minutesForNewHour.length > 0 ? minutesForNewHour[0] : 0;
           onChange(formatTime(newHour, firstAvailableMinute));
         }}
         disabled={disabled || availableHours.length === 0}
         style={{ width: '45px', minWidth: '45px', maxWidth: '45px' }}
         className={clsx(
-          "px-1 py-1 rounded border text-xs font-medium outline-none transition-colors",
-          "flex-shrink-0",
+          'px-1 py-1 rounded border text-xs font-medium outline-none transition-colors',
+          'flex-shrink-0',
           error
-            ? "border-red-500 bg-red-950/20 text-red-300"
-            : "border-slate-600 bg-slate-950 text-slate-100 hover:border-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-          disabled && "opacity-50 cursor-not-allowed"
+            ? 'border-red-500 bg-red-950/20 text-red-300'
+            : 'border-slate-600 bg-slate-950 text-slate-100 hover:border-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500',
+          disabled && 'opacity-50 cursor-not-allowed'
         )}
       >
         {availableHours.length > 0 ? (
           availableHours.map((h) => (
             <option key={h} value={h} className="bg-slate-950">
-              {String(h).padStart(2, "0")}
+              {String(h).padStart(2, '0')}
             </option>
           ))
         ) : (
-          <option value={0} className="bg-slate-950">00</option>
+          <option value={0} className="bg-slate-950">
+            00
+          </option>
         )}
       </select>
-      <span className={clsx("text-xs flex-shrink-0", error ? "text-red-300" : "text-slate-400")}>:</span>
+      <span
+        className={clsx(
+          'text-xs flex-shrink-0',
+          error ? 'text-red-300' : 'text-slate-400'
+        )}
+      >
+        :
+      </span>
       <select
         value={validMinute}
         onChange={(e) => {
@@ -180,25 +212,26 @@ export function TimePicker({
         disabled={disabled || availableMinutes.length === 0}
         style={{ width: '45px', minWidth: '45px', maxWidth: '45px' }}
         className={clsx(
-          "px-1 py-1 rounded border text-xs font-medium outline-none transition-colors",
-          "flex-shrink-0",
+          'px-1 py-1 rounded border text-xs font-medium outline-none transition-colors',
+          'flex-shrink-0',
           error
-            ? "border-red-500 bg-red-950/20 text-red-300"
-            : "border-slate-600 bg-slate-950 text-slate-100 hover:border-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-          disabled && "opacity-50 cursor-not-allowed"
+            ? 'border-red-500 bg-red-950/20 text-red-300'
+            : 'border-slate-600 bg-slate-950 text-slate-100 hover:border-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500',
+          disabled && 'opacity-50 cursor-not-allowed'
         )}
       >
         {availableMinutes.length > 0 ? (
           availableMinutes.map((m) => (
             <option key={m} value={m} className="bg-slate-950">
-              {String(m).padStart(2, "0")}
+              {String(m).padStart(2, '0')}
             </option>
           ))
         ) : (
-          <option value={0} className="bg-slate-950">00</option>
+          <option value={0} className="bg-slate-950">
+            00
+          </option>
         )}
       </select>
     </div>
   );
 }
-

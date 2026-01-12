@@ -1,6 +1,6 @@
-import type { RackLayoutSlot } from "./RackSlot";
-import { RackSlot } from "./RackSlot";
-import type { ActiveInstance, NextUseInfo } from "../../../types/snapshot";
+import type { RackLayoutSlot } from './RackSlot';
+import { RackSlot } from './RackSlot';
+import type { ActiveInstance, NextUseInfo } from '../../../types/snapshot';
 
 type Props = {
   slot: RackLayoutSlot;
@@ -41,7 +41,7 @@ export function EditableRackSlot({
     <g
       onClick={handleClick}
       style={{
-        cursor: isClickable ? "pointer" : "not-allowed",
+        cursor: isClickable ? 'pointer' : 'not-allowed',
         opacity: isDisabled ? 0.5 : 1,
       }}
     >
@@ -52,7 +52,7 @@ export function EditableRackSlot({
         nextUse={nextUse}
         snapshotDate={snapshotDate}
       />
-      
+
       {/* Selection indicator (selected for editing) */}
       {isSelected && (
         <rect
@@ -68,7 +68,7 @@ export function EditableRackSlot({
           pointerEvents="none"
         />
       )}
-      
+
       {/* Disabled overlay (grayed out for other bookings) */}
       {isDisabled && (
         <rect
@@ -82,7 +82,7 @@ export function EditableRackSlot({
           pointerEvents="none"
         />
       )}
-      
+
       {/* Clickable overlay for better UX */}
       {isClickable && (
         <rect
@@ -99,4 +99,3 @@ export function EditableRackSlot({
     </g>
   );
 }
-

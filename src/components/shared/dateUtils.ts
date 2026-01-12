@@ -1,4 +1,4 @@
-import { format, parseISO } from "date-fns";
+import { format, parseISO } from 'date-fns';
 
 /**
  * Utility functions for date and time formatting and manipulation
@@ -9,8 +9,8 @@ import { format, parseISO } from "date-fns";
  */
 export function formatTimeForInput(isoString: string): string {
   const date = new Date(isoString);
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
 }
 
@@ -20,11 +20,11 @@ export function formatTimeForInput(isoString: string): string {
 export function formatDateTime(isoString: string): string {
   const date = new Date(isoString);
   return date.toLocaleString([], {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -33,8 +33,8 @@ export function formatDateTime(isoString: string): string {
  * e.g., "Monday 8 Jan 2026" (no commas)
  */
 export function formatDateBritish(date: Date | string): string {
-  const dateObj = typeof date === "string" ? parseISO(date) : date;
-  return format(dateObj, "EEEE d MMM yyyy");
+  const dateObj = typeof date === 'string' ? parseISO(date) : date;
+  return format(dateObj, 'EEEE d MMM yyyy');
 }
 
 /**
@@ -42,8 +42,8 @@ export function formatDateBritish(date: Date | string): string {
  * e.g., "Mon 8 Jan 2026" (no commas)
  */
 export function formatDateBritishShort(date: Date | string): string {
-  const dateObj = typeof date === "string" ? parseISO(date) : date;
-  return format(dateObj, "EEE d MMM yyyy");
+  const dateObj = typeof date === 'string' ? parseISO(date) : date;
+  return format(dateObj, 'EEE d MMM yyyy');
 }
 
 /**
@@ -54,8 +54,8 @@ export function getTimeDifference(
   time1: string,
   time2: string
 ): { hours: number; minutes: number } {
-  const [h1, m1] = time1.split(":").map(Number);
-  const [h2, m2] = time2.split(":").map(Number);
+  const [h1, m1] = time1.split(':').map(Number);
+  const [h2, m2] = time2.split(':').map(Number);
   const totalMinutes1 = h1 * 60 + m1;
   const totalMinutes2 = h2 * 60 + m2;
   const diffMinutes = totalMinutes2 - totalMinutes1;
@@ -89,4 +89,3 @@ export function groupInstancesByWeek<T extends { start: string }>(
   });
   return weekMap;
 }
-

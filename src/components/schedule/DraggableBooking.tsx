@@ -1,9 +1,9 @@
-import { useDraggable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
-import type { ActiveInstance } from "../../types/snapshot";
-import { useAuth } from "../../context/AuthContext";
-import { StatusBadge } from "../shared/StatusBadge";
-import { canMoveBooking } from "../../utils/bookingPermissions";
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import type { ActiveInstance } from '../../types/snapshot';
+import { useAuth } from '../../context/AuthContext';
+import { StatusBadge } from '../shared/StatusBadge';
+import { canMoveBooking } from '../../utils/bookingPermissions';
 
 type Props = {
   booking: ActiveInstance;
@@ -13,20 +13,27 @@ type Props = {
   isSelectingRacks?: boolean;
 };
 
-export function DraggableBooking({ booking, fromRack, activeId, onEdit, isSelectingRacks = false }: Props) {
+export function DraggableBooking({
+  booking,
+  fromRack,
+  // activeId,
+  onEdit,
+  isSelectingRacks = false,
+}: Props) {
   const { role } = useAuth();
   const dragId = `booking-${booking.instanceId}-${fromRack}`;
-  
+
   // Only admins can move bookings in live view
   const canMove = canMoveBooking(role);
   // Admins can always drag, coaches cannot drag locked bookings
-  const isLocked = booking.isLocked && role !== "admin";
-  
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: dragId,
-    data: { bookingId: booking.instanceId, fromRack },
-    disabled: !canMove || isLocked || isSelectingRacks, // Disable dragging if not admin, locked, or selecting racks
-  });
+  const isLocked = booking.isLocked && role !== 'admin';
+
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: dragId,
+      data: { bookingId: booking.instanceId, fromRack },
+      disabled: !canMove || isLocked || isSelectingRacks, // Disable dragging if not admin, locked, or selecting racks
+    });
 
   // Only hide if this item is being dragged (use hook's isDragging state)
   const style = {
@@ -38,7 +45,9 @@ export function DraggableBooking({ booking, fromRack, activeId, onEdit, isSelect
     <div
       ref={setNodeRef}
       style={style}
-      {...(isLocked || !canMove || isSelectingRacks ? {} : { ...listeners, ...attributes })}
+      {...(isLocked || !canMove || isSelectingRacks
+        ? {}
+        : { ...listeners, ...attributes })}
       onDoubleClick={(e) => {
         // Open booking modal on double-click (for live view)
         if (onEdit && !isSelectingRacks) {
@@ -54,12 +63,12 @@ export function DraggableBooking({ booking, fromRack, activeId, onEdit, isSelect
       }}
       className={`inline-flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-3 rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-base sm:text-lg w-full border-2 ${
         isLocked
-          ? "bg-slate-800/40 border-slate-600/50 text-slate-400 cursor-not-allowed opacity-75"
+          ? 'bg-slate-800/40 border-slate-600/50 text-slate-400 cursor-not-allowed opacity-75'
           : !canMove
-            ? "bg-slate-800/60 border-slate-700 text-slate-100 cursor-pointer hover:bg-slate-800/80"
-          : isSelectingRacks
-            ? "bg-slate-800/60 border-slate-700 text-slate-100 cursor-default"
-          : "bg-slate-800/60 border-slate-700 text-slate-100 cursor-grab active:cursor-grabbing"
+            ? 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-pointer hover:bg-slate-800/80'
+            : isSelectingRacks
+              ? 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-default'
+              : 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-grab active:cursor-grabbing'
       }`}
     >
       <div className="font-semibold line-clamp-2 break-words flex-1 min-w-0 flex items-center gap-2">
@@ -82,14 +91,11 @@ export function DraggableBooking({ booking, fromRack, activeId, onEdit, isSelect
         <span>{booking.title}</span>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
-        {booking.status && (
-          <StatusBadge status={booking.status} size="sm" />
-        )}
+        {booking.status && <StatusBadge status={booking.status} size="sm" />}
         <div className="text-sm sm:text-base text-slate-300 whitespace-nowrap">
-        {booking.start.slice(11, 16)}–{booking.end.slice(11, 16)}
+          {booking.start.slice(11, 16)}–{booking.end.slice(11, 16)}
         </div>
       </div>
     </div>
   );
 }
-

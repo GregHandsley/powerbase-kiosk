@@ -8,8 +8,8 @@ import {
   Preview,
   Section,
   Text,
-} from "@react-email/components";
-import * as React from "react";
+} from '@react-email/components';
+import * as React from 'react';
 
 interface LastMinuteAlertProps {
   bookingTitle: string;
@@ -49,14 +49,16 @@ export function LastMinuteAlert({
       <Body style={main}>
         <Container style={container}>
           <Heading style={h1}>
-            {isEdit ? "Last-Minute Booking Change" : "Last-Minute Booking Created"}
+            {isEdit
+              ? 'Last-Minute Booking Change'
+              : 'Last-Minute Booking Created'}
           </Heading>
 
           <Section style={section}>
             <Text style={text}>
               {isEdit
-                ? "A booking has been modified after the notification window deadline."
-                : "A new booking has been created after the notification window deadline."}
+                ? 'A booking has been modified after the notification window deadline.'
+                : 'A new booking has been created after the notification window deadline.'}
             </Text>
 
             <Section style={bookingDetails}>
@@ -102,8 +104,8 @@ export function LastMinuteAlert({
             </Section>
 
             <Text style={footer}>
-              This booking was created or modified after the notification window deadline.
-              Please review and make any necessary adjustments.
+              This booking was created or modified after the notification window
+              deadline. Please review and make any necessary adjustments.
             </Text>
           </Section>
         </Container>
@@ -113,98 +115,98 @@ export function LastMinuteAlert({
 }
 
 const main = {
-  backgroundColor: "#0f172a",
-  fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+  backgroundColor: '#0f172a',
+  fontFamily:
+    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
 };
 
 const container = {
-  backgroundColor: "#1e293b",
-  margin: "0 auto",
-  padding: "20px 0 48px",
-  marginBottom: "64px",
-  borderRadius: "8px",
-  maxWidth: "600px",
+  backgroundColor: '#1e293b',
+  margin: '0 auto',
+  padding: '20px 0 48px',
+  marginBottom: '64px',
+  borderRadius: '8px',
+  maxWidth: '600px',
 };
 
 const h1 = {
-  color: "#f1f5f9",
-  fontSize: "24px",
-  fontWeight: "600",
-  lineHeight: "1.3",
-  margin: "0 0 24px",
-  padding: "0 24px",
+  color: '#f1f5f9',
+  fontSize: '24px',
+  fontWeight: '600',
+  lineHeight: '1.3',
+  margin: '0 0 24px',
+  padding: '0 24px',
 };
 
 const section = {
-  padding: "0 24px",
+  padding: '0 24px',
 };
 
 const text = {
-  color: "#cbd5e1",
-  fontSize: "16px",
-  lineHeight: "1.6",
-  margin: "0 0 16px",
+  color: '#cbd5e1',
+  fontSize: '16px',
+  lineHeight: '1.6',
+  margin: '0 0 16px',
 };
 
 const bookingDetails = {
-  backgroundColor: "#0f172a",
-  borderRadius: "6px",
-  padding: "16px",
-  margin: "24px 0",
+  backgroundColor: '#0f172a',
+  borderRadius: '6px',
+  padding: '16px',
+  margin: '24px 0',
 };
 
 const label = {
-  color: "#f1f5f9",
-  fontSize: "14px",
-  fontWeight: "600",
-  margin: "0 0 12px",
+  color: '#f1f5f9',
+  fontSize: '14px',
+  fontWeight: '600',
+  margin: '0 0 12px',
 };
 
 const detail = {
-  color: "#cbd5e1",
-  fontSize: "14px",
-  lineHeight: "1.6",
-  margin: "8px 0",
+  color: '#cbd5e1',
+  fontSize: '14px',
+  lineHeight: '1.6',
+  margin: '8px 0',
 };
 
 const metaSection = {
-  margin: "24px 0",
-  paddingTop: "16px",
-  borderTop: "1px solid #334155",
+  margin: '24px 0',
+  paddingTop: '16px',
+  borderTop: '1px solid #334155',
 };
 
 const metaText = {
-  color: "#94a3b8",
-  fontSize: "12px",
-  lineHeight: "1.6",
-  margin: "4px 0",
+  color: '#94a3b8',
+  fontSize: '12px',
+  lineHeight: '1.6',
+  margin: '4px 0',
 };
 
 const buttonSection = {
-  margin: "32px 0",
-  textAlign: "center" as const,
+  margin: '32px 0',
+  textAlign: 'center' as const,
 };
 
 const button = {
-  backgroundColor: "#4f46e5",
-  borderRadius: "6px",
-  color: "#ffffff",
-  fontSize: "16px",
-  fontWeight: "600",
-  textDecoration: "none",
-  textAlign: "center" as const,
-  display: "inline-block",
-  padding: "12px 24px",
+  backgroundColor: '#4f46e5',
+  borderRadius: '6px',
+  color: '#ffffff',
+  fontSize: '16px',
+  fontWeight: '600',
+  textDecoration: 'none',
+  textAlign: 'center' as const,
+  display: 'inline-block',
+  padding: '12px 24px',
 };
 
 const footer = {
-  color: "#64748b",
-  fontSize: "12px",
-  lineHeight: "1.6",
-  margin: "24px 0 0",
-  paddingTop: "16px",
-  borderTop: "1px solid #334155",
+  color: '#64748b',
+  fontSize: '12px',
+  lineHeight: '1.6',
+  margin: '24px 0 0',
+  paddingTop: '16px',
+  borderTop: '1px solid #334155',
 };
 
 export default LastMinuteAlert;
-

@@ -1,23 +1,24 @@
-import { useState } from "react";
-import { useLocation } from "react-router-dom";
-import { Clock } from "../components/Clock";
-import { useAuth } from "../context/AuthContext";
-import { AdminSidebar } from "../components/admin/AdminSidebar";
-import { CapacityManagement } from "../components/admin/CapacityManagement";
-import { PeriodTypeCapacityManagement } from "../components/admin/PeriodTypeCapacityManagement";
-import { NotificationSettings } from "../components/admin/notification-settings/NotificationSettings";
+import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Clock } from '../components/Clock';
+import { useAuth } from '../context/AuthContext';
+import { AdminSidebar } from '../components/admin/AdminSidebar';
+import { CapacityManagement } from '../components/admin/CapacityManagement';
+import { PeriodTypeCapacityManagement } from '../components/admin/PeriodTypeCapacityManagement';
+import { NotificationSettings } from '../components/admin/notification-settings/NotificationSettings';
 
 export function Admin() {
   const { user, profile, role, loading, signOut, signIn } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const location = useLocation();
 
   // Determine which view to show based on URL search params
-  const view = new URLSearchParams(location.search).get("view") || "capacity-schedule";
+  const view =
+    new URLSearchParams(location.search).get('view') || 'capacity-schedule';
 
   const showSpinner = (
     <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center">
@@ -84,7 +85,7 @@ export function Admin() {
               disabled={loginLoading}
               className="w-full mt-2 inline-flex items-center justify-center rounded-md bg-indigo-600 hover:bg-indigo-500 text-sm font-medium py-1.5 disabled:opacity-60"
             >
-              {loginLoading ? "Signing in..." : "Sign in"}
+              {loginLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
         </div>
@@ -93,15 +94,16 @@ export function Admin() {
   }
 
   // Only admins can access this page
-  if (role !== "admin") {
+  if (role !== 'admin') {
     return (
       <div className="p-4 space-y-4">
         <header className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold">Admin Dashboard</h1>
             <p className="text-slate-300 text-sm">
-              You are signed in as <span className="font-mono">{user.email}</span>,
-              but admin access is required for this page.
+              You are signed in as{' '}
+              <span className="font-mono">{user.email}</span>, but admin access
+              is required for this page.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -118,13 +120,13 @@ export function Admin() {
     );
   }
 
-  const displayName = profile?.full_name || user.email || "Unknown";
+  const displayName = profile?.full_name || user.email || 'Unknown';
 
   return (
     <div className="flex h-[calc(100vh-3rem)]">
       {/* Collapsible Sidebar */}
-      <AdminSidebar 
-        isOpen={sidebarOpen} 
+      <AdminSidebar
+        isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
 
@@ -132,11 +134,13 @@ export function Admin() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 py-4 border-b border-slate-700/60 bg-slate-950/70 shrink-0">
           <div>
-            <h1 className="text-xl font-semibold text-slate-100">Admin Dashboard</h1>
+            <h1 className="text-xl font-semibold text-slate-100">
+              Admin Dashboard
+            </h1>
             <p className="text-slate-300 text-sm mt-1">
-              Signed in as{" "}
-              <span className="font-mono">{user.email ?? "unknown"}</span>{" "}
-              ({role}) – {displayName}
+              Signed in as{' '}
+              <span className="font-mono">{user.email ?? 'unknown'}</span> (
+              {role}) – {displayName}
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -151,9 +155,9 @@ export function Admin() {
         </header>
 
         <main className="flex-1 overflow-hidden p-6">
-          {view === "capacity-schedule" && <CapacityManagement />}
-          {view === "period-capacity" && <PeriodTypeCapacityManagement />}
-          {view === "notification-settings" && <NotificationSettings />}
+          {view === 'capacity-schedule' && <CapacityManagement />}
+          {view === 'period-capacity' && <PeriodTypeCapacityManagement />}
+          {view === 'notification-settings' && <NotificationSettings />}
         </main>
       </div>
     </div>

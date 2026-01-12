@@ -1,6 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../lib/supabaseClient";
-import { useAuth } from "../context/AuthContext";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 
 export interface NotificationSettings {
   id: number;
@@ -15,7 +15,7 @@ export interface NotificationSettings {
   reminder_schedule: Array<{
     time: string; // "HH:mm"
     days: number[]; // [1,2,3,4,5] for weekdays
-    frequency: "daily" | "weekly";
+    frequency: 'daily' | 'weekly';
   }>;
   reminder_recipient_roles: string[];
   reminder_recipient_user_ids: string[];
@@ -35,7 +35,7 @@ export interface UpdateNotificationSettingsInput {
   reminder_schedule?: Array<{
     time: string;
     days: number[];
-    frequency: "daily" | "weekly";
+    frequency: 'daily' | 'weekly';
   }>;
   reminder_recipient_roles?: string[];
   reminder_recipient_user_ids?: string[];
@@ -49,17 +49,21 @@ export function useNotificationSettings() {
   const queryClient = useQueryClient();
 
   // Fetch settings
-  const { data: settings, isLoading, error } = useQuery({
-    queryKey: ["notification-settings"],
+  const {
+    data: settings,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['notification-settings'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("notification_settings")
-        .select("*")
-        .eq("id", 1)
+        .from('notification_settings')
+        .select('*')
+        .eq('id', 1)
         .single();
 
       if (error) {
-        console.error("Error fetching notification settings:", error);
+        console.error('Error fetching notification settings:', error);
         throw error;
       }
 
@@ -71,16 +75,16 @@ export function useNotificationSettings() {
   // Update settings mutation
   const updateMutation = useMutation({
     mutationFn: async (updates: UpdateNotificationSettingsInput) => {
-      if (!user?.id) throw new Error("User not authenticated");
+      if (!user?.id) throw new Error('User not authenticated');
 
       const { data, error } = await supabase
-        .from("notification_settings")
+        .from('notification_settings')
         .update({
           ...updates,
           updated_by: user.id,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", 1)
+        .eq('id', 1)
         .select()
         .single();
 
@@ -88,7 +92,7 @@ export function useNotificationSettings() {
       return data as NotificationSettings;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notification-settings"] });
+      queryClient.invalidateQueries({ queryKey: ['notification-settings'] });
     },
   });
 
@@ -100,4 +104,3 @@ export function useNotificationSettings() {
     isUpdating: updateMutation.isPending,
   };
 }
-

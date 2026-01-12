@@ -1,9 +1,9 @@
-import type { SideSnapshot, ActiveInstance } from "../../../types/snapshot";
-import { BaseFloorplan } from "../base/BaseFloorplan";
-import { PowerbaseFloorSvg } from "../power/PowerFloorplan";
-import { EditableRackSlot, type RackLayoutSlot } from "./EditableRackSlot";
-import { FloorShell } from "../base/FloorShell";
-import "../../../styles/floorplan.css";
+import type { SideSnapshot, ActiveInstance } from '../../../types/snapshot';
+// import { BaseFloorplan } from '../base/BaseFloorplan';
+// import { PowerbaseFloorSvg } from '../power/PowerFloorplan';
+import { EditableRackSlot, type RackLayoutSlot } from './EditableRackSlot';
+import { FloorShell } from '../base/FloorShell';
+import '../../../styles/floorplan.css';
 
 type Props = {
   snapshot: SideSnapshot | null;
@@ -12,7 +12,7 @@ type Props = {
   /** Callback when a rack is clicked */
   onRackClick: (rackNumber: number) => void;
   /** Which side this floorplan is for */
-  side: "power" | "base";
+  side: 'power' | 'base';
   /** ID of the booking being edited (for highlighting its racks) */
   editingBookingId?: number | null;
 };
@@ -21,7 +21,13 @@ type Props = {
  * Interactive floorplan that allows clicking on racks to select/deselect them.
  * Shows selected racks with a visual indicator.
  */
-export function EditableFloorplan({ snapshot, selectedRacks, onRackClick, side, editingBookingId }: Props) {
+export function EditableFloorplan({
+  snapshot,
+  selectedRacks,
+  onRackClick,
+  side,
+  editingBookingId,
+}: Props) {
   const selectedSet = new Set(selectedRacks);
   const viewBoxWidth = 160;
   const viewBoxHeight = 90;
@@ -29,8 +35,8 @@ export function EditableFloorplan({ snapshot, selectedRacks, onRackClick, side, 
 
   // Build rack layouts based on side
   const racks: RackLayoutSlot[] = [];
-  
-  if (side === "base") {
+
+  if (side === 'base') {
     const rackWidth = 17;
     const rackHeight = 11;
     const rackGapY = 2;
@@ -93,7 +99,8 @@ export function EditableFloorplan({ snapshot, selectedRacks, onRackClick, side, 
     const col4X = 123;
     const topRowY = 17;
     const rowOffsets = [0, 0, 6, 6, 6];
-    const rowY = (row: number) => topRowY + row * (rackHeight + rackGapY) + (rowOffsets[row] ?? 0);
+    const rowY = (row: number) =>
+      topRowY + row * (rackHeight + rackGapY) + (rowOffsets[row] ?? 0);
 
     const col1Racks = [14, 15, 16, 17, 18];
     const col2Racks = [9, 10, 11, 12, 13];
@@ -156,8 +163,8 @@ export function EditableFloorplan({ snapshot, selectedRacks, onRackClick, side, 
     }
   }
 
-  const cutoutWidth = side === "base" ? 40 : 35;
-  const cutoutHeight = side === "base" ? 39 : 15;
+  const cutoutWidth = side === 'base' ? 40 : 35;
+  const cutoutHeight = side === 'base' ? 39 : 15;
   const cutoutRight = floorMargin + cutoutWidth;
 
   return (
@@ -167,7 +174,7 @@ export function EditableFloorplan({ snapshot, selectedRacks, onRackClick, side, 
       height="100%"
       preserveAspectRatio="xMidYMid meet"
     >
-      {side === "base" ? (
+      {side === 'base' ? (
         <>
           <FloorShell
             viewBoxWidth={viewBoxWidth}
@@ -178,10 +185,11 @@ export function EditableFloorplan({ snapshot, selectedRacks, onRackClick, side, 
           />
           {racks.map((rack) => {
             const rackInst = currentByRack.get(rack.number) ?? null;
-            const isUsedByOtherBooking = rackInst && rackInst.instanceId !== editingBookingId;
+            const isUsedByOtherBooking =
+              rackInst && rackInst.instanceId !== editingBookingId;
             const isClickable = !isUsedByOtherBooking;
             const isSelected = selectedSet.has(rack.number);
-            
+
             return (
               <EditableRackSlot
                 key={rack.number}
@@ -200,7 +208,13 @@ export function EditableFloorplan({ snapshot, selectedRacks, onRackClick, side, 
       ) : (
         <>
           {/* Power side floorplan background */}
-          <rect className="fp-bg-outer" x={0} y={0} width={viewBoxWidth} height={viewBoxHeight} />
+          <rect
+            className="fp-bg-outer"
+            x={0}
+            y={0}
+            width={viewBoxWidth}
+            height={viewBoxHeight}
+          />
           <path
             className="fp-bg-path"
             d={`
@@ -230,7 +244,9 @@ export function EditableFloorplan({ snapshot, selectedRacks, onRackClick, side, 
             </text>
           </g>
           {/* LEFT: Cables */}
-          <g transform={`translate(${floorMargin + 2} ${viewBoxHeight - floorMargin - 22})`}>
+          <g
+            transform={`translate(${floorMargin + 2} ${viewBoxHeight - floorMargin - 22})`}
+          >
             <rect className="fp-area" width={15} height={20} />
             <text
               className="fp-area-label"
@@ -341,10 +357,11 @@ export function EditableFloorplan({ snapshot, selectedRacks, onRackClick, side, 
           {/* Render editable racks */}
           {racks.map((rack) => {
             const rackInst = currentByRack.get(rack.number) ?? null;
-            const isUsedByOtherBooking = rackInst && rackInst.instanceId !== editingBookingId;
+            const isUsedByOtherBooking =
+              rackInst && rackInst.instanceId !== editingBookingId;
             const isClickable = !isUsedByOtherBooking;
             const isSelected = selectedSet.has(rack.number);
-            
+
             return (
               <EditableRackSlot
                 key={rack.number}
@@ -364,4 +381,3 @@ export function EditableFloorplan({ snapshot, selectedRacks, onRackClick, side, 
     </svg>
   );
 }
-

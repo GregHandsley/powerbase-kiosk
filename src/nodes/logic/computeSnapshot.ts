@@ -1,5 +1,9 @@
-import type { BookingInstanceWithBookingRow } from "../../types/db";
-import type { ActiveInstance, NextUseInfo, SideSnapshot } from "../../types/snapshot";
+import type { BookingInstanceWithBookingRow } from '../../types/db';
+import type {
+  ActiveInstance,
+  NextUseInfo,
+  SideSnapshot,
+} from '../../types/snapshot';
 
 export function computeSnapshotFromInstances(
   instances: BookingInstanceWithBookingRow[],
@@ -7,7 +11,9 @@ export function computeSnapshotFromInstances(
 ): SideSnapshot {
   const at = new Date(atIso);
   if (Number.isNaN(at.getTime())) {
-    throw new Error(`Invalid atIso passed to computeSnapshotFromInstances: ${atIso}`);
+    throw new Error(
+      `Invalid atIso passed to computeSnapshotFromInstances: ${atIso}`
+    );
   }
 
   const currentInstances: ActiveInstance[] = [];
@@ -21,7 +27,7 @@ export function computeSnapshotFromInstances(
     const racks: number[] = Array.isArray(inst.racks) ? inst.racks : [];
     const areas: string[] = Array.isArray(inst.areas) ? inst.areas : [];
 
-    const bookingTitle = inst.booking?.title ?? "Untitled";
+    const bookingTitle = inst.booking?.title ?? 'Untitled';
     const bookingColor = inst.booking?.color ?? null;
     const isLocked = inst.booking?.is_locked ?? false;
     const createdBy = inst.booking?.created_by ?? null;

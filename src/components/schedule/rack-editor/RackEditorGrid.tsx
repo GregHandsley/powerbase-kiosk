@@ -1,10 +1,10 @@
-import type { ReactNode } from "react";
-import type { RackRow } from "../RackListEditorCore";
-import type { ActiveInstance } from "../../../types/snapshot";
-import { DraggableBooking } from "../DraggableBooking";
-import { RackRowDroppable } from "../RackRowDroppable";
-import { Banner } from "./Banner";
-import { buildGridTemplateRows } from "./utils";
+import type { ReactNode } from 'react';
+import type { RackRow } from '../RackListEditorCore';
+import type { ActiveInstance } from '../../../types/snapshot';
+import { DraggableBooking } from '../DraggableBooking';
+import { RackRowDroppable } from '../RackRowDroppable';
+import { Banner } from './Banner';
+import { buildGridTemplateRows } from './utils';
 
 type Props = {
   layout: RackRow[];
@@ -51,7 +51,7 @@ export function RackEditorGrid({
   selectedRacks = [],
   editingBookingId = null,
   onRackClick,
-  bookings = [],
+  // bookings = [],
   availablePlatforms = null,
   isClosedPeriod = false,
 }: Props) {
@@ -61,15 +61,15 @@ export function RackEditorGrid({
       style={{
         width: BASE_WIDTH,
         height: BASE_HEIGHT,
-        display: "grid",
+        display: 'grid',
         gridTemplateColumns,
         gridTemplateRows: buildGridTemplateRows(numRows, spacerRow),
-        columnGap: "20px",
-        rowGap: "20px",
-        padding: "24px",
+        columnGap: '20px',
+        rowGap: '20px',
+        padding: '24px',
         zoom: zoomLevel,
-        transformOrigin: "top left",
-        fontSize: "18px",
+        transformOrigin: 'top left',
+        fontSize: '18px',
       }}
     >
       {beforeRacks}
@@ -77,49 +77,71 @@ export function RackEditorGrid({
       {layout.map((row) => {
         const bookingEntry =
           row.rackNumber !== null
-            ? [...assignments.entries()].find(([, rackNos]) => rackNos.includes(row.rackNumber!))
+            ? [...assignments.entries()].find(([, rackNos]) =>
+                rackNos.includes(row.rackNumber!)
+              )
             : null;
         const bookingId = bookingEntry?.[0] ?? null;
-        const booking = bookingId ? bookingById.get(bookingId) ?? null : null;
+        const booking = bookingId ? (bookingById.get(bookingId) ?? null) : null;
 
         // Determine if this rack is selected or disabled in selection mode
-        const isSelected = row.rackNumber !== null && selectedSet.has(row.rackNumber);
-        const isUsedByOtherBooking = isSelectingRacks && row.rackNumber !== null && booking && booking.instanceId !== editingBookingId;
-        
+        const isSelected =
+          row.rackNumber !== null && selectedSet.has(row.rackNumber);
+        const isUsedByOtherBooking =
+          isSelectingRacks &&
+          row.rackNumber !== null &&
+          booking &&
+          booking.instanceId !== editingBookingId;
+
         // Check if platform is available in capacity schedule
         // If availablePlatforms is null, all platforms are available (no restriction)
         // If availablePlatforms is a Set, only racks in that Set are available
         // This check is INDEPENDENT of bookings - it's based solely on capacity schedules
-        const isAvailableInSchedule = row.rackNumber === null || availablePlatforms === null || availablePlatforms.has(row.rackNumber);
-        
+        const isAvailableInSchedule =
+          row.rackNumber === null ||
+          availablePlatforms === null ||
+          availablePlatforms.has(row.rackNumber);
+
         // Determine unavailable reason - MUST check schedule availability even when there's no booking
         // This ensures \"General User\" and \"Closed\" show even when there are no bookings
         // Bookings are NOT a factor in determining schedule availability
-        const unavailableReason = ((): "booked" | "not-in-schedule" | "closed" | null => {
+        const unavailableReason = (():
+          | 'booked'
+          | 'not-in-schedule'
+          | 'closed'
+          | null => {
           if (row.rackNumber === null) return null;
           // If facility is closed, all racks are treated as closed
-          if (isClosedPeriod) return "closed";
+          if (isClosedPeriod) return 'closed';
           // First check if it's used by another booking (only relevant in selection mode)
-          if (isUsedByOtherBooking) return "booked";
+          if (isUsedByOtherBooking) return 'booked';
           // Then check if rack is not in schedule (even if there's no booking)
           // This is the key: if availablePlatforms is a Set and the rack is NOT in it, it's "not-in-schedule"
-          if (availablePlatforms !== null && !availablePlatforms.has(row.rackNumber)) {
-            return "not-in-schedule";
+          if (
+            availablePlatforms !== null &&
+            !availablePlatforms.has(row.rackNumber)
+          ) {
+            return 'not-in-schedule';
           }
           return null;
         })();
-        
+
         // Platform is unavailable if it's not in the capacity schedule OR used by another booking
         // Note: unavailableReason already handles both cases, so we can derive isUnavailable from it
         const isUnavailable = unavailableReason !== null;
-        
+
         // Rack is clickable if: in selection mode, has a rack number, not disabled, and either not used by anyone OR used by the editing booking, AND is available in schedule
-        const isClickable = isSelectingRacks && row.rackNumber !== null && !row.disabled && (!booking || booking.instanceId === editingBookingId) && isAvailableInSchedule;
+        const isClickable =
+          isSelectingRacks &&
+          row.rackNumber !== null &&
+          !row.disabled &&
+          (!booking || booking.instanceId === editingBookingId) &&
+          isAvailableInSchedule;
 
         const content = booking ? (
-          <DraggableBooking 
-            booking={booking} 
-            fromRack={row.rackNumber!} 
+          <DraggableBooking
+            booking={booking}
+            fromRack={row.rackNumber!}
             activeId={activeId}
             onEdit={onEditBooking}
             isSelectingRacks={isSelectingRacks}
@@ -146,11 +168,14 @@ export function RackEditorGrid({
             isDisabled={isUnavailable}
             isClickable={isClickable}
             unavailableReason={unavailableReason}
-            onRackClick={onRackClick && row.rackNumber !== null ? () => onRackClick(row.rackNumber) : undefined}
+            onRackClick={
+              onRackClick && row.rackNumber !== null
+                ? () => onRackClick(row.rackNumber)
+                : undefined
+            }
           />
         );
       })}
     </div>
   );
 }
-

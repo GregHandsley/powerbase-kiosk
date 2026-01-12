@@ -1,6 +1,6 @@
-import type { SideSnapshot, ActiveInstance } from "../../../types/snapshot";
-import { FloorShell } from "./FloorShell";
-import { RackSlot, type RackLayoutSlot } from "../shared/RackSlot";
+import type { SideSnapshot, ActiveInstance } from '../../../types/snapshot';
+import { FloorShell } from './FloorShell';
+import { RackSlot, type RackLayoutSlot } from '../shared/RackSlot';
 
 type Props = {
   snapshot: SideSnapshot | null;
@@ -112,4 +112,3 @@ export function BaseFloorplan({ snapshot }: Props) {
     </svg>
   );
 }
-

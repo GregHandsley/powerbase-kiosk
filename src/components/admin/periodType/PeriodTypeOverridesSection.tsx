@@ -1,8 +1,13 @@
-import { useState } from "react";
-import { format } from "date-fns";
-import { BookingInfoDisplay } from "./BookingInfoDisplay";
+// import { useState } from 'react';
+import { format } from 'date-fns';
+import { BookingInfoDisplay } from './BookingInfoDisplay';
 
-type PeriodType = "High Hybrid" | "Low Hybrid" | "Performance" | "General User" | "Closed";
+type PeriodType =
+  | 'High Hybrid'
+  | 'Low Hybrid'
+  | 'Performance'
+  | 'General User'
+  | 'Closed';
 
 interface PeriodTypeOverride {
   id: number;
@@ -46,7 +51,9 @@ export function PeriodTypeOverridesSection({
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 flex-1 flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-slate-200">Date-Specific Overrides</h3>
+        <h3 className="text-sm font-semibold text-slate-200">
+          Date-Specific Overrides
+        </h3>
         <button
           onClick={onAddOverride}
           className="px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white"
@@ -58,7 +65,8 @@ export function PeriodTypeOverridesSection({
       <div className="flex-1 overflow-auto">
         {overrides.length === 0 ? (
           <div className="text-center py-8 text-sm text-slate-400">
-            No overrides set. Click "Add Override" to set capacity for a specific date.
+            No overrides set. Click "Add Override" to set capacity for a
+            specific date.
           </div>
         ) : (
           <div className="space-y-2">
@@ -70,7 +78,8 @@ export function PeriodTypeOverridesSection({
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="text-sm font-medium text-slate-200">
-                      {format(new Date(override.date), "EEE, MMM d, yyyy")} - {override.period_type}
+                      {format(new Date(override.date), 'EEE, MMM d, yyyy')} -{' '}
+                      {override.period_type}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
                       Capacity: {override.capacity}
@@ -80,18 +89,36 @@ export function PeriodTypeOverridesSection({
                       <BookingInfoDisplay
                         override={override}
                         isExpanded={expandedOverrides.has(override.id)}
-                        selectedForBooking={selectedInstances.get(override.booking_id) || new Set<number>()}
+                        selectedForBooking={
+                          selectedInstances.get(override.booking_id) ||
+                          new Set<number>()
+                        }
                         onToggleExpanded={() => onToggleExpanded(override.id)}
-                        onToggleInstanceSelection={(instanceId) => onToggleInstanceSelection(override.booking_id!, instanceId)}
+                        onToggleInstanceSelection={(instanceId) =>
+                          onToggleInstanceSelection(
+                            override.booking_id!,
+                            instanceId
+                          )
+                        }
                         onDeleteSelected={() => {
-                          const instanceIds = Array.from(selectedInstances.get(override.booking_id!) || new Set());
+                          const instanceIds = Array.from(
+                            selectedInstances.get(override.booking_id!) ||
+                              new Set()
+                          );
                           if (instanceIds.length === 0) {
-                            alert("Please select at least one instance to delete");
+                            alert(
+                              'Please select at least one instance to delete'
+                            );
                             return;
                           }
-                          onDeleteSelectedInstances(override.booking_id!, instanceIds);
+                          onDeleteSelectedInstances(
+                            override.booking_id!,
+                            instanceIds
+                          );
                         }}
-                        onDeleteSeries={() => onDeleteSeries(override.booking_id!)}
+                        onDeleteSeries={() =>
+                          onDeleteSeries(override.booking_id!)
+                        }
                         loading={loading}
                       />
                     )}
@@ -120,4 +147,3 @@ export function PeriodTypeOverridesSection({
     </div>
   );
 }
-

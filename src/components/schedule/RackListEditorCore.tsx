@@ -1,23 +1,23 @@
-import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
-import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
-import { supabase } from "../../lib/supabaseClient";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../context/AuthContext";
-import { createTasksForUsers, getUserIdsByRole } from "../../hooks/useTasks";
-import type { SideSnapshot } from "../../types/snapshot";
-import type { ActiveInstance } from "../../types/snapshot";
-import type { BookingStatus } from "../../types/db";
-import { RackEditorHeader } from "./rack-editor/RackEditorHeader";
-import { RackEditorGrid } from "./rack-editor/RackEditorGrid";
-import { RackEditorDragOverlay } from "./rack-editor/RackEditorDragOverlay";
-import { BookingEditorModal } from "./BookingEditorModal";
-import { useRackEditorDimensions } from "./rack-editor/hooks/useRackEditorDimensions";
-import { useRackAssignments } from "./rack-editor/hooks/useRackAssignments";
-import { useDragSensors } from "./rack-editor/hooks/useDragSensors";
-import { useDragHandlers } from "./rack-editor/hooks/useDragHandlers";
-import { RackSelectionPanel } from "./rack-editor/RackSelectionPanel";
-import { UpdateRacksConfirmationDialog } from "./booking-editor/UpdateRacksConfirmationDialog";
-import { useLiveViewCapacity } from "./hooks/useLiveViewCapacity";
+import { useMemo, useState, useEffect, useRef, type ReactNode } from 'react';
+import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
+import { supabase } from '../../lib/supabaseClient';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../context/AuthContext';
+import { createTasksForUsers, getUserIdsByRole } from '../../hooks/useTasks';
+import type { SideSnapshot } from '../../types/snapshot';
+import type { ActiveInstance } from '../../types/snapshot';
+import type { BookingStatus } from '../../types/db';
+import { RackEditorHeader } from './rack-editor/RackEditorHeader';
+import { RackEditorGrid } from './rack-editor/RackEditorGrid';
+import { RackEditorDragOverlay } from './rack-editor/RackEditorDragOverlay';
+import { BookingEditorModal } from './BookingEditorModal';
+import { useRackEditorDimensions } from './rack-editor/hooks/useRackEditorDimensions';
+import { useRackAssignments } from './rack-editor/hooks/useRackAssignments';
+import { useDragSensors } from './rack-editor/hooks/useDragSensors';
+import { useDragHandlers } from './rack-editor/hooks/useDragHandlers';
+import { RackSelectionPanel } from './rack-editor/RackSelectionPanel';
+import { UpdateRacksConfirmationDialog } from './booking-editor/UpdateRacksConfirmationDialog';
+import { useLiveViewCapacity } from './hooks/useLiveViewCapacity';
 
 export type RackRow = {
   id: string; // rack-<number> or platform-<number>
@@ -40,21 +40,20 @@ export type RackListEditorCoreProps = {
   /** Which row index is a spacer (walkway) - uses smaller height */
   spacerRow?: number;
   /** Side mode for the floorplan */
-  side: "power" | "base";
+  side: 'power' | 'base';
   /** Date for checking capacity schedules (YYYY-MM-DD) */
   date: string;
   /** Time for checking capacity schedules (HH:mm) */
   time: string;
 };
 
-
 export function RackListEditorCore({
   snapshot,
   layout,
-  bannerRowSpan = "1 / span 6",
+  bannerRowSpan = '1 / span 6',
   beforeRacks,
   showBanner = false,
-  gridTemplateColumns = "repeat(2, 1fr) 0.3fr repeat(2, 1fr)",
+  gridTemplateColumns = 'repeat(2, 1fr) 0.3fr repeat(2, 1fr)',
   numRows = 6,
   spacerRow,
   side,
@@ -72,14 +71,22 @@ export function RackListEditorCore({
     time,
   });
 
-  const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(null);
+  const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(
+    null
+  );
   const [isSelectingRacks, setIsSelectingRacks] = useState(false);
   const [selectedRacks, setSelectedRacks] = useState<number[]>([]);
   const [savingRacks, setSavingRacks] = useState(false);
-  const [selectedInstancesForRacks, setSelectedInstancesForRacks] = useState<Set<number>>(new Set());
+  const [selectedInstancesForRacks, setSelectedInstancesForRacks] = useState<
+    Set<number>
+  >(new Set());
   const [applyRacksToAll, setApplyRacksToAll] = useState(false);
-  const [rackValidationError, setRackValidationError] = useState<string | null>(null);
-  const [savedSelectedInstances, setSavedSelectedInstances] = useState<Set<number>>(new Set());
+  const [rackValidationError, setRackValidationError] = useState<string | null>(
+    null
+  );
+  const [savedSelectedInstances, setSavedSelectedInstances] = useState<
+    Set<number>
+  >(new Set());
   const [showUpdateRacksConfirm, setShowUpdateRacksConfirm] = useState(false);
   const [rackSelectionWeekIndex, setRackSelectionWeekIndex] = useState(0);
   const hasInitializedRacks = useRef(false);
@@ -130,22 +137,31 @@ export function RackListEditorCore({
 
   const handleSaveTime = async (startTime: string, endTime: string) => {
     if (!editingBooking) return;
-    
+
     const { error } = await supabase
-      .from("booking_instances")
-      .update({ 
+      .from('booking_instances')
+      .update({
         start: startTime,
         end: endTime,
       })
-      .eq("id", editingBooking.instanceId);
+      .eq('id', editingBooking.instanceId);
 
     if (error) {
       throw new Error(error.message);
     }
 
-    await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
-    await queryClient.invalidateQueries({ queryKey: ["booking-instances-debug"], exact: false });
-    await queryClient.invalidateQueries({ queryKey: ["booking-instances-for-time"], exact: false });
+    await queryClient.invalidateQueries({
+      queryKey: ['snapshot'],
+      exact: false,
+    });
+    await queryClient.invalidateQueries({
+      queryKey: ['booking-instances-debug'],
+      exact: false,
+    });
+    await queryClient.invalidateQueries({
+      queryKey: ['booking-instances-for-time'],
+      exact: false,
+    });
   };
 
   const handleCancelRackSelection = () => {
@@ -159,7 +175,11 @@ export function RackListEditorCore({
 
   // Validate racks for conflicts before saving
   const validateRacksForInstances = async (): Promise<string | null> => {
-    if (!editingBooking || selectedRacks.length === 0 || selectedInstancesForRacks.size === 0) {
+    if (
+      !editingBooking ||
+      selectedRacks.length === 0 ||
+      selectedInstancesForRacks.size === 0
+    ) {
       return null;
     }
 
@@ -174,9 +194,9 @@ export function RackListEditorCore({
 
     // Get the side_id from the first instance or from snapshot
     const sideId = instancesToCheck[0]?.sideId ?? snapshot?.sideId;
-    
+
     if (!sideId) {
-      return "Unable to determine side for validation. Please try again.";
+      return 'Unable to determine side for validation. Please try again.';
     }
 
     // Check each instance for conflicts
@@ -191,7 +211,7 @@ export function RackListEditorCore({
       // Fetch all booking instances that overlap with this instance's time range
       // and use any of the selected racks
       const { data: overlappingInstances, error } = await supabase
-        .from("booking_instances")
+        .from('booking_instances')
         .select(
           `
           id,
@@ -204,13 +224,13 @@ export function RackListEditorCore({
           )
         `
         )
-        .eq("side_id", sideId)
-        .lt("start", instance.end) // instance starts before our end time
-        .gt("end", instance.start) // instance ends after our start time
-        .neq("booking_id", editingBooking.bookingId); // Exclude instances from the same booking
+        .eq('side_id', sideId)
+        .lt('start', instance.end) // instance starts before our end time
+        .gt('end', instance.start) // instance ends after our start time
+        .neq('booking_id', editingBooking.bookingId); // Exclude instances from the same booking
 
       if (error) {
-        console.error("Error checking for conflicts:", error);
+        console.error('Error checking for conflicts:', error);
         return `Error checking for conflicts: ${error.message}`;
       }
 
@@ -225,11 +245,11 @@ export function RackListEditorCore({
           const formatDateTime = (isoString: string) => {
             const date = new Date(isoString);
             return date.toLocaleString([], {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
             });
           };
 
@@ -238,7 +258,8 @@ export function RackListEditorCore({
             instanceTime: `${formatDateTime(instance.start)} - ${formatDateTime(instance.end)}`,
             rack,
             conflictingBooking:
-              (conflictingInstance.booking as { title?: string })?.title ?? "Unknown",
+              (conflictingInstance.booking as { title?: string })?.title ??
+              'Unknown',
           });
         }
       }
@@ -260,29 +281,31 @@ export function RackListEditorCore({
         });
       });
 
-      let errorMessage = "Rack conflicts detected:\n\n";
+      let errorMessage = 'Rack conflicts detected:\n\n';
       conflictsByInstance.forEach((rackConflicts, instanceId) => {
-        const instance = instancesToCheck.find((inst) => inst.id === instanceId);
+        const instance = instancesToCheck.find(
+          (inst) => inst.id === instanceId
+        );
         const timeStr = instance
           ? `${new Date(instance.start).toLocaleString([], {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
             })} - ${new Date(instance.end).toLocaleString([], {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
             })}`
-          : "Unknown time";
+          : 'Unknown time';
         errorMessage += `Session: ${timeStr}\n`;
         rackConflicts.forEach(({ rack, conflictingBooking }) => {
           errorMessage += `  • Rack ${rack} is booked by "${conflictingBooking}"\n`;
         });
-        errorMessage += "\n";
+        errorMessage += '\n';
       });
 
       return errorMessage.trim();
@@ -295,7 +318,7 @@ export function RackListEditorCore({
     if (!editingBooking || selectedRacks.length === 0) return;
 
     if (selectedInstancesForRacks.size === 0) {
-      setRackValidationError("Please select at least one session to update");
+      setRackValidationError('Please select at least one session to update');
       return;
     }
 
@@ -328,9 +351,9 @@ export function RackListEditorCore({
       const instanceIds = Array.from(selectedInstancesForRacks);
       const updates = instanceIds.map(async (instanceId) => {
         const { error } = await supabase
-          .from("booking_instances")
+          .from('booking_instances')
           .update({ racks: selectedRacks })
-          .eq("id", instanceId);
+          .eq('id', instanceId);
 
         if (error) {
           throw new Error(error.message);
@@ -343,9 +366,9 @@ export function RackListEditorCore({
       // This ensures the bookings team sees the change and can reprocess it
       if (editingBooking.bookingId && user?.id) {
         const { data: currentBooking } = await supabase
-          .from("bookings")
-          .select("status, title")
-          .eq("id", editingBooking.bookingId)
+          .from('bookings')
+          .select('status, title')
+          .eq('id', editingBooking.bookingId)
           .maybeSingle();
 
         if (currentBooking) {
@@ -359,64 +382,97 @@ export function RackListEditorCore({
           };
 
           // If booking was processed, reset to pending so bookings team can review the rack changes
-          if (currentBooking.status === "processed") {
-            updateData.status = "pending";
+          if (currentBooking.status === 'processed') {
+            updateData.status = 'pending';
           }
 
           await supabase
-            .from("bookings")
+            .from('bookings')
             .update(updateData)
-            .eq("id", editingBooking.bookingId);
+            .eq('id', editingBooking.bookingId);
 
           // Create tasks for bookings team if booking was processed or if it's a change
-          if (currentBooking.status === "processed" || updateData.status === "pending") {
+          if (
+            currentBooking.status === 'processed' ||
+            updateData.status === 'pending'
+          ) {
             try {
-              const bookingsTeamIds = await getUserIdsByRole("bookings_team");
-              const adminIds = await getUserIdsByRole("admin");
-              const allNotifyIds = [...new Set([...bookingsTeamIds, ...adminIds])];
+              const bookingsTeamIds = await getUserIdsByRole('bookings_team');
+              const adminIds = await getUserIdsByRole('admin');
+              const allNotifyIds = [
+                ...new Set([...bookingsTeamIds, ...adminIds]),
+              ];
 
               if (allNotifyIds.length > 0) {
                 await createTasksForUsers(allNotifyIds, {
-                  type: "booking:edited",
-                  title: currentBooking.status === "processed"
-                    ? "Processed Booking Edited"
-                    : "Booking Edited",
-                  message: currentBooking.status === "processed"
-                    ? `Processed booking "${currentBooking.title || "Untitled"}" had racks/platforms changed and needs reprocessing.`
-                    : `Booking "${currentBooking.title || "Untitled"}" had racks/platforms changed.`,
+                  type: 'booking:edited',
+                  title:
+                    currentBooking.status === 'processed'
+                      ? 'Processed Booking Edited'
+                      : 'Booking Edited',
+                  message:
+                    currentBooking.status === 'processed'
+                      ? `Processed booking "${currentBooking.title || 'Untitled'}" had racks/platforms changed and needs reprocessing.`
+                      : `Booking "${currentBooking.title || 'Untitled'}" had racks/platforms changed.`,
                   link: `/bookings-team?booking=${editingBooking.bookingId}`,
                   metadata: {
                     booking_id: editingBooking.bookingId,
                     booking_title: currentBooking.title || null,
                     changed_by: user.id,
-                    was_processed: currentBooking.status === "processed",
+                    was_processed: currentBooking.status === 'processed',
                   },
                 });
               }
             } catch (taskError) {
-              console.error("Failed to create tasks:", taskError);
+              console.error('Failed to create tasks:', taskError);
               // Don't fail the save if tasks fail
             }
           }
         }
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["booking-instances-debug"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["booking-instances-for-time"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["booking-series"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["booking-series-racks"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["bookings-team"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["my-bookings"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["tasks"], exact: false });
+      await queryClient.invalidateQueries({
+        queryKey: ['snapshot'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['booking-instances-debug'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['booking-instances-for-time'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['booking-series'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['booking-series-racks'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['bookings-team'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['my-bookings'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['tasks'],
+        exact: false,
+      });
 
       setIsSelectingRacks(false);
       setEditingBooking(null);
       setRackValidationError(null);
       setShowUpdateRacksConfirm(false);
     } catch (err) {
-      console.error("Failed to save racks", err);
-      setRackValidationError(err instanceof Error ? err.message : "Failed to save racks");
+      console.error('Failed to save racks', err);
+      setRackValidationError(
+        err instanceof Error ? err.message : 'Failed to save racks'
+      );
     } finally {
       setSavingRacks(false);
     }
@@ -429,7 +485,9 @@ export function RackListEditorCore({
 
     // Check if rack is used by another booking (use bookingsForDisplay which includes week-specific bookings)
     const rackUsedByOther = bookingsForDisplay.some(
-      (b) => b.instanceId !== editingBooking.instanceId && b.racks.includes(rackNumber)
+      (b) =>
+        b.instanceId !== editingBooking.instanceId &&
+        b.racks.includes(rackNumber)
     );
     if (rackUsedByOther) {
       return; // Can't select racks used by others
@@ -447,18 +505,18 @@ export function RackListEditorCore({
 
   // Fetch all instances in the series for rack selection
   const { data: seriesInstancesForRacks = [] } = useQuery({
-    queryKey: ["booking-series-racks", editingBooking?.bookingId],
+    queryKey: ['booking-series-racks', editingBooking?.bookingId],
     queryFn: async () => {
       if (!editingBooking) return [];
-      
+
       const { data, error } = await supabase
-        .from("booking_instances")
-        .select("id, start, end, side_id")
-        .eq("booking_id", editingBooking.bookingId)
-        .order("start", { ascending: true });
+        .from('booking_instances')
+        .select('id, start, end, side_id')
+        .eq('booking_id', editingBooking.bookingId)
+        .order('start', { ascending: true });
 
       if (error) {
-        console.error("Error fetching series instances for racks:", error);
+        console.error('Error fetching series instances for racks:', error);
         return [];
       }
 
@@ -484,7 +542,7 @@ export function RackListEditorCore({
       weekStart.setDate(diff);
       weekStart.setHours(0, 0, 0, 0);
       const weekKey = weekStart.getTime();
-      
+
       if (!weekMap.has(weekKey)) {
         weekMap.set(weekKey, []);
       }
@@ -506,7 +564,7 @@ export function RackListEditorCore({
   const currentWeekInstancesForRacks = useMemo(
     () =>
       currentWeekForRacks
-        ? instancesByWeekForRacks.get(currentWeekForRacks) ?? []
+        ? (instancesByWeekForRacks.get(currentWeekForRacks) ?? [])
         : [],
     [currentWeekForRacks, instancesByWeekForRacks]
   );
@@ -514,8 +572,12 @@ export function RackListEditorCore({
   // Calculate time range for current week to fetch overlapping bookings
   const currentWeekTimeRange = useMemo(() => {
     if (currentWeekInstancesForRacks.length === 0) return null;
-    const starts = currentWeekInstancesForRacks.map(inst => new Date(inst.start).getTime());
-    const ends = currentWeekInstancesForRacks.map(inst => new Date(inst.end).getTime());
+    const starts = currentWeekInstancesForRacks.map((inst) =>
+      new Date(inst.start).getTime()
+    );
+    const ends = currentWeekInstancesForRacks.map((inst) =>
+      new Date(inst.end).getTime()
+    );
     return {
       start: new Date(Math.min(...starts)).toISOString(),
       end: new Date(Math.max(...ends)).toISOString(),
@@ -524,12 +586,17 @@ export function RackListEditorCore({
 
   // Fetch bookings that overlap with the current week's time range
   const { data: bookingsForCurrentWeek = [] } = useQuery({
-    queryKey: ["booking-instances-for-rack-selection", snapshot?.sideId, currentWeekTimeRange?.start, currentWeekTimeRange?.end],
+    queryKey: [
+      'booking-instances-for-rack-selection',
+      snapshot?.sideId,
+      currentWeekTimeRange?.start,
+      currentWeekTimeRange?.end,
+    ],
     queryFn: async () => {
       if (!snapshot?.sideId || !currentWeekTimeRange) return [];
-      
+
       const { data, error } = await supabase
-        .from("booking_instances")
+        .from('booking_instances')
         .select(
           `
           id,
@@ -547,13 +614,13 @@ export function RackListEditorCore({
           )
         `
         )
-        .eq("side_id", snapshot.sideId)
-        .lt("start", currentWeekTimeRange.end)
-        .gt("end", currentWeekTimeRange.start)
-        .order("start", { ascending: true });
+        .eq('side_id', snapshot.sideId)
+        .lt('start', currentWeekTimeRange.end)
+        .gt('end', currentWeekTimeRange.start)
+        .order('start', { ascending: true });
 
       if (error) {
-        console.error("Error fetching bookings for week:", error);
+        console.error('Error fetching bookings for week:', error);
         return [];
       }
 
@@ -580,7 +647,7 @@ export function RackListEditorCore({
           end: r.end,
           racks: Array.isArray(r.racks) ? r.racks : [],
           areas: Array.isArray(r.areas) ? r.areas : [],
-          title: r.booking?.title ?? "Untitled",
+          title: r.booking?.title ?? 'Untitled',
           color: r.booking?.color ?? null,
           isLocked: r.booking?.is_locked ?? false,
           createdBy: r.booking?.created_by ?? null,
@@ -610,16 +677,17 @@ export function RackListEditorCore({
       setApplyRacksToAll(false);
       setRackSelectionWeekIndex(0);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSelectingRacks, editingBooking]);
 
   // Update selected instances when applyRacksToAll changes or when seriesInstancesForRacks loads
   useEffect(() => {
     if (!editingBooking || seriesInstancesForRacks.length === 0) return;
-    
+
     // If we have selections from modal, don't override them - just sync applyRacksToAll
     if (hasSelectionsFromModal.current) {
-      const allSelected = selectedInstancesForRacks.size === seriesInstancesForRacks.length;
+      const allSelected =
+        selectedInstancesForRacks.size === seriesInstancesForRacks.length;
       if (allSelected !== applyRacksToAll) {
         setApplyRacksToAll(allSelected);
       }
@@ -627,27 +695,35 @@ export function RackListEditorCore({
       hasSelectionsFromModal.current = false;
       return;
     }
-    
+
     if (applyRacksToAll) {
-      setSelectedInstancesForRacks(new Set(seriesInstancesForRacks.map((inst) => inst.id)));
+      setSelectedInstancesForRacks(
+        new Set(seriesInstancesForRacks.map((inst) => inst.id))
+      );
     } else {
       // Only update if we have a minimal selection (0 or just current instance)
-      const hasOnlyCurrentInstance = selectedInstancesForRacks.size === 1 && 
-                                     selectedInstancesForRacks.has(editingBooking.instanceId);
+      const hasOnlyCurrentInstance =
+        selectedInstancesForRacks.size === 1 &&
+        selectedInstancesForRacks.has(editingBooking.instanceId);
       if (selectedInstancesForRacks.size === 0 || hasOnlyCurrentInstance) {
         setSelectedInstancesForRacks(new Set([editingBooking.instanceId]));
       }
     }
-  }, [applyRacksToAll, editingBooking, seriesInstancesForRacks, selectedInstancesForRacks]);
+  }, [
+    applyRacksToAll,
+    editingBooking,
+    seriesInstancesForRacks,
+    selectedInstancesForRacks,
+  ]);
 
-         const {
+  const {
     containerRef,
     BASE_WIDTH,
     BASE_HEIGHT,
     zoomLevel,
     renderedHeight,
     renderedWidth,
-         } = useRackEditorDimensions();
+  } = useRackEditorDimensions();
 
   const sensors = useDragSensors();
 
@@ -669,34 +745,39 @@ export function RackListEditorCore({
     handleSave,
   } = useRackAssignments(bookingsForDisplay);
 
-  const { activeId, dragError, handleDragStart, handleDragEnd } = useDragHandlers({
-    assignments,
-    setAssignments,
-    initialAssignments,
-    bookingById,
-    availablePlatforms,
-  });
+  const { activeId, dragError, handleDragStart, handleDragEnd } =
+    useDragHandlers({
+      assignments,
+      setAssignments,
+      initialAssignments,
+      bookingById,
+      availablePlatforms,
+    });
 
   return (
     <div className="space-y-2">
-             {!isSelectingRacks && (
-               <>
-                 <RackEditorHeader saving={saving} savedAt={savedAt} onSave={handleSave} />
-                 {dragError && (
-                   <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-md">
-                     <p className="text-sm text-red-300 font-medium">{dragError}</p>
-                   </div>
-                 )}
-                 {isClosedPeriod && (
-                   <div className="mt-2 px-3 py-2 rounded-md bg-slate-900/60 border border-slate-700 flex items-center gap-2">
-                     <span className="inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
-                     <p className="text-xs text-slate-200">
-                       Facility closed for this time — platforms are unavailable.
-                     </p>
-                   </div>
-                 )}
-               </>
-             )}
+      {!isSelectingRacks && (
+        <>
+          <RackEditorHeader
+            saving={saving}
+            savedAt={savedAt}
+            onSave={handleSave}
+          />
+          {dragError && (
+            <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-md">
+              <p className="text-sm text-red-300 font-medium">{dragError}</p>
+            </div>
+          )}
+          {isClosedPeriod && (
+            <div className="mt-2 px-3 py-2 rounded-md bg-slate-900/60 border border-slate-700 flex items-center gap-2">
+              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+              <p className="text-xs text-slate-200">
+                Facility closed for this time — platforms are unavailable.
+              </p>
+            </div>
+          )}
+        </>
+      )}
 
       {isSelectingRacks && (
         <RackSelectionPanel
@@ -724,24 +805,63 @@ export function RackListEditorCore({
         />
       )}
       <div
-          ref={containerRef}
-          className="rounded-lg border border-slate-700 bg-slate-900/60 p-2 overflow-hidden"
-          style={{ height: renderedHeight + 16 }}
-        >
-          {layout.length === 0 ? (
-            <div className="text-xs text-slate-400 py-4 text-center">No data for this snapshot.</div>
-          ) : isSelectingRacks ? (
-            // When selecting racks, don't use DndContext to avoid interfering with clicks
+        ref={containerRef}
+        className="rounded-lg border border-slate-700 bg-slate-900/60 p-2 overflow-hidden"
+        style={{ height: renderedHeight + 16 }}
+      >
+        {layout.length === 0 ? (
+          <div className="text-xs text-slate-400 py-4 text-center">
+            No data for this snapshot.
+          </div>
+        ) : isSelectingRacks ? (
+          // When selecting racks, don't use DndContext to avoid interfering with clicks
+          <div className="w-full h-full">
+            <div
+              className="relative overflow-hidden"
+              style={{ width: renderedWidth, height: renderedHeight }}
+            >
+              <RackEditorGrid
+                layout={layout}
+                assignments={assignments}
+                bookingById={bookingById}
+                activeId={null}
+                beforeRacks={beforeRacks}
+                showBanner={showBanner}
+                bannerRowSpan={bannerRowSpan}
+                gridTemplateColumns={gridTemplateColumns}
+                numRows={numRows}
+                spacerRow={spacerRow}
+                BASE_WIDTH={BASE_WIDTH}
+                BASE_HEIGHT={BASE_HEIGHT}
+                zoomLevel={zoomLevel}
+                onEditBooking={handleEditBooking}
+                isSelectingRacks={isSelectingRacks}
+                selectedRacks={selectedRacks}
+                editingBookingId={editingBooking?.instanceId ?? null}
+                onRackClick={handleRackClick}
+                bookings={bookingsForDisplay}
+                availablePlatforms={availablePlatforms}
+                isClosedPeriod={isClosedPeriod}
+              />
+            </div>
+          </div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
             <div className="w-full h-full">
               <div
                 className="relative overflow-hidden"
                 style={{ width: renderedWidth, height: renderedHeight }}
               >
-                         <RackEditorGrid
+                <RackEditorGrid
                   layout={layout}
                   assignments={assignments}
                   bookingById={bookingById}
-                  activeId={null}
+                  activeId={activeId}
                   beforeRacks={beforeRacks}
                   showBanner={showBanner}
                   bannerRowSpan={bannerRowSpan}
@@ -756,59 +876,22 @@ export function RackListEditorCore({
                   selectedRacks={selectedRacks}
                   editingBookingId={editingBooking?.instanceId ?? null}
                   onRackClick={handleRackClick}
-                           bookings={bookingsForDisplay}
-                           availablePlatforms={availablePlatforms}
-                           isClosedPeriod={isClosedPeriod}
+                  bookings={bookingsForDisplay}
+                  availablePlatforms={availablePlatforms}
+                  isClosedPeriod={isClosedPeriod}
                 />
               </div>
             </div>
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="w-full h-full">
-                <div
-                  className="relative overflow-hidden"
-                  style={{ width: renderedWidth, height: renderedHeight }}
-                >
-                         <RackEditorGrid
-                    layout={layout}
-                    assignments={assignments}
-                    bookingById={bookingById}
-                    activeId={activeId}
-                    beforeRacks={beforeRacks}
-                    showBanner={showBanner}
-                    bannerRowSpan={bannerRowSpan}
-                    gridTemplateColumns={gridTemplateColumns}
-                    numRows={numRows}
-                    spacerRow={spacerRow}
-                    BASE_WIDTH={BASE_WIDTH}
-                    BASE_HEIGHT={BASE_HEIGHT}
-                    zoomLevel={zoomLevel}
-                    onEditBooking={handleEditBooking}
-                    isSelectingRacks={isSelectingRacks}
-                    selectedRacks={selectedRacks}
-                    editingBookingId={editingBooking?.instanceId ?? null}
-                    onRackClick={handleRackClick}
-                           bookings={bookingsForDisplay}
-                           availablePlatforms={availablePlatforms}
-                           isClosedPeriod={isClosedPeriod}
-                  />
-                </div>
-              </div>
-              <DragOverlay>
-                <RackEditorDragOverlay
-                  activeId={activeId}
-                  bookingById={bookingById}
-                  zoomLevel={zoomLevel}
-                />
-              </DragOverlay>
-            </DndContext>
-          )}
-        </div>
+            <DragOverlay>
+              <RackEditorDragOverlay
+                activeId={activeId}
+                bookingById={bookingById}
+                zoomLevel={zoomLevel}
+              />
+            </DragOverlay>
+          </DndContext>
+        )}
+      </div>
 
       {/* Booking Editor Modal */}
       <BookingEditorModal
@@ -817,7 +900,9 @@ export function RackListEditorCore({
         onClose={handleCloseModal}
         onClearRacks={handleEditRacks}
         onSaveTime={handleSaveTime}
-        initialSelectedInstances={savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined}
+        initialSelectedInstances={
+          savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined
+        }
       />
 
       {/* Update Racks Confirmation Dialog */}
@@ -834,4 +919,3 @@ export function RackListEditorCore({
     </div>
   );
 }
-

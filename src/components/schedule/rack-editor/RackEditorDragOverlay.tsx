@@ -1,4 +1,4 @@
-import type { ActiveInstance } from "../../../types/snapshot";
+import type { ActiveInstance } from '../../../types/snapshot';
 
 type Props = {
   activeId: string | null;
@@ -6,7 +6,11 @@ type Props = {
   zoomLevel: number;
 };
 
-export function RackEditorDragOverlay({ activeId, bookingById, zoomLevel }: Props) {
+export function RackEditorDragOverlay({
+  activeId,
+  bookingById,
+  zoomLevel,
+}: Props) {
   if (!activeId) return null;
 
   // Extract booking data from activeId (format: "booking-{instanceId}-{rackNumber}")
@@ -47,4 +51,3 @@ export function RackEditorDragOverlay({ activeId, bookingById, zoomLevel }: Prop
     </div>
   );
 }
-

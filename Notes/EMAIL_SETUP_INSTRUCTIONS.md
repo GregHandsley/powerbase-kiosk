@@ -74,19 +74,23 @@ supabase functions deploy send-email
 ## Troubleshooting
 
 ### "Email service not configured"
+
 - Make sure you've run the migration
 - Check that the `notification_settings` table has a row with `id = 1`
 
 ### "Resend API key not configured"
+
 - Make sure you've entered and saved your API key in admin settings
 - Check that the API key starts with `re_`
 
 ### "Failed to send email"
+
 - Verify your Resend API key is correct
 - Check that your "From Email Address" is verified in Resend
 - Check the Supabase Edge Function logs in the dashboard
 
 ### Edge Function not found
+
 - Make sure you've deployed the function: `supabase functions deploy send-email`
 - Check that you're using the correct Supabase project
 
@@ -100,8 +104,8 @@ supabase functions deploy send-email
 ## Next Steps
 
 Once email is working:
+
 1. Configure notification window settings
 2. Set up recipient lists
 3. Configure reminder schedules
 4. Test with real bookings
-

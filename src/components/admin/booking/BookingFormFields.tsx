@@ -1,10 +1,10 @@
-import type { UseFormReturn } from "react-hook-form";
-import type { BookingFormValues } from "../../../schemas/bookingForm";
-import clsx from "clsx";
+import type { UseFormReturn } from 'react-hook-form';
+import type { BookingFormValues } from '../../../schemas/bookingForm';
+import clsx from 'clsx';
 
 type Props = {
   form: UseFormReturn<BookingFormValues>;
-  role: "admin" | "coach";
+  role: 'admin' | 'coach';
   areas: Array<{
     id: number;
     side_id: number;
@@ -18,7 +18,13 @@ type Props = {
 /**
  * Component for basic booking form fields (title, side, areas, color, lock)
  */
-export function BookingFormFields({ form, role, areas, areasLoading, areasError }: Props) {
+export function BookingFormFields({
+  form,
+  role,
+  areas,
+  areasLoading,
+  areasError,
+}: Props) {
   const filteredAreas = areas; // Could filter by side if needed
 
   return (
@@ -27,7 +33,7 @@ export function BookingFormFields({ form, role, areas, areasLoading, areasError 
         <label className="block mb-1 font-medium">Title</label>
         <input
           className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
-          {...form.register("title")}
+          {...form.register('title')}
           placeholder="e.g. Loughborough S&C – Squad A"
         />
         {form.formState.errors.title && (
@@ -42,24 +48,28 @@ export function BookingFormFields({ form, role, areas, areasLoading, areasError 
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => form.setValue("sideKey", "Power", { shouldValidate: true })}
+            onClick={() =>
+              form.setValue('sideKey', 'Power', { shouldValidate: true })
+            }
             className={clsx(
-              "flex-1 rounded-md border px-2 py-1 text-xs font-medium transition",
-              form.watch("sideKey") === "Power"
-                ? "bg-indigo-600 border-indigo-500 text-white"
-                : "bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900"
+              'flex-1 rounded-md border px-2 py-1 text-xs font-medium transition',
+              form.watch('sideKey') === 'Power'
+                ? 'bg-indigo-600 border-indigo-500 text-white'
+                : 'bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900'
             )}
           >
             Power
           </button>
           <button
             type="button"
-            onClick={() => form.setValue("sideKey", "Base", { shouldValidate: true })}
+            onClick={() =>
+              form.setValue('sideKey', 'Base', { shouldValidate: true })
+            }
             className={clsx(
-              "flex-1 rounded-md border px-2 py-1 text-xs font-medium transition",
-              form.watch("sideKey") === "Base"
-                ? "bg-indigo-600 border-indigo-500 text-white"
-                : "bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900"
+              'flex-1 rounded-md border px-2 py-1 text-xs font-medium transition',
+              form.watch('sideKey') === 'Base'
+                ? 'bg-indigo-600 border-indigo-500 text-white'
+                : 'bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900'
             )}
           >
             Base
@@ -69,7 +79,7 @@ export function BookingFormFields({ form, role, areas, areasLoading, areasError 
 
       <div>
         <label className="block mb-1 font-medium">
-          Areas{" "}
+          Areas{' '}
           <span className="text-[10px] text-slate-400">(Coming soon)</span>
         </label>
         <div className="border border-slate-700 rounded-md p-2 max-h-32 overflow-auto bg-slate-950/60 opacity-50 pointer-events-none">
@@ -94,10 +104,10 @@ export function BookingFormFields({ form, role, areas, areasLoading, areasError 
                     value={area.key}
                     disabled
                     className="h-3 w-3 rounded border-slate-600 bg-slate-950 cursor-not-allowed"
-                    {...form.register("areas")}
+                    {...form.register('areas')}
                   />
                   <span>
-                    {area.name}{" "}
+                    {area.name}{' '}
                     <span className="text-slate-500">({area.key})</span>
                   </span>
                 </label>
@@ -116,23 +126,23 @@ export function BookingFormFields({ form, role, areas, areasLoading, areasError 
           <input
             type="color"
             className="w-10 h-7 rounded border border-slate-700 bg-slate-950"
-            {...form.register("color")}
+            {...form.register('color')}
           />
           <input
             className="flex-1 rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
-            {...form.register("color")}
+            {...form.register('color')}
             placeholder="#4f46e5"
           />
         </div>
       </div>
 
-      {role === "admin" && (
+      {role === 'admin' && (
         <div className="flex items-center gap-2 mt-2">
           <input
             type="checkbox"
             id="isLocked"
             className="h-3 w-3 rounded border-slate-600 bg-slate-950"
-            {...form.register("isLocked")}
+            {...form.register('isLocked')}
           />
           <label htmlFor="isLocked" className="text-xs">
             Locked booking (coaches cannot move/modify)
@@ -142,4 +152,3 @@ export function BookingFormFields({ form, role, areas, areasLoading, areasError 
     </>
   );
 }
-

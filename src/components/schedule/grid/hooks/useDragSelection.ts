@@ -1,12 +1,16 @@
-import { useState, useRef, useMemo } from "react";
-import type { TimeSlot } from "../../../admin/capacity/scheduleUtils";
-import type { SlotCapacityData, BookingBlock, UnavailableBlock } from "../types";
+import { useState, useRef, useMemo } from 'react';
+import type { TimeSlot } from '../../../admin/capacity/scheduleUtils';
+import type {
+  SlotCapacityData,
+  BookingBlock,
+  UnavailableBlock,
+} from '../types';
 
-type DragSelectionState = {
-  isDragging: boolean;
-  dragStart: { slotIndex: number; rackIndex: number } | null;
-  dragEnd: { slotIndex: number; rackIndex: number } | null;
-};
+// type DragSelectionState = {
+//   isDragging: boolean;
+//   dragStart: { slotIndex: number; rackIndex: number } | null;
+//   dragEnd: { slotIndex: number; rackIndex: number } | null;
+// };
 
 type DragSelectionResult = {
   startSlot: number;
@@ -28,8 +32,14 @@ export function useDragSelection(
   }) => void
 ) {
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<{ slotIndex: number; rackIndex: number } | null>(null);
-  const [dragEnd, setDragEnd] = useState<{ slotIndex: number; rackIndex: number } | null>(null);
+  const [dragStart, setDragStart] = useState<{
+    slotIndex: number;
+    rackIndex: number;
+  } | null>(null);
+  const [dragEnd, setDragEnd] = useState<{
+    slotIndex: number;
+    rackIndex: number;
+  } | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   // Calculate selected range
@@ -64,8 +74,16 @@ export function useDragSelection(
   const isSelectionValid = useMemo(() => {
     if (!selectedRange) return false;
 
-    for (let slotIndex = selectedRange.startSlot; slotIndex <= selectedRange.endSlot; slotIndex++) {
-      for (let rackIndex = selectedRange.startRack; rackIndex <= selectedRange.endRack; rackIndex++) {
+    for (
+      let slotIndex = selectedRange.startSlot;
+      slotIndex <= selectedRange.endSlot;
+      slotIndex++
+    ) {
+      for (
+        let rackIndex = selectedRange.startRack;
+        rackIndex <= selectedRange.endRack;
+        rackIndex++
+      ) {
         const rack = racks[rackIndex];
         if (!rack) continue;
 
@@ -92,7 +110,7 @@ export function useDragSelection(
             (block) =>
               slotIndex >= block.startSlot &&
               slotIndex <= block.endSlot &&
-              block.periodType === "General User"
+              block.periodType === 'General User'
           );
           if (isInGeneralUserBlock) return false;
         }
@@ -100,10 +118,20 @@ export function useDragSelection(
     }
 
     return true;
-  }, [selectedRange, racks, bookingBlocksByRack, slotCapacityData, unavailableBlocksByRack]);
+  }, [
+    selectedRange,
+    racks,
+    bookingBlocksByRack,
+    slotCapacityData,
+    unavailableBlocksByRack,
+  ]);
 
   // Handle mouse events for drag selection
-  const handleMouseDown = (e: React.MouseEvent, slotIndex: number, rackIndex: number) => {
+  const handleMouseDown = (
+    e: React.MouseEvent,
+    slotIndex: number,
+    rackIndex: number
+  ) => {
     // Only start drag if clicking on an empty, available cell
     const rack = racks[rackIndex];
     if (!rack) return;
@@ -129,7 +157,7 @@ export function useDragSelection(
         (block) =>
           slotIndex >= block.startSlot &&
           slotIndex <= block.endSlot &&
-          block.periodType === "General User"
+          block.periodType === 'General User'
       );
       if (isInGeneralUserBlock) return;
     }
@@ -145,14 +173,18 @@ export function useDragSelection(
     if (!isDragging || !dragStart || !gridRef.current) return;
 
     // Find the scrollable container and the grid content container
-    const scrollableContainer = gridRef.current.querySelector('.overflow-auto') as HTMLElement;
-    const gridContent = scrollableContainer?.querySelector('[style*="min-width"]') as HTMLElement;
+    const scrollableContainer = gridRef.current.querySelector(
+      '.overflow-auto'
+    ) as HTMLElement;
+    const gridContent = scrollableContainer?.querySelector(
+      '[style*="min-width"]'
+    ) as HTMLElement;
     if (!scrollableContainer || !gridContent) return;
 
     const containerRect = scrollableContainer.getBoundingClientRect();
     const scrollLeft = scrollableContainer.scrollLeft;
     const scrollTop = scrollableContainer.scrollTop;
-    
+
     // Calculate position relative to the scrollable container, accounting for scroll
     const x = e.clientX - containerRect.left + scrollLeft;
     const y = e.clientY - containerRect.top + scrollTop;
@@ -219,13 +251,19 @@ export function useDragSelection(
     } else {
       // We're at the last slot, so the end time should be the slot's end time (slot + 30 minutes)
       const lastSlot = timeSlots[maxSlot];
-      const endHour = lastSlot.minute === 30 ? lastSlot.hour + 1 : lastSlot.hour;
+      const endHour =
+        lastSlot.minute === 30 ? lastSlot.hour + 1 : lastSlot.hour;
       const endMinute = lastSlot.minute === 30 ? 0 : 30;
       endTimeSlot = { hour: endHour, minute: endMinute };
     }
 
     // Only trigger if selection is valid
-    if (isSelectionValid && selectedRacks.length > 0 && startTimeSlot && endTimeSlot) {
+    if (
+      isSelectionValid &&
+      selectedRacks.length > 0 &&
+      startTimeSlot &&
+      endTimeSlot
+    ) {
       onDragSelection({
         startTimeSlot,
         endTimeSlot,
@@ -259,4 +297,3 @@ export function useDragSelection(
     handleMouseLeave,
   };
 }
-

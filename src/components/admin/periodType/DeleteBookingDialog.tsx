@@ -1,6 +1,6 @@
 type Props = {
   isOpen: boolean;
-  type: "selected" | "series";
+  type: 'selected' | 'series';
   instanceCount: number;
   onClose: () => void;
   onConfirm: () => void;
@@ -10,7 +10,14 @@ type Props = {
 /**
  * Dialog for confirming booking deletion
  */
-export function DeleteBookingDialog({ isOpen, type, instanceCount, onClose, onConfirm, loading }: Props) {
+export function DeleteBookingDialog({
+  isOpen,
+  type,
+  instanceCount,
+  onClose,
+  onConfirm,
+  loading,
+}: Props) {
   if (!isOpen) return null;
 
   return (
@@ -27,14 +34,14 @@ export function DeleteBookingDialog({ isOpen, type, instanceCount, onClose, onCo
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-slate-100 mb-2">
-          {type === "selected"
-            ? `Delete ${instanceCount} Selected Session${instanceCount !== 1 ? "s" : ""}?`
-            : "Delete Entire Series?"}
+          {type === 'selected'
+            ? `Delete ${instanceCount} Selected Session${instanceCount !== 1 ? 's' : ''}?`
+            : 'Delete Entire Series?'}
         </h3>
         <p className="text-sm text-slate-300 mb-4">
-          {type === "selected"
-            ? `This will delete ${instanceCount} selected session${instanceCount !== 1 ? "s" : ""}. Other sessions in the series will remain. This action cannot be undone.`
-            : "This will delete all sessions in this series. This action cannot be undone."}
+          {type === 'selected'
+            ? `This will delete ${instanceCount} selected session${instanceCount !== 1 ? 's' : ''}. Other sessions in the series will remain. This action cannot be undone.`
+            : 'This will delete all sessions in this series. This action cannot be undone.'}
         </p>
 
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
@@ -52,11 +59,10 @@ export function DeleteBookingDialog({ isOpen, type, instanceCount, onClose, onCo
             disabled={loading}
             className="px-4 py-2 text-sm font-medium rounded-md bg-red-600 hover:bg-red-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Deleting..." : "Delete"}
+            {loading ? 'Deleting...' : 'Delete'}
           </button>
         </div>
       </div>
     </div>
   );
 }
-

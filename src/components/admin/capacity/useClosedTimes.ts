@@ -1,14 +1,18 @@
-import { useState, useEffect } from "react";
-import { format, getDay } from "date-fns";
-import { supabase } from "../../../lib/supabaseClient";
-import { doesScheduleApply, parseExcludedDates, type ScheduleData } from "./scheduleUtils";
+import { useState, useEffect } from 'react';
+import { format, getDay } from 'date-fns';
+import { supabase } from '../../../lib/supabaseClient';
+import {
+  doesScheduleApply,
+  parseExcludedDates,
+  type ScheduleData,
+} from './scheduleUtils';
 
 /**
  * Closed period with start and end times
  */
 export type ClosedPeriod = {
   startTime: string; // HH:mm format
-  endTime: string;   // HH:mm format
+  endTime: string; // HH:mm format
 };
 
 /**
@@ -39,15 +43,15 @@ export function useClosedTimes(sideId: number | null, date: string | null) {
 
       // Fetch all capacity schedules for this side that could apply to this date
       const { data, error } = await supabase
-        .from("capacity_schedules")
-        .select("*")
-        .eq("side_id", sideId)
-        .eq("period_type", "Closed")
-        .lte("start_date", format(weekEnd, "yyyy-MM-dd"))
-        .or(`end_date.is.null,end_date.gte.${format(weekStart, "yyyy-MM-dd")}`);
+        .from('capacity_schedules')
+        .select('*')
+        .eq('side_id', sideId)
+        .eq('period_type', 'Closed')
+        .lte('start_date', format(weekEnd, 'yyyy-MM-dd'))
+        .or(`end_date.is.null,end_date.gte.${format(weekStart, 'yyyy-MM-dd')}`);
 
       if (error) {
-        console.error("Error fetching closed times:", error);
+        console.error('Error fetching closed times:', error);
         setIsLoading(false);
         return;
       }
@@ -61,10 +65,15 @@ export function useClosedTimes(sideId: number | null, date: string | null) {
           ...schedule,
           excluded_dates: parseExcludedDates(schedule.excluded_dates),
         };
-        
+
         // Check if this schedule applies to the selected date by checking the start time
-        const appliesToDate = doesScheduleApply(scheduleData, dayOfWeek, date, schedule.start_time);
-        
+        const appliesToDate = doesScheduleApply(
+          scheduleData,
+          dayOfWeek,
+          date,
+          schedule.start_time
+        );
+
         if (appliesToDate) {
           // Store the period for minute-level checking
           periods.push({
@@ -73,32 +82,35 @@ export function useClosedTimes(sideId: number | null, date: string | null) {
           });
 
           // This closed schedule applies - mark all hours in its range as closed
-          const startHour = parseInt(schedule.start_time.split(":")[0]);
-          const startMinute = parseInt(schedule.start_time.split(":")[1] || "0");
-          const endHour = parseInt(schedule.end_time.split(":")[0]);
-          const endMinute = parseInt(schedule.end_time.split(":")[1] || "0");
-          
+          const startHour = parseInt(schedule.start_time.split(':')[0]);
+          const startMinute = parseInt(
+            schedule.start_time.split(':')[1] || '0'
+          );
+          const endHour = parseInt(schedule.end_time.split(':')[0]);
+          const endMinute = parseInt(schedule.end_time.split(':')[1] || '0');
+
           // Convert times to minutes for easier comparison
           const startMinutes = startHour * 60 + startMinute;
           const endMinutes = endHour * 60 + endMinute;
-          
+
           // Mark hours as closed from start hour up to (but not including) the end hour if end is exactly on the hour
           // If the closed period ends at 09:00, hours 00:00-08:00 are closed, but 09:00 is NOT closed (facility opens at 09:00)
           // If the closed period ends at 09:30, hours 00:00-09:00 are closed (hour 09:00 is partially closed)
-          
+
           // Loop through all hours from 0-23 to check if they overlap with the closed period
           for (let h = 0; h < 24; h++) {
             const hourStartMinutes = h * 60;
             const hourEndMinutes = (h + 1) * 60;
-            
+
             // An hour is closed if it overlaps with the closed period [startMinutes, endMinutes)
             // The closed period is [startMinutes, endMinutes) - inclusive start, exclusive end
             // An hour overlaps if: hourStart < endMinutes && hourEnd > startMinutes
             // But we need to exclude the case where hourStart exactly equals endMinutes (period ends exactly at hour start)
-            const overlaps = hourStartMinutes < endMinutes && hourEndMinutes > startMinutes;
-            
+            const overlaps =
+              hourStartMinutes < endMinutes && hourEndMinutes > startMinutes;
+
             if (overlaps) {
-              closedTimeSet.add(`${String(h).padStart(2, "0")}:00`);
+              closedTimeSet.add(`${String(h).padStart(2, '0')}:00`);
             }
           }
         }
@@ -130,12 +142,12 @@ export function isTimeClosed(
 ): boolean {
   // If closedPeriods are provided, use minute-level checking
   if (closedPeriods && closedPeriods.length > 0) {
-    const [timeHour, timeMinute] = time.split(":").map(Number);
+    const [timeHour, timeMinute] = time.split(':').map(Number);
     const timeMinutes = timeHour * 60 + timeMinute;
 
     for (const period of closedPeriods) {
-      const [startHour, startMinute] = period.startTime.split(":").map(Number);
-      const [endHour, endMinute] = period.endTime.split(":").map(Number);
+      const [startHour, startMinute] = period.startTime.split(':').map(Number);
+      const [endHour, endMinute] = period.endTime.split(':').map(Number);
       const startMinutes = startHour * 60 + startMinute;
       const endMinutes = endHour * 60 + endMinute;
 
@@ -155,8 +167,8 @@ export function isTimeClosed(
   }
 
   // Fallback to hour-level checking for backward compatibility
-  const [hours] = time.split(":").map(Number);
-  const timeStr = `${String(hours).padStart(2, "0")}:00`;
+  const [hours] = time.split(':').map(Number);
+  const timeStr = `${String(hours).padStart(2, '0')}:00`;
   return closedTimes.has(timeStr);
 }
 
@@ -175,15 +187,19 @@ export function isTimeRangeClosed(
 ): boolean {
   // If closedPeriods are provided, use minute-level checking
   if (closedPeriods && closedPeriods.length > 0) {
-    const [startHour, startMinute] = startTime.split(":").map(Number);
-    const [endHour, endMinute] = endTime.split(":").map(Number);
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
     const startMinutes = startHour * 60 + startMinute;
     const endMinutes = endHour * 60 + endMinute;
 
     // Check if the time range [startMinutes, endMinutes) overlaps with any closed period
     for (const period of closedPeriods) {
-      const [periodStartHour, periodStartMinute] = period.startTime.split(":").map(Number);
-      const [periodEndHour, periodEndMinute] = period.endTime.split(":").map(Number);
+      const [periodStartHour, periodStartMinute] = period.startTime
+        .split(':')
+        .map(Number);
+      const [periodEndHour, periodEndMinute] = period.endTime
+        .split(':')
+        .map(Number);
       const periodStartMinutes = periodStartHour * 60 + periodStartMinute;
       const periodEndMinutes = periodEndHour * 60 + periodEndMinute;
 
@@ -197,12 +213,12 @@ export function isTimeRangeClosed(
   }
 
   // Fallback to hour-level checking for backward compatibility
-  const [startHour] = startTime.split(":").map(Number);
-  const [endHour, endMinute] = endTime.split(":").map(Number);
-  
+  const [startHour] = startTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+
   // Check each hour in the range
   for (let hour = startHour; hour <= endHour; hour++) {
-    const timeStr = `${String(hour).padStart(2, "0")}:00`;
+    const timeStr = `${String(hour).padStart(2, '0')}:00`;
     if (closedTimes.has(timeStr)) {
       // If it's the end hour and end time is exactly on the hour, don't count it
       if (hour === endHour && endMinute === 0) {
@@ -211,7 +227,7 @@ export function isTimeRangeClosed(
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -229,8 +245,8 @@ export function getAvailableTimeRanges(
   if (closedPeriods && closedPeriods.length > 0) {
     // Sort periods by start time
     const sortedPeriods = [...closedPeriods].sort((a, b) => {
-      const [aHour, aMin] = a.startTime.split(":").map(Number);
-      const [bHour, bMin] = b.startTime.split(":").map(Number);
+      const [aHour, aMin] = a.startTime.split(':').map(Number);
+      const [bHour, bMin] = b.startTime.split(':').map(Number);
       return aHour * 60 + aMin - (bHour * 60 + bMin);
     });
 
@@ -238,8 +254,8 @@ export function getAvailableTimeRanges(
     let currentStart = 0; // Start from midnight (00:00)
 
     for (const period of sortedPeriods) {
-      const [startHour, startMin] = period.startTime.split(":").map(Number);
-      const [endHour, endMin] = period.endTime.split(":").map(Number);
+      const [startHour, startMin] = period.startTime.split(':').map(Number);
+      const [endHour, endMin] = period.endTime.split(':').map(Number);
       const startMinutes = startHour * 60 + startMin;
       const endMinutes = endHour * 60 + endMin;
 
@@ -250,8 +266,8 @@ export function getAvailableTimeRanges(
         const gapEndHour = Math.floor(startMinutes / 60);
         const gapEndMin = startMinutes % 60;
         ranges.push({
-          start: `${String(gapStartHour).padStart(2, "0")}:${String(gapStartMin).padStart(2, "0")}`,
-          end: `${String(gapEndHour).padStart(2, "0")}:${String(gapEndMin).padStart(2, "0")}`,
+          start: `${String(gapStartHour).padStart(2, '0')}:${String(gapStartMin).padStart(2, '0')}`,
+          end: `${String(gapEndHour).padStart(2, '0')}:${String(gapEndMin).padStart(2, '0')}`,
         });
       }
 
@@ -265,29 +281,33 @@ export function getAvailableTimeRanges(
     if (currentStart < 24 * 60) {
       const finalStartHour = Math.floor(currentStart / 60);
       const finalStartMin = currentStart % 60;
-      
+
       // Round down to the nearest 30-minute interval for the start
       const roundedStartMin = finalStartMin < 30 ? 0 : 30;
       const finalStartMinutes = finalStartHour * 60 + roundedStartMin;
-      
+
       // Find the last closed period to determine the actual end time
       const lastPeriod = sortedPeriods[sortedPeriods.length - 1];
       if (lastPeriod) {
-        const [lastStartHour, lastStartMin] = lastPeriod.startTime.split(":").map(Number);
+        const [lastStartHour, lastStartMin] = lastPeriod.startTime
+          .split(':')
+          .map(Number);
         const lastStartMinutes = lastStartHour * 60 + lastStartMin;
-        
+
         // The end time should be the closed period's start time (last available time)
         // But only if there's actually time available before it
         // Also check if the closed period extends to end of day (23:59 or later)
-        const [lastEndHour, lastEndMin] = lastPeriod.endTime.split(":").map(Number);
+        const [lastEndHour, lastEndMin] = lastPeriod.endTime
+          .split(':')
+          .map(Number);
         const lastEndMinutes = lastEndHour * 60 + lastEndMin;
         const isClosedToEndOfDay = lastEndMinutes >= 23 * 60 + 30; // 23:30 or later
-        
+
         if (finalStartMinutes < lastStartMinutes && !isClosedToEndOfDay) {
           const finalStartHourFormatted = Math.floor(finalStartMinutes / 60);
           const finalStartMinFormatted = finalStartMinutes % 60;
           ranges.push({
-            start: `${String(finalStartHourFormatted).padStart(2, "0")}:${String(finalStartMinFormatted).padStart(2, "0")}`,
+            start: `${String(finalStartHourFormatted).padStart(2, '0')}:${String(finalStartMinFormatted).padStart(2, '0')}`,
             end: lastPeriod.startTime, // Use the actual closing time
           });
         }
@@ -296,22 +316,22 @@ export function getAvailableTimeRanges(
         const finalStartHourFormatted = Math.floor(finalStartMinutes / 60);
         const finalStartMinFormatted = finalStartMinutes % 60;
         ranges.push({
-          start: `${String(finalStartHourFormatted).padStart(2, "0")}:${String(finalStartMinFormatted).padStart(2, "0")}`,
-          end: "23:30",
+          start: `${String(finalStartHourFormatted).padStart(2, '0')}:${String(finalStartMinFormatted).padStart(2, '0')}`,
+          end: '23:30',
         });
       }
     }
 
-    return ranges.length > 0 ? ranges : [{ start: "00:00", end: "23:30" }];
+    return ranges.length > 0 ? ranges : [{ start: '00:00', end: '23:30' }];
   }
 
   // Fallback to hour-level calculation for backward compatibility
   if (closedTimes.size === 0) {
-    return [{ start: "00:00", end: "23:30" }];
+    return [{ start: '00:00', end: '23:30' }];
   }
 
   const closedHours = Array.from(closedTimes)
-    .map((time) => parseInt(time.split(":")[0]))
+    .map((time) => parseInt(time.split(':')[0]))
     .sort((a, b) => a - b);
 
   const ranges: Array<{ start: string; end: string }> = [];
@@ -320,8 +340,8 @@ export function getAvailableTimeRanges(
   for (const closedHour of closedHours) {
     if (currentStart < closedHour) {
       ranges.push({
-        start: `${String(currentStart).padStart(2, "0")}:00`,
-        end: `${String(closedHour).padStart(2, "0")}:00`,
+        start: `${String(currentStart).padStart(2, '0')}:00`,
+        end: `${String(closedHour).padStart(2, '0')}:00`,
       });
     }
     currentStart = closedHour + 1;
@@ -331,8 +351,8 @@ export function getAvailableTimeRanges(
   // Since we only allow 30-minute intervals, the last available time is 23:30
   if (currentStart < 24) {
     ranges.push({
-      start: `${String(currentStart).padStart(2, "0")}:00`,
-      end: "23:30",
+      start: `${String(currentStart).padStart(2, '0')}:00`,
+      end: '23:30',
     });
   }
 
@@ -343,12 +363,17 @@ export function getAvailableTimeRanges(
  * Hook to get General User periods for a given date and side
  * Returns an array of periods with their time ranges and available platforms
  */
-export function useGeneralUserPeriods(sideId: number | null, date: string | null) {
-  const [generalUserPeriods, setGeneralUserPeriods] = useState<Array<{
-    startTime: string;
-    endTime: string;
-    platforms: number[];
-  }>>([]);
+export function useGeneralUserPeriods(
+  sideId: number | null,
+  date: string | null
+) {
+  const [generalUserPeriods, setGeneralUserPeriods] = useState<
+    Array<{
+      startTime: string;
+      endTime: string;
+      platforms: number[];
+    }>
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -370,15 +395,15 @@ export function useGeneralUserPeriods(sideId: number | null, date: string | null
 
       // Fetch all General User capacity schedules for this side
       const { data, error } = await supabase
-        .from("capacity_schedules")
-        .select("*")
-        .eq("side_id", sideId)
-        .eq("period_type", "General User")
-        .lte("start_date", format(weekEnd, "yyyy-MM-dd"))
-        .or(`end_date.is.null,end_date.gte.${format(weekStart, "yyyy-MM-dd")}`);
+        .from('capacity_schedules')
+        .select('*')
+        .eq('side_id', sideId)
+        .eq('period_type', 'General User')
+        .lte('start_date', format(weekEnd, 'yyyy-MM-dd'))
+        .or(`end_date.is.null,end_date.gte.${format(weekStart, 'yyyy-MM-dd')}`);
 
       if (error) {
-        console.error("Error fetching General User periods:", error);
+        console.error('Error fetching General User periods:', error);
         setIsLoading(false);
         return;
       }
@@ -395,12 +420,19 @@ export function useGeneralUserPeriods(sideId: number | null, date: string | null
           ...schedule,
           excluded_dates: parseExcludedDates(schedule.excluded_dates),
         };
-        
+
         // Check if this schedule applies to the selected date
-        const appliesToDate = doesScheduleApply(scheduleData, dayOfWeek, date, schedule.start_time);
-        
+        const appliesToDate = doesScheduleApply(
+          scheduleData,
+          dayOfWeek,
+          date,
+          schedule.start_time
+        );
+
         if (appliesToDate) {
-          const platforms = Array.isArray(schedule.platforms) ? schedule.platforms : [];
+          const platforms = Array.isArray(schedule.platforms)
+            ? schedule.platforms
+            : [];
           periods.push({
             startTime: schedule.start_time,
             endTime: schedule.end_time,
@@ -423,12 +455,20 @@ export function useGeneralUserPeriods(sideId: number | null, date: string | null
  * Check if a time range overlaps with any General User periods
  */
 export function doesTimeRangeOverlapGeneralUser(
-  generalUserPeriods: Array<{ startTime: string; endTime: string; platforms: number[] }>,
+  generalUserPeriods: Array<{
+    startTime: string;
+    endTime: string;
+    platforms: number[];
+  }>,
   startTime: string,
   endTime: string
 ): Array<{ startTime: string; endTime: string; platforms: number[] }> {
-  const overlappingPeriods: Array<{ startTime: string; endTime: string; platforms: number[] }> = [];
-  
+  const overlappingPeriods: Array<{
+    startTime: string;
+    endTime: string;
+    platforms: number[];
+  }> = [];
+
   for (const period of generalUserPeriods) {
     // Check if the booking time range overlaps with this General User period
     // Period ranges are [start, end) - inclusive start, exclusive end
@@ -437,13 +477,13 @@ export function doesTimeRangeOverlapGeneralUser(
     const periodEnd = timeToMinutes(period.endTime);
     const bookingStart = timeToMinutes(startTime);
     const bookingEnd = timeToMinutes(endTime);
-    
+
     // Overlap occurs if booking starts before period ends and booking ends after period starts
     if (bookingStart < periodEnd && bookingEnd > periodStart) {
       overlappingPeriods.push(period);
     }
   }
-  
+
   return overlappingPeriods;
 }
 
@@ -452,8 +492,16 @@ export function doesTimeRangeOverlapGeneralUser(
  */
 export function arePlatformsAvailableInGeneralUser(
   selectedPlatforms: number[],
-  overlappingPeriods: Array<{ startTime: string; endTime: string; platforms: number[] }>
-): { isValid: boolean; unavailablePlatforms: number[]; availablePlatforms: number[] } {
+  overlappingPeriods: Array<{
+    startTime: string;
+    endTime: string;
+    platforms: number[];
+  }>
+): {
+  isValid: boolean;
+  unavailablePlatforms: number[];
+  availablePlatforms: number[];
+} {
   if (overlappingPeriods.length === 0) {
     return { isValid: true, unavailablePlatforms: [], availablePlatforms: [] };
   }
@@ -461,13 +509,13 @@ export function arePlatformsAvailableInGeneralUser(
   // Get the union of all available platforms across all overlapping periods
   const availablePlatformsSet = new Set<number>();
   for (const period of overlappingPeriods) {
-    period.platforms.forEach(platform => availablePlatformsSet.add(platform));
+    period.platforms.forEach((platform) => availablePlatformsSet.add(platform));
   }
   const availablePlatforms = Array.from(availablePlatformsSet);
 
   // Check which selected platforms are not available
   const unavailablePlatforms = selectedPlatforms.filter(
-    platform => !availablePlatformsSet.has(platform)
+    (platform) => !availablePlatformsSet.has(platform)
   );
 
   return {
@@ -481,7 +529,6 @@ export function arePlatformsAvailableInGeneralUser(
  * Helper function to convert time string to minutes from midnight
  */
 function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
   return hours * 60 + minutes;
 }
-

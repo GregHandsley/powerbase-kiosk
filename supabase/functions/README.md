@@ -27,11 +27,13 @@ You can find your project ref in your Supabase dashboard URL: `https://app.supab
 ### 4. Deploy Functions
 
 Deploy all functions:
+
 ```bash
 supabase functions deploy
 ```
 
 Or deploy a specific function:
+
 ```bash
 supabase functions deploy send-email
 ```
@@ -39,6 +41,7 @@ supabase functions deploy send-email
 ### 5. Set Environment Variables (if needed)
 
 Edge Functions can access Supabase environment variables automatically. The function uses:
+
 - `SUPABASE_URL` (automatically available)
 - `SUPABASE_ANON_KEY` (automatically available)
 
@@ -51,13 +54,14 @@ The Resend API key is stored in the `notification_settings` table and retrieved 
 Sends emails via Resend API. Called from the client-side `emailService.ts`.
 
 **Usage:**
+
 ```typescript
-import { sendEmail } from "../services/email/emailService";
+import { sendEmail } from '../services/email/emailService';
 
 await sendEmail({
-  to: "user@example.com",
-  subject: "Test Email",
-  html: "<h1>Hello</h1>",
+  to: 'user@example.com',
+  subject: 'Test Email',
+  html: '<h1>Hello</h1>',
 });
 ```
 
@@ -83,4 +87,3 @@ curl -i --location --request POST 'http://localhost:54321/functions/v1/send-emai
 1. Make sure you're linked to your production project
 2. Deploy: `supabase functions deploy send-email`
 3. The function will be available at: `https://your-project-ref.supabase.co/functions/v1/send-email`
-

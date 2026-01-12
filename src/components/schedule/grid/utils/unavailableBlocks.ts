@@ -1,5 +1,12 @@
-import { formatTimeSlot, type TimeSlot } from "../../../admin/capacity/scheduleUtils";
-import type { SlotCapacityData, UnavailableBlock, BookingBlock } from "../types";
+import {
+  formatTimeSlot,
+  type TimeSlot,
+} from '../../../admin/capacity/scheduleUtils';
+import type {
+  SlotCapacityData,
+  UnavailableBlock,
+  BookingBlock,
+} from '../types';
 
 /**
  * Calculate unavailable blocks (General User/Closed) for each rack
@@ -16,7 +23,7 @@ export function calculateUnavailableBlocksByRack(
     const blocks: UnavailableBlock[] = [];
     let currentBlock: {
       startSlot: number;
-      periodType: "General User" | "Closed";
+      periodType: 'General User' | 'Closed';
       startTime: string;
       periodEndTime?: string; // Store the actual end time for closed periods
     } | null = null;
@@ -38,7 +45,7 @@ export function calculateUnavailableBlocksByRack(
 
       // Only create unavailable block if there's no booking
       if (isUnavailable && !hasBooking) {
-        const periodType = isClosed ? "Closed" : "General User";
+        const periodType = isClosed ? 'Closed' : 'General User';
 
         if (currentBlock && currentBlock.periodType === periodType) {
           // Continue the current block - update periodEndTime if this is a closed period
@@ -50,9 +57,10 @@ export function calculateUnavailableBlocksByRack(
           if (currentBlock) {
             // For closed periods, use the stored periodEndTime if available
             // Otherwise, use the previous slot's time
-            const endTime = currentBlock.periodType === "Closed" && currentBlock.periodEndTime
-              ? currentBlock.periodEndTime
-              : formatTimeSlot(timeSlots[slotIndex - 1]);
+            const endTime =
+              currentBlock.periodType === 'Closed' && currentBlock.periodEndTime
+                ? currentBlock.periodEndTime
+                : formatTimeSlot(timeSlots[slotIndex - 1]);
             blocks.push({
               startSlot: currentBlock.startSlot,
               endSlot: slotIndex - 1,
@@ -68,7 +76,10 @@ export function calculateUnavailableBlocksByRack(
             startSlot: slotIndex,
             periodType: periodType,
             startTime: formatTimeSlot(slot),
-            periodEndTime: isClosed && capacityData?.periodEndTime ? capacityData.periodEndTime : undefined,
+            periodEndTime:
+              isClosed && capacityData?.periodEndTime
+                ? capacityData.periodEndTime
+                : undefined,
           };
         }
       } else {
@@ -78,7 +89,10 @@ export function calculateUnavailableBlocksByRack(
           // This ensures we show the actual end time (e.g., 08:30) instead of the previous slot (08:00)
           // Otherwise, use the previous slot's time
           let endTime: string;
-          if (currentBlock.periodType === "Closed" && currentBlock.periodEndTime) {
+          if (
+            currentBlock.periodType === 'Closed' &&
+            currentBlock.periodEndTime
+          ) {
             endTime = currentBlock.periodEndTime;
           } else {
             // For General User or if no periodEndTime, use previous slot
@@ -101,9 +115,10 @@ export function calculateUnavailableBlocksByRack(
     if (currentBlock !== null) {
       // For closed periods, use the stored periodEndTime if available
       // Otherwise, use the last slot's time
-      const endTime = currentBlock.periodType === "Closed" && currentBlock.periodEndTime
-        ? currentBlock.periodEndTime
-        : formatTimeSlot(timeSlots[timeSlots.length - 1]);
+      const endTime =
+        currentBlock.periodType === 'Closed' && currentBlock.periodEndTime
+          ? currentBlock.periodEndTime
+          : formatTimeSlot(timeSlots[timeSlots.length - 1]);
       blocks.push({
         startSlot: currentBlock.startSlot,
         endSlot: timeSlots.length - 1,
@@ -119,4 +134,3 @@ export function calculateUnavailableBlocksByRack(
 
   return blocksByRack;
 }
-

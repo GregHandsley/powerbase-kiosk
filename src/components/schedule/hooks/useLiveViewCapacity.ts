@@ -1,16 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { format, getDay } from "date-fns";
-import { supabase } from "../../../lib/supabaseClient";
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { format, getDay } from 'date-fns';
+import { supabase } from '../../../lib/supabaseClient';
 import {
   doesScheduleApply,
   parseExcludedDates,
   type ScheduleData,
-} from "../../admin/capacity/scheduleUtils";
-import { getSideIdByKeyNode, type SideKey } from "../../../nodes/data/sidesNodes";
+} from '../../admin/capacity/scheduleUtils';
+import {
+  getSideIdByKeyNode,
+  type SideKey,
+} from '../../../nodes/data/sidesNodes';
 
 type Args = {
-  side: "power" | "base";
+  side: 'power' | 'base';
   date: string;
   time: string;
 };
@@ -20,63 +23,78 @@ export function useLiveViewCapacity({ side, date, time }: Args) {
 
   // Resolve sideId from side key (Power/Base)
   useEffect(() => {
-    const sideKey: SideKey = side === "power" ? "Power" : "Base";
+    const sideKey: SideKey = side === 'power' ? 'Power' : 'Base';
     getSideIdByKeyNode(sideKey)
       .then(setSideId)
       .catch((err) => {
-        console.error("[Live View] Error fetching sideId:", err);
+        console.error('[Live View] Error fetching sideId:', err);
         setSideId(null);
       });
   }, [side]);
 
   const bookingDayOfWeek = useMemo(() => {
     if (!date) return null;
-    const [year, month, day] = date.split("-").map(Number);
+    const [year, month, day] = date.split('-').map(Number);
     const dateObj = new Date(year, month - 1, day);
     return getDay(dateObj);
   }, [date]);
 
   // Fetch capacity schedules for the surrounding week
-  const { data: capacitySchedules = [], isLoading: schedulesLoading } = useQuery({
-    queryKey: ["capacity-schedules-for-live-view", sideId, date, bookingDayOfWeek],
-    queryFn: async () => {
-      if (!sideId || !date || bookingDayOfWeek === null) {
-        return [];
-      }
+  const { data: capacitySchedules = [], isLoading: schedulesLoading } =
+    useQuery({
+      queryKey: [
+        'capacity-schedules-for-live-view',
+        sideId,
+        date,
+        bookingDayOfWeek,
+      ],
+      queryFn: async () => {
+        if (!sideId || !date || bookingDayOfWeek === null) {
+          return [];
+        }
 
-      const [year, month, day] = date.split("-").map(Number);
-      const dateObj = new Date(year, month - 1, day);
-      const dayOfWeek = getDay(dateObj);
+        const [year, month, day] = date.split('-').map(Number);
+        const dateObj = new Date(year, month - 1, day);
+        const dayOfWeek = getDay(dateObj);
 
-      const weekStart = new Date(dateObj);
-      weekStart.setDate(dateObj.getDate() - dayOfWeek);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
+        const weekStart = new Date(dateObj);
+        weekStart.setDate(dateObj.getDate() - dayOfWeek);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
 
-      const weekStartStr = format(weekStart, "yyyy-MM-dd");
-      const weekEndStr = format(weekEnd, "yyyy-MM-dd");
+        const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+        const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
 
-      const { data, error } = await supabase
-        .from("capacity_schedules")
-        .select("*")
-        .eq("side_id", sideId)
-        .lte("start_date", weekEndStr)
-        .or(`end_date.is.null,end_date.gte.${weekStartStr}`);
+        const { data, error } = await supabase
+          .from('capacity_schedules')
+          .select('*')
+          .eq('side_id', sideId)
+          .lte('start_date', weekEndStr)
+          .or(`end_date.is.null,end_date.gte.${weekStartStr}`);
 
-      if (error) {
-        console.error("[Live View] Error fetching capacity schedules:", error);
-        return [];
-      }
+        if (error) {
+          console.error(
+            '[Live View] Error fetching capacity schedules:',
+            error
+          );
+          return [];
+        }
 
-      return (data ?? []) as ScheduleData[];
-    },
-    enabled: !!sideId && !!date && bookingDayOfWeek !== null,
-    staleTime: 30000,
-  });
+        return (data ?? []) as ScheduleData[];
+      },
+      enabled: !!sideId && !!date && bookingDayOfWeek !== null,
+      staleTime: 30000,
+    });
 
   // Pick the single schedule that applies to this date/time
   const applicableSchedule = useMemo(() => {
-    if (schedulesLoading || !capacitySchedules.length || !time || bookingDayOfWeek === null || !date) {
+    if (
+      schedulesLoading ||
+      !capacitySchedules.length ||
+      !time ||
+      bookingDayOfWeek === null ||
+      !date
+    ) {
       return null;
     }
 
@@ -90,8 +108,8 @@ export function useLiveViewCapacity({ side, date, time }: Args) {
 
     if (potentiallyApplicable.length > 1) {
       potentiallyApplicable.sort((a, b) => {
-        if (a.period_type === "Closed" && b.period_type !== "Closed") return 1;
-        if (a.period_type !== "Closed" && b.period_type === "Closed") return -1;
+        if (a.period_type === 'Closed' && b.period_type !== 'Closed') return 1;
+        if (a.period_type !== 'Closed' && b.period_type === 'Closed') return -1;
         return b.start_time.localeCompare(a.start_time);
       });
     }
@@ -101,25 +119,32 @@ export function useLiveViewCapacity({ side, date, time }: Args) {
 
   // Fetch default platforms for the applicable schedule's period type (if needed)
   const { data: defaultPlatforms } = useQuery({
-    queryKey: ["default-platforms-live-view", sideId, applicableSchedule?.period_type],
+    queryKey: [
+      'default-platforms-live-view',
+      sideId,
+      applicableSchedule?.period_type,
+    ],
     queryFn: async () => {
       if (!sideId || !applicableSchedule) {
         return null;
       }
 
-      if (applicableSchedule.platforms !== null && applicableSchedule.platforms !== undefined) {
+      if (
+        applicableSchedule.platforms !== null &&
+        applicableSchedule.platforms !== undefined
+      ) {
         return null;
       }
 
       const { data, error } = await supabase
-        .from("period_type_capacity_defaults")
-        .select("platforms")
-        .eq("period_type", applicableSchedule.period_type)
-        .eq("side_id", sideId)
+        .from('period_type_capacity_defaults')
+        .select('platforms')
+        .eq('period_type', applicableSchedule.period_type)
+        .eq('side_id', sideId)
         .maybeSingle();
 
       if (error) {
-        console.error("[Live View] Error fetching default platforms:", error);
+        console.error('[Live View] Error fetching default platforms:', error);
         return null;
       }
 
@@ -139,11 +164,14 @@ export function useLiveViewCapacity({ side, date, time }: Args) {
     }
 
     // Closed = no platforms available
-    if (applicableSchedule.period_type === "Closed") {
+    if (applicableSchedule.period_type === 'Closed') {
       return new Set<number>();
     }
 
-    if (applicableSchedule.platforms !== null && applicableSchedule.platforms !== undefined) {
+    if (
+      applicableSchedule.platforms !== null &&
+      applicableSchedule.platforms !== undefined
+    ) {
       const platforms = Array.isArray(applicableSchedule.platforms)
         ? (applicableSchedule.platforms as number[])
         : [];
@@ -157,7 +185,7 @@ export function useLiveViewCapacity({ side, date, time }: Args) {
     return null;
   }, [applicableSchedule, defaultPlatforms]);
 
-  const isClosedPeriod = applicableSchedule?.period_type === "Closed";
+  const isClosedPeriod = applicableSchedule?.period_type === 'Closed';
 
   return {
     sideId,
@@ -166,4 +194,3 @@ export function useLiveViewCapacity({ side, date, time }: Args) {
     isClosedPeriod,
   };
 }
-

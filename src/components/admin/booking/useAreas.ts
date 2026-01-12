@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { supabase } from "../../../lib/supabaseClient";
+import { useState, useEffect } from 'react';
+import { supabase } from '../../../lib/supabaseClient';
 
 type AreaRow = {
   id: number;
@@ -22,14 +22,14 @@ export function useAreas() {
       setAreasLoading(true);
       setAreasError(null);
       const { data, error } = await supabase
-        .from("areas")
-        .select("id, side_id, key, name")
-        .order("side_id", { ascending: true })
-        .order("name", { ascending: true });
+        .from('areas')
+        .select('id, side_id, key, name')
+        .order('side_id', { ascending: true })
+        .order('name', { ascending: true });
 
       if (!isMounted) return;
       if (error) {
-        console.warn("loadAreas error", error.message);
+        console.warn('loadAreas error', error.message);
         setAreasError(error.message);
       } else {
         setAreas((data ?? []) as AreaRow[]);
@@ -44,4 +44,3 @@ export function useAreas() {
 
   return { areas, areasLoading, areasError };
 }
-

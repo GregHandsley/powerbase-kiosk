@@ -1,5 +1,5 @@
-import type { BookingsTeamFilter } from "../../hooks/useBookingsTeam";
-import type { BookingStatus } from "../../types/db";
+import type { BookingsTeamFilter } from '../../hooks/useBookingsTeam';
+import type { BookingStatus } from '../../types/db';
 
 type Props = {
   filters: BookingsTeamFilter;
@@ -7,29 +7,39 @@ type Props = {
   coaches?: Array<{ id: string; full_name: string | null }>;
 };
 
-export function BookingsTeamFilters({ filters, onFiltersChange, coaches }: Props) {
-  const statusOptions: Array<{ value: BookingStatus | "all"; label: string }> = [
-    { value: "all", label: "All Statuses" },
-    { value: "pending", label: "Pending" },
-    { value: "processed", label: "Processed" },
-    { value: "confirmed", label: "Confirmed" },
-    { value: "completed", label: "Completed" },
-    { value: "cancelled", label: "Cancelled" },
-    { value: "draft", label: "Draft" },
-  ];
+export function BookingsTeamFilters({
+  filters,
+  onFiltersChange,
+  coaches,
+}: Props) {
+  const statusOptions: Array<{ value: BookingStatus | 'all'; label: string }> =
+    [
+      { value: 'all', label: 'All Statuses' },
+      { value: 'pending', label: 'Pending' },
+      { value: 'processed', label: 'Processed' },
+      { value: 'confirmed', label: 'Confirmed' },
+      { value: 'completed', label: 'Completed' },
+      { value: 'cancelled', label: 'Cancelled' },
+      { value: 'draft', label: 'Draft' },
+    ];
 
   return (
     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Status Filter */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Status
+          </label>
           <select
-            value={filters.status || "all"}
+            value={filters.status || 'all'}
             onChange={(e) =>
               onFiltersChange({
                 ...filters,
-                status: e.target.value === "all" ? "all" : (e.target.value as BookingStatus),
+                status:
+                  e.target.value === 'all'
+                    ? 'all'
+                    : (e.target.value as BookingStatus),
               })
             }
             className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -44,13 +54,18 @@ export function BookingsTeamFilters({ filters, onFiltersChange, coaches }: Props
 
         {/* Side Filter */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Side</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Side
+          </label>
           <select
-            value={filters.side || "all"}
+            value={filters.side || 'all'}
             onChange={(e) =>
               onFiltersChange({
                 ...filters,
-                side: e.target.value === "all" ? "all" : (e.target.value as "Power" | "Base"),
+                side:
+                  e.target.value === 'all'
+                    ? 'all'
+                    : (e.target.value as 'Power' | 'Base'),
               })
             }
             className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -64,13 +79,15 @@ export function BookingsTeamFilters({ filters, onFiltersChange, coaches }: Props
         {/* Coach Filter */}
         {coaches && coaches.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Coach</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Coach
+            </label>
             <select
-              value={filters.coachId || "all"}
+              value={filters.coachId || 'all'}
               onChange={(e) =>
                 onFiltersChange({
                   ...filters,
-                  coachId: e.target.value === "all" ? "all" : e.target.value,
+                  coachId: e.target.value === 'all' ? 'all' : e.target.value,
                 })
               }
               className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -87,10 +104,16 @@ export function BookingsTeamFilters({ filters, onFiltersChange, coaches }: Props
 
         {/* Date From */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Date From</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Date From
+          </label>
           <input
             type="date"
-            value={filters.dateFrom ? filters.dateFrom.toISOString().split("T")[0] : ""}
+            value={
+              filters.dateFrom
+                ? filters.dateFrom.toISOString().split('T')[0]
+                : ''
+            }
             onChange={(e) =>
               onFiltersChange({
                 ...filters,
@@ -103,10 +126,14 @@ export function BookingsTeamFilters({ filters, onFiltersChange, coaches }: Props
 
         {/* Date To */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Date To</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Date To
+          </label>
           <input
             type="date"
-            value={filters.dateTo ? filters.dateTo.toISOString().split("T")[0] : ""}
+            value={
+              filters.dateTo ? filters.dateTo.toISOString().split('T')[0] : ''
+            }
             onChange={(e) =>
               onFiltersChange({
                 ...filters,
@@ -124,9 +151,9 @@ export function BookingsTeamFilters({ filters, onFiltersChange, coaches }: Props
           type="button"
           onClick={() =>
             onFiltersChange({
-              status: "all",
-              side: "all",
-              coachId: "all",
+              status: 'all',
+              side: 'all',
+              coachId: 'all',
             })
           }
           className="px-4 py-2 text-sm text-slate-300 hover:text-slate-100 transition-colors"
@@ -137,4 +164,3 @@ export function BookingsTeamFilters({ filters, onFiltersChange, coaches }: Props
     </div>
   );
 }
-

@@ -1,9 +1,9 @@
-import { format } from "date-fns";
-import type { BookingBlock as BookingBlockType } from "../types";
+import { format } from 'date-fns';
+import type { BookingBlock as BookingBlockType } from '../types';
 
 type Props = {
   block: BookingBlockType;
-  onClick?: (booking: BookingBlockType["booking"]) => void;
+  onClick?: (booking: BookingBlockType['booking']) => void;
 };
 
 export function BookingBlock({ block, onClick }: Props) {
@@ -14,15 +14,15 @@ export function BookingBlock({ block, onClick }: Props) {
         top: 0,
         height: `${block.rowSpan * 50}px`,
         zIndex: 6, // Bookings on top
-        margin: "2px 4px",
-        left: "4px",
-        right: "4px",
+        margin: '2px 4px',
+        left: '4px',
+        right: '4px',
         backgroundColor: block.booking.color
           ? `${block.booking.color}40`
-          : "rgba(99, 102, 241, 0.3)", // indigo fallback
+          : 'rgba(99, 102, 241, 0.3)', // indigo fallback
         borderColor: block.booking.color
           ? block.booking.color
-          : "rgb(99, 102, 241)",
+          : 'rgb(99, 102, 241)',
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -34,7 +34,7 @@ export function BookingBlock({ block, onClick }: Props) {
       <div
         className="text-sm font-semibold text-center px-1 break-words"
         style={{
-          color: block.booking.color || "rgb(199, 210, 254)",
+          color: block.booking.color || 'rgb(199, 210, 254)',
         }}
       >
         {block.booking.title}
@@ -42,23 +42,23 @@ export function BookingBlock({ block, onClick }: Props) {
       <div
         className="text-xs mt-1 text-center px-1"
         style={{
-          color: block.booking.color || "rgb(199, 210, 254)",
+          color: block.booking.color || 'rgb(199, 210, 254)',
         }}
       >
-        {format(new Date(block.booking.start), "HH:mm")} -{" "}
-        {format(new Date(block.booking.end), "HH:mm")}
+        {format(new Date(block.booking.start), 'HH:mm')} -{' '}
+        {format(new Date(block.booking.end), 'HH:mm')}
       </div>
       {block.booking.capacity !== undefined && block.booking.capacity > 0 && (
         <div
           className="text-[10px] mt-0.5 text-center px-1 opacity-90"
           style={{
-            color: block.booking.color || "rgb(199, 210, 254)",
+            color: block.booking.color || 'rgb(199, 210, 254)',
           }}
         >
-          {block.booking.capacity} athlete{block.booking.capacity !== 1 ? "s" : ""}
+          {block.booking.capacity} athlete
+          {block.booking.capacity !== 1 ? 's' : ''}
         </div>
       )}
     </div>
   );
 }
-

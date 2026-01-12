@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
-import { useNotifications } from "../../hooks/useNotifications";
-import type { Notification } from "../../hooks/useNotifications";
+import { Link } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
+import { useNotifications } from '../../hooks/useNotifications';
+import type { Notification } from '../../hooks/useNotifications';
 
 function NotificationItem({ notification }: { notification: Notification }) {
   const { markAsRead, deleteNotification } = useNotifications();
@@ -21,35 +21,75 @@ function NotificationItem({ notification }: { notification: Notification }) {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case "last_minute_change":
+      case 'last_minute_change':
         return (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-500/20">
-            <svg className="h-4 w-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              className="h-4 w-4 text-yellow-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
           </div>
         );
-      case "booking:created":
+      case 'booking:created':
         return (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20">
-            <svg className="h-4 w-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <svg
+              className="h-4 w-4 text-blue-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
           </div>
         );
-      case "booking:processed":
+      case 'booking:processed':
         return (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500/20">
-            <svg className="h-4 w-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="h-4 w-4 text-green-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
         );
       default:
         return (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-500/20">
-            <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="h-4 w-4 text-slate-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
         );
@@ -59,20 +99,26 @@ function NotificationItem({ notification }: { notification: Notification }) {
   const content = (
     <div
       className={`flex gap-3 p-3 hover:bg-slate-800/50 transition-colors cursor-pointer ${
-        !isRead ? "bg-slate-800/30" : ""
+        !isRead ? 'bg-slate-800/30' : ''
       }`}
       onClick={handleClick}
     >
       {getNotificationIcon(notification.type)}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm ${!isRead ? "font-semibold text-white" : "text-slate-300"}`}>
+        <p
+          className={`text-sm ${!isRead ? 'font-semibold text-white' : 'text-slate-300'}`}
+        >
           {notification.title}
         </p>
         {notification.message && (
-          <p className="text-xs text-slate-400 mt-1 line-clamp-2">{notification.message}</p>
+          <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+            {notification.message}
+          </p>
         )}
         <p className="text-xs text-slate-500 mt-1">
-          {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+          {formatDistanceToNow(new Date(notification.created_at), {
+            addSuffix: true,
+          })}
         </p>
       </div>
       <button
@@ -86,8 +132,18 @@ function NotificationItem({ notification }: { notification: Notification }) {
         aria-label="Delete notification"
         type="button"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
         </svg>
       </button>
     </div>
@@ -109,12 +165,15 @@ type NotificationDropdownProps = {
 };
 
 export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
-  const { notifications, unreadCount, markAllAsRead, isLoading } = useNotifications();
+  const { notifications, unreadCount, markAllAsRead, isLoading } =
+    useNotifications();
 
   if (isLoading) {
     return (
       <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50">
-        <div className="p-4 text-center text-slate-400 text-sm">Loading notifications...</div>
+        <div className="p-4 text-center text-slate-400 text-sm">
+          Loading notifications...
+        </div>
       </div>
     );
   }
@@ -155,7 +214,10 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
           </div>
         ) : (
           notifications.map((notification) => (
-            <NotificationItem key={notification.id} notification={notification} />
+            <NotificationItem
+              key={notification.id}
+              notification={notification}
+            />
           ))
         )}
       </div>
@@ -175,4 +237,3 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
     </div>
   );
 }
-

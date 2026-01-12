@@ -1,7 +1,7 @@
-import { useState } from "react";
-import type { BookingFilter } from "../../hooks/useMyBookings";
-import type { BookingStatus } from "../../types/db";
-import { format } from "date-fns";
+import { useState } from 'react';
+import type { BookingFilter } from '../../hooks/useMyBookings';
+import type { BookingStatus } from '../../types/db';
+import { format } from 'date-fns';
 
 type Props = {
   filters: BookingFilter;
@@ -11,13 +11,13 @@ type Props = {
 export function BookingFilters({ filters, onFiltersChange }: Props) {
   const [localFilters, setLocalFilters] = useState<BookingFilter>(filters);
 
-  const handleStatusChange = (status: BookingStatus | "all") => {
+  const handleStatusChange = (status: BookingStatus | 'all') => {
     const newFilters = { ...localFilters, status };
     setLocalFilters(newFilters);
     onFiltersChange(newFilters);
   };
 
-  const handleSideChange = (side: "Power" | "Base" | "all") => {
+  const handleSideChange = (side: 'Power' | 'Base' | 'all') => {
     const newFilters = { ...localFilters, side };
     setLocalFilters(newFilters);
     onFiltersChange(newFilters);
@@ -39,8 +39,8 @@ export function BookingFilters({ filters, onFiltersChange }: Props) {
 
   const clearFilters = () => {
     const cleared = {
-      status: "all" as const,
-      side: "all" as const,
+      status: 'all' as const,
+      side: 'all' as const,
       dateFrom: undefined,
       dateTo: undefined,
     };
@@ -49,8 +49,8 @@ export function BookingFilters({ filters, onFiltersChange }: Props) {
   };
 
   const hasActiveFilters =
-    localFilters.status !== "all" ||
-    localFilters.side !== "all" ||
+    localFilters.status !== 'all' ||
+    localFilters.side !== 'all' ||
     localFilters.dateFrom !== undefined ||
     localFilters.dateTo !== undefined;
 
@@ -72,10 +72,14 @@ export function BookingFilters({ filters, onFiltersChange }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Status Filter */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Status
+          </label>
           <select
-            value={localFilters.status || "all"}
-            onChange={(e) => handleStatusChange(e.target.value as BookingStatus | "all")}
+            value={localFilters.status || 'all'}
+            onChange={(e) =>
+              handleStatusChange(e.target.value as BookingStatus | 'all')
+            }
             className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Statuses</option>
@@ -90,10 +94,14 @@ export function BookingFilters({ filters, onFiltersChange }: Props) {
 
         {/* Side Filter */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Side</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Side
+          </label>
           <select
-            value={localFilters.side || "all"}
-            onChange={(e) => handleSideChange(e.target.value as "Power" | "Base" | "all")}
+            value={localFilters.side || 'all'}
+            onChange={(e) =>
+              handleSideChange(e.target.value as 'Power' | 'Base' | 'all')
+            }
             className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Sides</option>
@@ -104,10 +112,16 @@ export function BookingFilters({ filters, onFiltersChange }: Props) {
 
         {/* Date From */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">From Date</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            From Date
+          </label>
           <input
             type="date"
-            value={localFilters.dateFrom ? format(localFilters.dateFrom, "yyyy-MM-dd") : ""}
+            value={
+              localFilters.dateFrom
+                ? format(localFilters.dateFrom, 'yyyy-MM-dd')
+                : ''
+            }
             onChange={handleDateFromChange}
             className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -115,10 +129,16 @@ export function BookingFilters({ filters, onFiltersChange }: Props) {
 
         {/* Date To */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">To Date</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            To Date
+          </label>
           <input
             type="date"
-            value={localFilters.dateTo ? format(localFilters.dateTo, "yyyy-MM-dd") : ""}
+            value={
+              localFilters.dateTo
+                ? format(localFilters.dateTo, 'yyyy-MM-dd')
+                : ''
+            }
             onChange={handleDateToChange}
             className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -127,4 +147,3 @@ export function BookingFilters({ filters, onFiltersChange }: Props) {
     </div>
   );
 }
-

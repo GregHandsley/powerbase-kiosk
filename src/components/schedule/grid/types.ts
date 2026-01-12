@@ -1,5 +1,5 @@
-import type { TimeSlot } from "../../admin/capacity/scheduleUtils";
-import type { ActiveInstance } from "../../../types/snapshot";
+import type { TimeSlot } from '../../admin/capacity/scheduleUtils';
+import type { ActiveInstance } from '../../../types/snapshot';
 
 export type SlotCapacityData = {
   availablePlatforms: Set<number> | null;
@@ -11,7 +11,7 @@ export type SlotCapacityData = {
 export type ScheduleGridProps = {
   racks: number[];
   timeSlots: TimeSlot[];
-  selectedSide: "Power" | "Base";
+  selectedSide: 'Power' | 'Base';
   bookings: ActiveInstance[];
   currentDate: Date;
   slotCapacityData: Map<number, SlotCapacityData>;
@@ -36,8 +36,7 @@ export type UnavailableBlock = {
   startSlot: number;
   endSlot: number;
   rowSpan: number;
-  periodType: "General User" | "Closed";
+  periodType: 'General User' | 'Closed';
   startTime: string;
   endTime: string;
 };
-

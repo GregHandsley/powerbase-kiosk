@@ -1,6 +1,10 @@
-import type { SideSnapshot, ActiveInstance, NextUseInfo } from "../../../types/snapshot";
-import { RackSlot, type RackLayoutSlot } from "../shared/RackSlot";
-import "../../../styles/floorplan.css";
+import type {
+  SideSnapshot,
+  ActiveInstance,
+  NextUseInfo,
+} from '../../../types/snapshot';
+import { RackSlot, type RackLayoutSlot } from '../shared/RackSlot';
+import '../../../styles/floorplan.css';
 
 type Props = {
   snapshot?: SideSnapshot | null;
@@ -35,7 +39,8 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
   const cutoutRight = floorMargin + cutoutWidth;
 
   const snapshotDate = snapshot?.at ? new Date(snapshot.at) : new Date();
-  const nextUseByRack: Record<string, NextUseInfo | null> = snapshot?.nextUseByRack ?? {};
+  const nextUseByRack: Record<string, NextUseInfo | null> =
+    snapshot?.nextUseByRack ?? {};
   const currentByRack = new Map<number, ActiveInstance>();
   snapshot?.currentInstances?.forEach((inst) => {
     inst.racks?.forEach((r) => {
@@ -61,7 +66,13 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
       preserveAspectRatio="xMidYMid meet"
     >
       {/* outer background */}
-      <rect className="fp-bg-outer" x={0} y={0} width={viewBoxWidth} height={viewBoxHeight} />
+      <rect
+        className="fp-bg-outer"
+        x={0}
+        y={0}
+        width={viewBoxWidth}
+        height={viewBoxHeight}
+      />
 
       {/* main floor background as an L-shape with top-left cut-out */}
       <path
@@ -80,32 +91,34 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
       {/* LEFT: Dumbbell Area */}
       <g transform={`translate(${floorMargin + 2} ${floorMargin + 17})`}>
         <rect className="fp-area" width={15} height={42} />
-      <text
-        className="fp-area-label"
+        <text
+          className="fp-area-label"
           x={7.5}
           y={42 / 2}
-        textAnchor="middle"
+          textAnchor="middle"
           dominantBaseline="middle"
-      >
+        >
           DUMBBELL
           <tspan x={7.5} dy={3.8}>
             AREA
-        </tspan>
-      </text>
+          </tspan>
+        </text>
       </g>
 
       {/* LEFT: Cables */}
-      <g transform={`translate(${floorMargin + 2} ${viewBoxHeight - floorMargin - 22})`}>
+      <g
+        transform={`translate(${floorMargin + 2} ${viewBoxHeight - floorMargin - 22})`}
+      >
         <rect className="fp-area" width={15} height={20} />
-      <text
-        className="fp-area-label"
+        <text
+          className="fp-area-label"
           x={7.5}
           y={20 / 2}
-        textAnchor="middle"
+          textAnchor="middle"
           dominantBaseline="middle"
-      >
+        >
           CABLES
-      </text>
+        </text>
       </g>
 
       {/* MID-LEFT: Fixed Resistance Machines */}
@@ -120,15 +133,15 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
         >
           FIXED
         </text>
-      <text
-        className="fp-area-label"
+        <text
+          className="fp-area-label"
           x={23 / 2}
           y={42 / 2 + 3}
-        textAnchor="middle"
+          textAnchor="middle"
           dominantBaseline="middle"
         >
           MACHINES
-      </text>
+        </text>
       </g>
 
       {/* TOP BAND: Weight Lifting Area */}
@@ -306,4 +319,3 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
     </svg>
   );
 }
-

@@ -1,11 +1,11 @@
 // src/lib/sentry.ts
-import * as Sentry from "@sentry/react";
-import { APP_ENV, APP_VERSION } from "../config/env";
+import * as Sentry from '@sentry/react';
+import { APP_ENV, APP_VERSION } from '../config/env';
 
 // Get DSN from environment variable, with fallback to the provided DSN
-const SENTRY_DSN = 
+const SENTRY_DSN =
   (import.meta.env.VITE_SENTRY_DSN as string | undefined) ||
-  "https://63f7268af740f7ca6747b43c2239a8df@o4510665736519680.ingest.de.sentry.io/4510668750454864";
+  'https://63f7268af740f7ca6747b43c2239a8df@o4510665736519680.ingest.de.sentry.io/4510668750454864';
 
 /**
  * Initialize Sentry for error tracking and performance monitoring
@@ -16,14 +16,14 @@ export function initSentry() {
     dsn: SENTRY_DSN,
     environment: APP_ENV,
     release: APP_VERSION,
-    
+
     // Setting this option to true will send default PII data to Sentry.
     // For example, automatic IP address collection on events
     sendDefaultPii: true,
-    
+
     // Enable logging
     enableLogs: true,
-    
+
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration({
@@ -32,30 +32,30 @@ export function initSentry() {
         blockAllMedia: true, // Privacy: block all media
       }),
       // Send console.log, console.warn, and console.error calls as logs to Sentry
-      Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),
+      Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
     ],
 
     // Performance Monitoring
-    tracesSampleRate: APP_ENV === "production" ? 0.1 : 1.0, // 10% in prod, 100% in dev
+    tracesSampleRate: APP_ENV === 'production' ? 0.1 : 1.0, // 10% in prod, 100% in dev
 
     // Session Replay
-    replaysSessionSampleRate: APP_ENV === "production" ? 0.1 : 1.0, // 10% in prod
+    replaysSessionSampleRate: APP_ENV === 'production' ? 0.1 : 1.0, // 10% in prod
     replaysOnErrorSampleRate: 1.0, // Always capture replays on errors
 
     // Error filtering - don't send certain errors
     beforeSend(event, hint) {
       // Filter out known non-critical errors
       const error = hint.originalException;
-      
+
       // Ignore network errors that are expected (e.g., offline)
       if (error instanceof Error) {
         if (
-          error.message.includes("Failed to fetch") ||
-          error.message.includes("NetworkError") ||
-          error.message.includes("Load failed")
+          error.message.includes('Failed to fetch') ||
+          error.message.includes('NetworkError') ||
+          error.message.includes('Load failed')
         ) {
           // Only ignore in development, track in production
-          if (APP_ENV === "development") {
+          if (APP_ENV === 'development') {
             return null;
           }
         }
@@ -67,19 +67,19 @@ export function initSentry() {
     // Ignore specific URLs (e.g., browser extensions)
     ignoreErrors: [
       // Browser extensions
-      "top.GLOBALS",
-      "originalCreateNotification",
-      "canvas.contentDocument",
-      "MyApp_RemoveAllHighlights",
-      "atomicFindClose",
-      "fb_xd_fragment",
-      "bmi_SafeAddOnload",
-      "EBCallBackMessageReceived",
+      'top.GLOBALS',
+      'originalCreateNotification',
+      'canvas.contentDocument',
+      'MyApp_RemoveAllHighlights',
+      'atomicFindClose',
+      'fb_xd_fragment',
+      'bmi_SafeAddOnload',
+      'EBCallBackMessageReceived',
       // Network errors that might be transient
-      "Network request failed",
-      "NetworkError",
+      'Network request failed',
+      'NetworkError',
       // Supabase specific (we'll handle these separately)
-      "JWTExpired",
+      'JWTExpired',
     ],
   });
 }
@@ -88,12 +88,14 @@ export function initSentry() {
  * Set user context for Sentry
  * Call this when user logs in or user info changes
  */
-export function setSentryUser(user: {
-  id: string;
-  email?: string;
-  role?: string;
-  name?: string;
-} | null) {
+export function setSentryUser(
+  user: {
+    id: string;
+    email?: string;
+    role?: string;
+    name?: string;
+  } | null
+) {
   if (user) {
     Sentry.setUser({
       id: user.id,
@@ -118,8 +120,8 @@ export function addSentryBreadcrumb(
 ) {
   Sentry.addBreadcrumb({
     message,
-    category: category || "user",
-    level: level || "info",
+    category: category || 'user',
+    level: level || 'info',
     data,
     timestamp: Date.now() / 1000,
   });
@@ -134,8 +136,8 @@ export function captureSupabaseError(
 ) {
   Sentry.captureException(new Error(error.message), {
     tags: {
-      errorType: "supabase",
-      errorCode: error.code || "unknown",
+      errorType: 'supabase',
+      errorCode: error.code || 'unknown',
     },
     extra: {
       ...context,
@@ -155,7 +157,7 @@ export function captureQueryError(
 ) {
   Sentry.captureException(error, {
     tags: {
-      errorType: "react-query",
+      errorType: 'react-query',
     },
     extra: {
       queryKey,
@@ -227,4 +229,3 @@ export async function startSentrySpanAsync<T>(
     }
   );
 }
-

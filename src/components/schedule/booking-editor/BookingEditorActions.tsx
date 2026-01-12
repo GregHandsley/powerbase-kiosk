@@ -1,4 +1,4 @@
-import clsx from "clsx";
+import clsx from 'clsx';
 
 type BookingEditorActionsProps = {
   onEditRacks?: () => void;
@@ -44,14 +44,14 @@ export function BookingEditorActions({
             type="button"
             onClick={onEditRacks}
             disabled={isLocked || saving || deleting}
-          className={clsx(
-            "px-4 py-2 text-sm font-medium rounded-md",
-            "bg-slate-700 hover:bg-slate-600 text-slate-100",
-            "disabled:opacity-50 disabled:cursor-not-allowed"
-          )}
-        >
-          Edit Racks
-        </button>
+            className={clsx(
+              'px-4 py-2 text-sm font-medium rounded-md',
+              'bg-slate-700 hover:bg-slate-600 text-slate-100',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
+            )}
+          >
+            Edit Racks
+          </button>
         )}
         <div className="flex gap-3">
           <button
@@ -66,15 +66,21 @@ export function BookingEditorActions({
             <button
               type="button"
               onClick={onSave}
-              disabled={saving || deleting || isLocked || !hasChanges || selectedInstancesCount === 0}
-            className={clsx(
-              "px-4 py-2 text-sm font-medium rounded-md",
-              "bg-indigo-600 hover:bg-indigo-500 text-white",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
+              disabled={
+                saving ||
+                deleting ||
+                isLocked ||
+                !hasChanges ||
+                selectedInstancesCount === 0
+              }
+              className={clsx(
+                'px-4 py-2 text-sm font-medium rounded-md',
+                'bg-indigo-600 hover:bg-indigo-500 text-white',
+                'disabled:opacity-50 disabled:cursor-not-allowed'
+              )}
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
           )}
         </div>
       </div>
@@ -93,9 +99,9 @@ export function BookingEditorActions({
               showExtendDialog
             }
             className={clsx(
-              "px-3 py-1.5 text-xs font-medium rounded-md",
-              "bg-red-900/30 hover:bg-red-900/50 text-red-300 border border-red-800/50",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
+              'px-3 py-1.5 text-xs font-medium rounded-md',
+              'bg-red-900/30 hover:bg-red-900/50 text-red-300 border border-red-800/50',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >
             Delete Selected ({selectedInstancesCount})
@@ -113,9 +119,9 @@ export function BookingEditorActions({
               showExtendDialog
             }
             className={clsx(
-              "px-3 py-1.5 text-xs font-medium rounded-md",
-              "bg-red-900/30 hover:bg-red-900/50 text-red-300 border border-red-800/50",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
+              'px-3 py-1.5 text-xs font-medium rounded-md',
+              'bg-red-900/30 hover:bg-red-900/50 text-red-300 border border-red-800/50',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >
             Delete Entire Series
@@ -126,23 +132,22 @@ export function BookingEditorActions({
             type="button"
             onClick={onExtend}
             disabled={
-            isLocked ||
-            saving ||
-            deleting ||
-            showExtendDialog ||
-            showDeleteConfirm !== false
-          }
-          className={clsx(
-            "px-3 py-1.5 text-xs font-medium rounded-md",
-            "bg-green-900/30 hover:bg-green-900/50 text-green-300 border border-green-800/50",
-            "disabled:opacity-50 disabled:cursor-not-allowed"
-          )}
-        >
-          Extend Booking
-        </button>
+              isLocked ||
+              saving ||
+              deleting ||
+              showExtendDialog ||
+              showDeleteConfirm !== false
+            }
+            className={clsx(
+              'px-3 py-1.5 text-xs font-medium rounded-md',
+              'bg-green-900/30 hover:bg-green-900/50 text-green-300 border border-green-800/50',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
+            )}
+          >
+            Extend Booking
+          </button>
         )}
       </div>
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-import type { ActiveInstance, NextUseInfo } from "../../../types/snapshot";
+import type { ActiveInstance, NextUseInfo } from '../../../types/snapshot';
 import {
   rackCornerRadius,
   rackFontFamily,
@@ -6,7 +6,7 @@ import {
   rackPadding,
   rackPalette,
   rackStrokeWidth,
-} from "./theme";
+} from './theme';
 
 export type RackLayoutSlot = {
   number: number;
@@ -27,13 +27,16 @@ function formatTime(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
+  return d.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
-function formatRange(startIso: string | null | undefined, endIso: string | null | undefined) {
+function formatRange(
+  startIso: string | null | undefined,
+  endIso: string | null | undefined
+) {
   const start = formatTime(startIso);
   const end = formatTime(endIso);
   if (!start || !end) return null;
@@ -43,7 +46,7 @@ function formatRange(startIso: string | null | undefined, endIso: string | null 
 function wrapText(value: string, maxCharsPerLine: number, maxLines: number) {
   const words = value.split(/\s+/);
   const lines: string[] = [];
-  let current = "";
+  let current = '';
 
   for (const word of words) {
     const isLastLine = lines.length === maxLines - 1;
@@ -97,14 +100,14 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
   let statusLine3: string | null = null;
 
   if (!currentInst) {
-    statusLine1 = "Available";
+    statusLine1 = 'Available';
     const nextLabelTime = formatTime(nextUseStartIso);
     statusLine2 =
       nextUseToday && nextLabelTime
         ? nextUseTitle
           ? `Next: ${nextUseTitle} @ ${nextLabelTime}`
           : `Next: ${nextLabelTime}`
-        : "Free until close";
+        : 'Free until close';
   } else {
     statusLine1 = currentInst.title;
     const range = formatRange(currentInst.start, currentInst.end);
@@ -121,11 +124,15 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
         nextUseDate.getTime() > currentEndDate.getTime();
       const nextLabelTime = formatTime(nextUseStartIso);
       const nextLabel =
-        nextUseTitle && nextLabelTime ? `Next: ${nextUseTitle} @ ${nextLabelTime}` : `Next: ${nextLabelTime}`;
-      statusLine3 = hasFreeWindow ? `Free ${freeWindowStart}–${freeWindowEnd}` : nextLabel;
+        nextUseTitle && nextLabelTime
+          ? `Next: ${nextUseTitle} @ ${nextLabelTime}`
+          : `Next: ${nextLabelTime}`;
+      statusLine3 = hasFreeWindow
+        ? `Free ${freeWindowStart}–${freeWindowEnd}`
+        : nextLabel;
     } else {
       const endTime = formatTime(currentInst.end);
-      statusLine3 = endTime ? `Free after ${endTime}` : "Free later";
+      statusLine3 = endTime ? `Free after ${endTime}` : 'Free later';
     }
   }
 
@@ -149,7 +156,7 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     text: `Rack ${slot.number}`,
     size: 1.25,
     color: palette.muted,
-    weight: "700",
+    weight: '700',
     letterSpacing: 0.25,
     gapAfter: 0.5,
   });
@@ -159,8 +166,10 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     content.push({
       text: titleLines[i],
       size: 2.1,
-      color: !currentInst ? palette.primaryStrong ?? palette.primary : palette.primary,
-      weight: !currentInst ? "900" : "800",
+      color: !currentInst
+        ? (palette.primaryStrong ?? palette.primary)
+        : palette.primary,
+      weight: !currentInst ? '900' : '800',
       gapAfter: 0.55,
     });
   }
@@ -172,7 +181,7 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
       size: 1.15,
       color: palette.secondary,
       family: rackMonoFamily,
-      weight: "600",
+      weight: '600',
       gapAfter: 0.36,
     });
   }
@@ -183,13 +192,14 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
       size: 1.05,
       color: palette.accent,
       family: rackMonoFamily,
-      weight: "600",
+      weight: '600',
       gapAfter: 0.32,
     });
   }
 
   const totalHeight =
-    content.reduce((acc, item) => acc + item.size + item.gapAfter, 0) - (content.at(-1)?.gapAfter ?? 0);
+    content.reduce((acc, item) => acc + item.size + item.gapAfter, 0) -
+    (content.at(-1)?.gapAfter ?? 0);
   const available = innerHeight - 1.2;
   const scale = totalHeight > 0 ? Math.min(1, available / totalHeight) : 1;
 
@@ -203,7 +213,7 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     letterSpacing?: number;
   }[] = [];
 
-  let cursorY = innerY + (1.2 / 2);
+  let cursorY = innerY + 1.2 / 2;
   for (const item of content) {
     const size = item.size * scale;
     lines.push({
@@ -218,7 +228,7 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     cursorY += size + item.gapAfter * scale;
   }
 
-  const gradientId = `rack-grad-${slot.number}-${isOccupied ? "occ" : "free"}`;
+  const gradientId = `rack-grad-${slot.number}-${isOccupied ? 'occ' : 'free'}`;
   const shadeId = `rack-shade-${slot.number}`;
 
   return (

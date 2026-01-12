@@ -1,17 +1,26 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import type { UseFormReturn } from "react-hook-form";
-import type { BookingFormValues } from "../../../schemas/bookingForm";
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useWatch } from 'react-hook-form';
+import type { UseFormReturn } from 'react-hook-form';
+import type { BookingFormValues } from '../../../schemas/bookingForm';
 
 /**
  * Hook to manage week-by-week platform and capacity selection
  */
 export function useWeekManagement(form: UseFormReturn<BookingFormValues>) {
   const [currentWeekIndex, setCurrentWeekIndex] = useState(0);
-  const [racksByWeek, setRacksByWeek] = useState<Map<number, number[]>>(new Map());
+  const [racksByWeek, setRacksByWeek] = useState<Map<number, number[]>>(
+    new Map()
+  );
   const [applyToAllWeeks, setApplyToAllWeeks] = useState(true); // Default to true for convenience
-  const [capacityByWeek, setCapacityByWeek] = useState<Map<number, number>>(new Map());
+  const [capacityByWeek, setCapacityByWeek] = useState<Map<number, number>>(
+    new Map()
+  );
 
-  const weeksCount = form.watch("weeks") || 1;
+  const weeksCount = form.watch('weeks') || 1;
+  const watchedCapacity = useWatch({
+    control: form.control,
+    name: 'capacity',
+  });
 
   // Initialize racksByWeek when weeks count changes
   useEffect(() => {
@@ -41,7 +50,7 @@ export function useWeekManagement(form: UseFormReturn<BookingFormValues>) {
       newMap.delete(i);
     }
     // Initialize with form's default capacity for new weeks
-    const defaultCapacity = form.watch("capacity") || 1;
+    const defaultCapacity = form.watch('capacity') || 1;
     for (let i = 0; i < weeksCount; i++) {
       if (!newMap.has(i)) {
         newMap.set(i, defaultCapacity);
@@ -52,14 +61,15 @@ export function useWeekManagement(form: UseFormReturn<BookingFormValues>) {
 
   // Get capacity for current week
   const currentWeekCapacity = useMemo(() => {
-    return capacityByWeek.get(currentWeekIndex) || form.watch("capacity") || 1;
-  }, [capacityByWeek, currentWeekIndex, form.watch("capacity")]);
+    return capacityByWeek.get(currentWeekIndex) || watchedCapacity || 1;
+  }, [capacityByWeek, currentWeekIndex, watchedCapacity]);
 
   // When applyToAllWeeks changes to true, sync all weeks with current week's selection (racks and capacity)
   useEffect(() => {
     if (applyToAllWeeks && weeksCount > 1) {
       const currentRacks = racksByWeek.get(currentWeekIndex) || [];
-      const currentCapacity = capacityByWeek.get(currentWeekIndex) || form.watch("capacity") || 1;
+      const currentCapacity =
+        capacityByWeek.get(currentWeekIndex) || form.watch('capacity') || 1;
       // Always sync, even if empty (so all weeks are consistent)
       const newRacksMap = new Map(racksByWeek);
       const newCapacityMap = new Map(capacityByWeek);
@@ -75,15 +85,22 @@ export function useWeekManagement(form: UseFormReturn<BookingFormValues>) {
   // Initialize racksByWeek from racksInput when form is reset with initial values
   // This handles the case when the form is pre-filled (e.g., from drag selection)
   // Only initialize when racksByWeek is empty (initial state) to avoid conflicts with user selections
-  const racksInput = form.watch("racksInput");
+  const racksInput = form.watch('racksInput');
   const hasInitializedFromInputRef = useRef(false);
-  
+
   useEffect(() => {
     // Check if racksByWeek is empty (all weeks have no racks selected)
-    const allWeeksEmpty = Array.from({ length: weeksCount }, (_, i) => racksByWeek.get(i) || [])
-      .every((racks) => racks.length === 0);
-    
-    if (racksInput && racksInput.trim() && allWeeksEmpty && !hasInitializedFromInputRef.current) {
+    const allWeeksEmpty = Array.from(
+      { length: weeksCount },
+      (_, i) => racksByWeek.get(i) || []
+    ).every((racks) => racks.length === 0);
+
+    if (
+      racksInput &&
+      racksInput.trim() &&
+      allWeeksEmpty &&
+      !hasInitializedFromInputRef.current
+    ) {
       // Parse racksInput (can be comma or space separated, e.g., "3, 4, 5" or "3 4 5")
       const parsedRacks = racksInput
         .split(/[,\s]+/)
@@ -105,7 +122,7 @@ export function useWeekManagement(form: UseFormReturn<BookingFormValues>) {
         hasInitializedFromInputRef.current = true;
       }
     }
-    
+
     // Reset the flag when racksByWeek becomes empty again (form was reset)
     if (allWeeksEmpty && hasInitializedFromInputRef.current) {
       hasInitializedFromInputRef.current = false;
@@ -119,7 +136,7 @@ export function useWeekManagement(form: UseFormReturn<BookingFormValues>) {
 
   const handlePlatformSelectionChange = (selected: number[]) => {
     const newMap = new Map(racksByWeek);
-    
+
     // Normal selection behavior
     if (applyToAllWeeks && weeksCount > 1) {
       // Apply to all weeks
@@ -130,16 +147,16 @@ export function useWeekManagement(form: UseFormReturn<BookingFormValues>) {
       // Apply only to current week
       newMap.set(currentWeekIndex, selected);
     }
-    
+
     setRacksByWeek(newMap);
     // Also update the form's racksInput for validation (use first week's selection as default)
     if (currentWeekIndex === 0 || applyToAllWeeks) {
-      form.setValue("racksInput", selected.join(","), { shouldValidate: true });
+      form.setValue('racksInput', selected.join(','), { shouldValidate: true });
     }
   };
 
   const handleCapacityChange = (value: number) => {
-    form.setValue("capacity", value);
+    form.setValue('capacity', value);
     // Update current week's capacity
     if (applyToAllWeeks && weeksCount > 1) {
       const newMap = new Map(capacityByWeek);
@@ -170,4 +187,3 @@ export function useWeekManagement(form: UseFormReturn<BookingFormValues>) {
     setCapacityByWeek,
   };
 }
-

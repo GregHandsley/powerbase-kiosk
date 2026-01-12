@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { formatDateTime } from "../../shared/dateUtils";
-import { supabase } from "../../../lib/supabaseClient";
+import { useQuery } from '@tanstack/react-query';
+import { formatDateTime } from '../../shared/dateUtils';
+import { supabase } from '../../../lib/supabaseClient';
 
 interface BookingInfo {
   id: number;
@@ -45,37 +45,40 @@ export function BookingInfoDisplay({
   onDeleteSeries,
   loading,
 }: Props) {
-  const { data: bookingInfo, isLoading: loadingBooking } = useQuery<BookingInfo | null>({
-    queryKey: ["booking-info", override.booking_id],
-    queryFn: async () => {
-      if (!override.booking_id) return null;
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("id, title, color, is_locked")
-        .eq("id", override.booking_id)
-        .maybeSingle();
+  const { data: bookingInfo, isLoading: loadingBooking } =
+    useQuery<BookingInfo | null>({
+      queryKey: ['booking-info', override.booking_id],
+      queryFn: async () => {
+        if (!override.booking_id) return null;
+        const { data, error } = await supabase
+          .from('bookings')
+          .select('id, title, color, is_locked')
+          .eq('id', override.booking_id)
+          .maybeSingle();
 
-      if (error) {
-        console.error("Error fetching booking info:", error);
-        return null;
-      }
-      return data as BookingInfo | null;
-    },
-    enabled: !!override.booking_id,
-  });
+        if (error) {
+          console.error('Error fetching booking info:', error);
+          return null;
+        }
+        return data as BookingInfo | null;
+      },
+      enabled: !!override.booking_id,
+    });
 
-  const { data: instances = [], isLoading: loadingInstances } = useQuery<BookingInstance[]>({
-    queryKey: ["booking-instances", override.booking_id],
+  const { data: instances = [], isLoading: loadingInstances } = useQuery<
+    BookingInstance[]
+  >({
+    queryKey: ['booking-instances', override.booking_id],
     queryFn: async () => {
       if (!override.booking_id) return [];
       const { data, error } = await supabase
-        .from("booking_instances")
-        .select("id, start, end, booking_id")
-        .eq("booking_id", override.booking_id)
-        .order("start", { ascending: true });
+        .from('booking_instances')
+        .select('id, start, end, booking_id')
+        .eq('booking_id', override.booking_id)
+        .order('start', { ascending: true });
 
       if (error) {
-        console.error("Error fetching booking instances:", error);
+        console.error('Error fetching booking instances:', error);
         return [];
       }
       return (data ?? []) as BookingInstance[];
@@ -97,14 +100,14 @@ export function BookingInfoDisplay({
                 Booking: {bookingInfo.title}
               </div>
               <div className="text-[10px] text-slate-400 mt-0.5">
-                {instances.length} instance{instances.length !== 1 ? "s" : ""}
+                {instances.length} instance{instances.length !== 1 ? 's' : ''}
               </div>
             </div>
             <button
               onClick={onToggleExpanded}
               className="px-2 py-1 text-[10px] font-medium rounded border border-slate-600 text-slate-300 hover:bg-slate-800"
             >
-              {isExpanded ? "Hide" : "Show"} Instances
+              {isExpanded ? 'Hide' : 'Show'} Instances
             </button>
           </div>
 
@@ -128,7 +131,8 @@ export function BookingInfoDisplay({
                         className="w-3 h-3 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500"
                       />
                       <span className="text-[10px] text-slate-300">
-                        {formatDateTime(instance.start)} - {formatDateTime(instance.end)}
+                        {formatDateTime(instance.start)} -{' '}
+                        {formatDateTime(instance.end)}
                       </span>
                     </label>
                   </div>
@@ -158,4 +162,3 @@ export function BookingInfoDisplay({
     </div>
   );
 }
-

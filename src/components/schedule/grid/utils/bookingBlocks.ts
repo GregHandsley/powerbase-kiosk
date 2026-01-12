@@ -1,7 +1,7 @@
-import { format } from "date-fns";
-import type { TimeSlot } from "../../../admin/capacity/scheduleUtils";
-import type { ActiveInstance } from "../../../../types/snapshot";
-import type { BookingBlock } from "../types";
+import { format } from 'date-fns';
+import type { TimeSlot } from '../../../admin/capacity/scheduleUtils';
+import type { ActiveInstance } from '../../../../types/snapshot';
+import type { BookingBlock } from '../types';
 
 /**
  * Calculate which time slots a booking spans
@@ -13,11 +13,11 @@ export function getBookingBlocks(
 ): BookingBlock | null {
   const bookingStart = new Date(booking.start);
   const bookingEnd = new Date(booking.end);
-  const dateStr = format(currentDate, "yyyy-MM-dd");
+  const dateStr = format(currentDate, 'yyyy-MM-dd');
 
   // Check if booking overlaps with the current date
-  const bookingStartDate = format(bookingStart, "yyyy-MM-dd");
-  const bookingEndDate = format(bookingEnd, "yyyy-MM-dd");
+  const bookingStartDate = format(bookingStart, 'yyyy-MM-dd');
+  const bookingEndDate = format(bookingEnd, 'yyyy-MM-dd');
 
   if (bookingEndDate < dateStr || bookingStartDate > dateStr) {
     return null; // Booking doesn't overlap with this date
@@ -83,7 +83,7 @@ export function getBookingBlocks(
   const endSlotTime = timeSlots[endSlot];
   const endSlotStartMinutes = endSlotTime.hour * 60 + endSlotTime.minute;
   const slotDuration = 30; // 30 minutes per slot
-  
+
   // Calculate how much of the end slot the booking occupies
   let rowSpan: number;
   if (bookingEndMinutes <= endSlotStartMinutes) {
@@ -97,8 +97,9 @@ export function getBookingBlocks(
     }
   } else {
     // Booking ends within the end slot, calculate partial height
-    const partialHeight = (bookingEndMinutes - endSlotStartMinutes) / slotDuration;
-    rowSpan = (endSlot - startSlot) + partialHeight;
+    const partialHeight =
+      (bookingEndMinutes - endSlotStartMinutes) / slotDuration;
+    rowSpan = endSlot - startSlot + partialHeight;
   }
 
   // Ensure we have at least one slot
@@ -140,4 +141,3 @@ export function calculateBookingBlocksByRack(
 
   return blocksByRack;
 }
-

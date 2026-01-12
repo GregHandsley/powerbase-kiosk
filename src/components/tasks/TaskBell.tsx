@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
-import { useTasks } from "../../hooks/useTasks";
-import { TaskDropdown } from "./TaskDropdown";
+import { useState, useRef, useEffect } from 'react';
+import { useTasks } from '../../hooks/useTasks';
+import { TaskDropdown } from './TaskDropdown';
 
 export function TaskBell() {
   const { unreadCount } = useTasks();
@@ -10,14 +10,18 @@ export function TaskBell() {
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
 
     if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
+      return () =>
+        document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isOpen]);
 
@@ -45,7 +49,7 @@ export function TaskBell() {
         </svg>
         {unreadCount > 0 && (
           <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-semibold text-white">
-            {unreadCount > 9 ? "9+" : unreadCount}
+            {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
@@ -53,4 +57,3 @@ export function TaskBell() {
     </div>
   );
 }
-

@@ -1,18 +1,26 @@
-import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../../lib/supabaseClient";
-import { useQueryClient } from "@tanstack/react-query";
-import { addWeeks, format } from "date-fns";
-import { formatTimeForInput, getTimeDifference, groupInstancesByWeek } from "../../shared/dateUtils";
-import type { ActiveInstance } from "../../../types/snapshot";
-import { checkCapacityViolations } from "../../admin/booking/useCapacityValidation";
-import type { ScheduleData } from "../../admin/capacity/scheduleUtils";
-import { parseExcludedDates } from "../../admin/capacity/scheduleUtils";
-import { useAuth } from "../../../context/AuthContext";
-import type { BookingStatus } from "../../../types/db";
-import { isAfterCutoff, getBookingCutoff, getCutoffMessage } from "../../../utils/cutoff";
-import { createTasksForUsers, getUserIdsByRole } from "../../../hooks/useTasks";
-import toast from "react-hot-toast";
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../../lib/supabaseClient';
+import { useQueryClient } from '@tanstack/react-query';
+import { addWeeks, format } from 'date-fns';
+import {
+  formatTimeForInput,
+  getTimeDifference,
+  groupInstancesByWeek,
+} from '../../shared/dateUtils';
+import type { ActiveInstance } from '../../../types/snapshot';
+import { checkCapacityViolations } from '../../admin/booking/useCapacityValidation';
+import type { ScheduleData } from '../../admin/capacity/scheduleUtils';
+import { parseExcludedDates } from '../../admin/capacity/scheduleUtils';
+import { useAuth } from '../../../context/AuthContext';
+import type { BookingStatus } from '../../../types/db';
+import {
+  isAfterCutoff,
+  getBookingCutoff,
+  getCutoffMessage,
+} from '../../../utils/cutoff';
+import { createTasksForUsers, getUserIdsByRole } from '../../../hooks/useTasks';
+// import toast from 'react-hot-toast';
 
 type SeriesInstance = {
   id: number;
@@ -31,13 +39,13 @@ export function useBookingEditor(
 ) {
   const queryClient = useQueryClient();
   const { user, role } = useAuth();
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [capacity, setCapacity] = useState<number>(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<
-    "selected" | "series" | null
+    'selected' | 'series' | null
   >(null);
   const [deleting, setDeleting] = useState(false);
   const [selectedInstances, setSelectedInstances] = useState<Set<number>>(
@@ -49,31 +57,31 @@ export function useBookingEditor(
   const [extendWeeks, setExtendWeeks] = useState(1);
   const [extending, setExtending] = useState(false);
   const [showUpdateTimeConfirm, setShowUpdateTimeConfirm] = useState(false);
-  
+
   // Track original values to detect any changes across all selected instances
   const [originalValues, setOriginalValues] = useState<{
     startTime: string;
     endTime: string;
     capacity: number;
   } | null>(null);
-  
+
   // Track if user has manually edited values (vs automatic updates from week navigation)
   const [userHasEdited, setUserHasEdited] = useState(false);
 
   // Fetch all instances in the series (same booking_id)
   const { data: seriesInstances = [] } = useQuery<SeriesInstance[]>({
-    queryKey: ["booking-series", booking?.bookingId],
+    queryKey: ['booking-series', booking?.bookingId],
     queryFn: async () => {
       if (!booking) return [];
 
       const { data, error } = await supabase
-        .from("booking_instances")
-        .select("id, start, end, racks, areas, side_id, capacity")
-        .eq("booking_id", booking.bookingId)
-        .order("start", { ascending: true });
+        .from('booking_instances')
+        .select('id, start, end, racks, areas, side_id, capacity')
+        .eq('booking_id', booking.bookingId)
+        .order('start', { ascending: true });
 
       if (error) {
-        console.error("Error fetching series instances:", error);
+        console.error('Error fetching series instances:', error);
         return [];
       }
 
@@ -84,9 +92,10 @@ export function useBookingEditor(
         racks: Array.isArray(inst.racks) ? inst.racks : [],
         areas: Array.isArray(inst.areas) ? inst.areas : [],
         sideId: inst.side_id,
-        capacity: typeof (inst as { capacity?: number }).capacity === "number" 
-          ? (inst as { capacity: number }).capacity 
-          : undefined,
+        capacity:
+          typeof (inst as { capacity?: number }).capacity === 'number'
+            ? (inst as { capacity: number }).capacity
+            : undefined,
       }));
     },
     enabled: !!booking && isOpen,
@@ -98,18 +107,18 @@ export function useBookingEditor(
       const initialStartTime = formatTimeForInput(booking.start);
       const initialEndTime = formatTimeForInput(booking.end);
       const initialCapacity = booking.capacity || 1;
-      
+
       setStartTime(initialStartTime);
       setEndTime(initialEndTime);
       setCapacity(initialCapacity);
-      
+
       // Store original values for comparison
       setOriginalValues({
         startTime: initialStartTime,
         endTime: initialEndTime,
         capacity: initialCapacity,
       });
-      
+
       if (initialSelectedInstances && initialSelectedInstances.size > 0) {
         setSelectedInstances(new Set(initialSelectedInstances));
       } else {
@@ -121,8 +130,8 @@ export function useBookingEditor(
       }
       setUserHasEdited(false);
     } else {
-      setStartTime("");
-      setEndTime("");
+      setStartTime('');
+      setEndTime('');
       setCapacity(1);
       setSelectedInstances(new Set());
       setApplyToAll(true); // Default to "Apply to all"
@@ -149,19 +158,26 @@ export function useBookingEditor(
   // Don't auto-select instances - user must manually select them
   // Only update if user hasn't manually edited (to preserve their changes)
   useEffect(() => {
-    if (!applyToAll && booking && seriesInstances.length > 0 && !userHasEdited) {
+    if (
+      !applyToAll &&
+      booking &&
+      seriesInstances.length > 0 &&
+      !userHasEdited
+    ) {
       const instancesByWeek = groupInstancesByWeek(seriesInstances);
       const weeks = Array.from(instancesByWeek.keys()).sort((a, b) => a - b);
       const currentWeek = weeks[currentWeekIndex] ?? weeks[0] ?? null;
       const currentWeekInstances = currentWeek
-        ? instancesByWeek.get(currentWeek) ?? []
+        ? (instancesByWeek.get(currentWeek) ?? [])
         : [];
-      
+
       // Update capacity to show the capacity of the first instance in current week
       // This helps user see what capacity is set for this week's sessions
       if (currentWeekInstances.length > 0) {
         const firstInstance = currentWeekInstances[0];
-        const instanceData = seriesInstances.find((inst) => inst.id === firstInstance.id);
+        const instanceData = seriesInstances.find(
+          (inst) => inst.id === firstInstance.id
+        );
         if (instanceData?.capacity !== undefined) {
           setCapacity(instanceData.capacity);
         } else {
@@ -205,18 +221,18 @@ export function useBookingEditor(
     if (hasTimeChanges) {
       const timeRegex = /^\d{2}:\d{2}$/;
       if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
-        setError("Time must be in HH:mm format");
+        setError('Time must be in HH:mm format');
         return false;
       }
     }
 
     if (capacity < 1 || capacity > 100) {
-      setError("Number of athletes must be between 1 and 100");
+      setError('Number of athletes must be between 1 and 100');
       return false;
     }
 
     if (selectedInstances.size === 0) {
-      setError("Please select at least one session to update");
+      setError('Please select at least one session to update');
       return false;
     }
 
@@ -240,7 +256,9 @@ export function useBookingEditor(
       // Calculate new times and capacity for all instances being updated
       const instancesToUpdate = Array.from(selectedInstances)
         .map((instanceId) => {
-          const instance = seriesInstances.find((inst) => inst.id === instanceId);
+          const instance = seriesInstances.find(
+            (inst) => inst.id === instanceId
+          );
           if (!instance) return null;
 
           const instanceStart = new Date(instance.start);
@@ -264,7 +282,7 @@ export function useBookingEditor(
             instance,
             newStart,
             newEnd,
-            newCapacity: hasCapacityChanges ? capacity : (instance.capacity || 1),
+            newCapacity: hasCapacityChanges ? capacity : instance.capacity || 1,
             racks: instance.racks,
             sideId: instance.sideId,
           };
@@ -281,45 +299,61 @@ export function useBookingEditor(
           // Get date range for all instances
           const earliestDate = instancesToUpdate
             .filter((inst) => inst.sideId === sideId)
-            .reduce((earliest, inst) => (inst.newStart < earliest ? inst.newStart : earliest), instancesToUpdate[0].newStart);
+            .reduce(
+              (earliest, inst) =>
+                inst.newStart < earliest ? inst.newStart : earliest,
+              instancesToUpdate[0].newStart
+            );
           const latestDate = instancesToUpdate
             .filter((inst) => inst.sideId === sideId)
-            .reduce((latest, inst) => (inst.newEnd > latest ? inst.newEnd : latest), instancesToUpdate[0].newEnd);
+            .reduce(
+              (latest, inst) => (inst.newEnd > latest ? inst.newEnd : latest),
+              instancesToUpdate[0].newEnd
+            );
 
-          const weekStartStr = format(earliestDate, "yyyy-MM-dd");
-          const weekEndStr = format(latestDate, "yyyy-MM-dd");
+          const weekStartStr = format(earliestDate, 'yyyy-MM-dd');
+          const weekEndStr = format(latestDate, 'yyyy-MM-dd');
 
           const { data: schedules, error: schedulesError } = await supabase
-            .from("capacity_schedules")
-            .select("*")
-            .eq("side_id", sideId)
-            .lte("start_date", weekEndStr)
+            .from('capacity_schedules')
+            .select('*')
+            .eq('side_id', sideId)
+            .lte('start_date', weekEndStr)
             .or(`end_date.is.null,end_date.gte.${weekStartStr}`);
 
           if (schedulesError) {
-            console.error("Error fetching capacity schedules:", schedulesError);
+            console.error('Error fetching capacity schedules:', schedulesError);
           } else {
-            allSchedules.push(...(schedules ?? []).map((s) => ({
-              ...s,
-              excluded_dates: parseExcludedDates(s.excluded_dates),
-              platforms: Array.isArray(s.platforms) ? s.platforms : [],
-            })) as ScheduleData[]);
+            allSchedules.push(
+              ...((schedules ?? []).map((s) => ({
+                ...s,
+                excluded_dates: parseExcludedDates(s.excluded_dates),
+                platforms: Array.isArray(s.platforms) ? s.platforms : [],
+              })) as ScheduleData[])
+            );
           }
         }
 
         // Fetch existing instances for capacity calculation (excluding the ones we're updating)
-        const instanceIdsToExclude = instancesToUpdate.map((inst) => inst.instanceId);
-        const existingInstances: Array<{ id: number; start: string; end: string; capacity: number }> = [];
+        const instanceIdsToExclude = instancesToUpdate.map(
+          (inst) => inst.instanceId
+        );
+        const existingInstances: Array<{
+          id: number;
+          start: string;
+          end: string;
+          capacity: number;
+        }> = [];
 
         for (const sideId of sideIds) {
           const { data: instances, error: instancesError } = await supabase
-            .from("booking_instances")
-            .select("id, start, end, capacity")
-            .eq("side_id", sideId)
-            .not("id", "in", `(${instanceIdsToExclude.join(",")})`);
+            .from('booking_instances')
+            .select('id, start, end, capacity')
+            .eq('side_id', sideId)
+            .not('id', 'in', `(${instanceIdsToExclude.join(',')})`);
 
           if (instancesError) {
-            console.error("Error fetching existing instances:", instancesError);
+            console.error('Error fetching existing instances:', instancesError);
           } else {
             existingInstances.push(
               ...(instances ?? []).map((inst) => ({
@@ -334,11 +368,16 @@ export function useBookingEditor(
 
         // Validate capacity for each instance being updated
         for (const instanceToUpdate of instancesToUpdate) {
-          const schedulesForSide = allSchedules.filter((s) => s.side_id === instanceToUpdate.sideId);
+          const schedulesForSide = allSchedules.filter(
+            (s) => s.side_id === instanceToUpdate.sideId
+          );
           const existingForSide = existingInstances.filter((inst) => {
             const instStart = new Date(inst.start);
             const instEnd = new Date(inst.end);
-            return instStart < instanceToUpdate.newEnd && instEnd > instanceToUpdate.newStart;
+            return (
+              instStart < instanceToUpdate.newEnd &&
+              instEnd > instanceToUpdate.newStart
+            );
           });
 
           const result = checkCapacityViolations(
@@ -353,16 +392,16 @@ export function useBookingEditor(
           if (!result.isValid) {
             const formatDate = (date: Date) => {
               return date.toLocaleDateString([], {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
               });
             };
 
             const formatTime = (date: Date) => {
               return date.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
+                hour: '2-digit',
+                minute: '2-digit',
               });
             };
 
@@ -370,15 +409,24 @@ export function useBookingEditor(
             const timeRange = `${formatTime(instanceToUpdate.newStart)} - ${formatTime(instanceToUpdate.newEnd)}`;
 
             const errorParts: string[] = [];
-            errorParts.push(`⚠️ Capacity exceeded for ${dateStr} (${timeRange}):\n`);
-            errorParts.push(`This change would exceed capacity by ${result.maxUsed - result.maxLimit} athlete${result.maxUsed - result.maxLimit !== 1 ? "s" : ""} at peak times.\n`);
+            errorParts.push(
+              `⚠️ Capacity exceeded for ${dateStr} (${timeRange}):\n`
+            );
+            errorParts.push(
+              `This change would exceed capacity by ${result.maxUsed - result.maxLimit} athlete${result.maxUsed - result.maxLimit !== 1 ? 's' : ''} at peak times.\n`
+            );
 
             if (result.violations.length > 0) {
-              const maxViolation = result.violations.reduce((max, v) => (v.used > max.used ? v : max), result.violations[0]);
-              errorParts.push(`Peak violation at ${maxViolation.timeStr}: ${maxViolation.used} / ${maxViolation.limit} athletes (${maxViolation.periodType})`);
+              const maxViolation = result.violations.reduce(
+                (max, v) => (v.used > max.used ? v : max),
+                result.violations[0]
+              );
+              errorParts.push(
+                `Peak violation at ${maxViolation.timeStr}: ${maxViolation.used} / ${maxViolation.limit} athletes (${maxViolation.periodType})`
+              );
             }
 
-            setError(errorParts.join("\n"));
+            setError(errorParts.join('\n'));
             setSaving(false);
             return false;
           }
@@ -397,10 +445,11 @@ export function useBookingEditor(
       for (const instanceToUpdate of instancesToUpdate) {
         // Fetch all booking instances that overlap with the new time range
         // and use any of the instance's racks
-        const { data: overlappingInstances, error: overlapError } = await supabase
-          .from("booking_instances")
-          .select(
-            `
+        const { data: overlappingInstances, error: overlapError } =
+          await supabase
+            .from('booking_instances')
+            .select(
+              `
             id,
             booking_id,
             start,
@@ -410,15 +459,17 @@ export function useBookingEditor(
               title
             )
           `
-          )
-          .eq("side_id", instanceToUpdate.sideId)
-          .lt("start", instanceToUpdate.newEnd.toISOString()) // Other booking starts before our new end
-          .gt("end", instanceToUpdate.newStart.toISOString()) // Other booking ends after our new start
-          .neq("booking_id", booking.bookingId); // Exclude instances from the same booking
+            )
+            .eq('side_id', instanceToUpdate.sideId)
+            .lt('start', instanceToUpdate.newEnd.toISOString()) // Other booking starts before our new end
+            .gt('end', instanceToUpdate.newStart.toISOString()) // Other booking ends after our new start
+            .neq('booking_id', booking.bookingId); // Exclude instances from the same booking
 
         if (overlapError) {
-          console.error("Error checking for conflicts:", overlapError);
-          throw new Error(`Error checking for conflicts: ${overlapError.message}`);
+          console.error('Error checking for conflicts:', overlapError);
+          throw new Error(
+            `Error checking for conflicts: ${overlapError.message}`
+          );
         }
 
         // Check each rack for conflicts
@@ -432,11 +483,11 @@ export function useBookingEditor(
             const formatDateTime = (isoString: string) => {
               const date = new Date(isoString);
               return date.toLocaleString([], {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
               });
             };
 
@@ -445,7 +496,8 @@ export function useBookingEditor(
               instanceTime: `${formatDateTime(instanceToUpdate.newStart.toISOString())} - ${formatDateTime(instanceToUpdate.newEnd.toISOString())}`,
               rack,
               conflictingBooking:
-                (conflictingInstance.booking as { title?: string })?.title ?? "Unknown",
+                (conflictingInstance.booking as { title?: string })?.title ??
+                'Unknown',
               conflictTime: `${formatDateTime(conflictingInstance.start)} - ${formatDateTime(conflictingInstance.end)}`,
             });
           }
@@ -457,7 +509,11 @@ export function useBookingEditor(
         // Group conflicts by instance for better error message
         const conflictsByInstance = new Map<
           number,
-          Array<{ rack: number; conflictingBooking: string; conflictTime: string }>
+          Array<{
+            rack: number;
+            conflictingBooking: string;
+            conflictTime: string;
+          }>
         >();
 
         conflicts.forEach((conflict) => {
@@ -473,24 +529,26 @@ export function useBookingEditor(
 
         // Build detailed error message
         const errorParts: string[] = [];
-        errorParts.push("⚠️ Booking conflicts detected:\n");
+        errorParts.push('⚠️ Booking conflicts detected:\n');
 
         conflictsByInstance.forEach((rackConflicts, instanceId) => {
-          const instance = instancesToUpdate.find((inst) => inst.instanceId === instanceId);
+          const instance = instancesToUpdate.find(
+            (inst) => inst.instanceId === instanceId
+          );
           if (!instance) return;
 
           const formatDate = (date: Date) => {
             return date.toLocaleDateString([], {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
             });
           };
 
           const formatTime = (date: Date) => {
             return date.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
+              hour: '2-digit',
+              minute: '2-digit',
             });
           };
 
@@ -500,7 +558,10 @@ export function useBookingEditor(
           errorParts.push(`\n${dateStr} (${timeRange}):`);
 
           // Group by conflicting booking
-          const byBooking = new Map<string, { racks: number[]; conflictTime: string }>();
+          const byBooking = new Map<
+            string,
+            { racks: number[]; conflictTime: string }
+          >();
           rackConflicts.forEach((conflict) => {
             if (!byBooking.has(conflict.conflictingBooking)) {
               byBooking.set(conflict.conflictingBooking, {
@@ -508,18 +569,20 @@ export function useBookingEditor(
                 conflictTime: conflict.conflictTime,
               });
             }
-            byBooking.get(conflict.conflictingBooking)!.racks.push(conflict.rack);
+            byBooking
+              .get(conflict.conflictingBooking)!
+              .racks.push(conflict.rack);
           });
 
           byBooking.forEach((details, bookingTitle) => {
-            const racksList = details.racks.sort((a, b) => a - b).join(", ");
+            const racksList = details.racks.sort((a, b) => a - b).join(', ');
             errorParts.push(
-              `  • Rack${details.racks.length > 1 ? "s" : ""} ${racksList} conflict with "${bookingTitle}" (${details.conflictTime})`
+              `  • Rack${details.racks.length > 1 ? 's' : ''} ${racksList} conflict with "${bookingTitle}" (${details.conflictTime})`
             );
           });
         });
 
-        setError(errorParts.join("\n"));
+        setError(errorParts.join('\n'));
         setSaving(false);
         return false;
       }
@@ -527,24 +590,24 @@ export function useBookingEditor(
       // Check cutoff deadline for the first instance being updated
       const firstInstance = instancesToUpdate[0];
       if (!firstInstance) {
-        throw new Error("No instances selected for update");
+        throw new Error('No instances selected for update');
       }
-      
+
       // Use the new start date if time is changing, otherwise use the original start
-      const firstInstanceDate = hasTimeChanges 
-        ? firstInstance.newStart 
+      const firstInstanceDate = hasTimeChanges
+        ? firstInstance.newStart
         : new Date(firstInstance.instance.start);
-      
+
       const cutoff = getBookingCutoff(firstInstanceDate);
       const isAfterDeadline = isAfterCutoff(firstInstanceDate);
-      
-      if (isAfterDeadline && role !== "admin") {
+
+      if (isAfterDeadline && role !== 'admin') {
         // Non-admins cannot edit bookings after cutoff
         const cutoffMessage = getCutoffMessage(firstInstanceDate);
         throw new Error(
           `⚠️ Booking cutoff has passed.\n\n${cutoffMessage}\n\n` +
-          `Bookings cannot be created or edited after the cutoff deadline. ` +
-          `Please contact an administrator if this is an emergency.`
+            `Bookings cannot be created or edited after the cutoff deadline. ` +
+            `Please contact an administrator if this is an emergency.`
         );
       }
 
@@ -566,9 +629,9 @@ export function useBookingEditor(
         }
 
         const { error: updateError } = await supabase
-          .from("booking_instances")
+          .from('booking_instances')
           .update(updateData)
-          .eq("id", instanceToUpdate.instanceId);
+          .eq('id', instanceToUpdate.instanceId);
 
         if (updateError) {
           throw new Error(updateError.message);
@@ -582,9 +645,9 @@ export function useBookingEditor(
       // Also update last-minute change flag if after cutoff
       if (booking?.bookingId && user?.id) {
         const { data: currentBooking } = await supabase
-          .from("bookings")
-          .select("status")
-          .eq("id", booking.bookingId)
+          .from('bookings')
+          .select('status')
+          .eq('id', booking.bookingId)
           .maybeSingle();
 
         const updateData: {
@@ -603,60 +666,65 @@ export function useBookingEditor(
         if (isAfterDeadline) {
           updateData.last_minute_change = true;
           updateData.cutoff_at = cutoff.toISOString();
-          updateData.override_by = role === "admin" ? user.id : null;
+          updateData.override_by = role === 'admin' ? user.id : null;
         }
 
-        if (currentBooking?.status === "processed") {
+        if (currentBooking?.status === 'processed') {
           // Reset to pending and update edit tracking
-          updateData.status = "pending";
+          updateData.status = 'pending';
           await supabase
-            .from("bookings")
+            .from('bookings')
             .update(updateData)
-            .eq("id", booking.bookingId);
-        } else if (currentBooking?.status && currentBooking.status !== "draft" && currentBooking.status !== "pending") {
+            .eq('id', booking.bookingId);
+        } else if (
+          currentBooking?.status &&
+          currentBooking.status !== 'draft' &&
+          currentBooking.status !== 'pending'
+        ) {
           // For other statuses (confirmed, completed, cancelled), just update edit tracking
           await supabase
-            .from("bookings")
+            .from('bookings')
             .update(updateData)
-            .eq("id", booking.bookingId);
+            .eq('id', booking.bookingId);
         } else {
           // For pending/draft, just update edit tracking
           await supabase
-            .from("bookings")
+            .from('bookings')
             .update(updateData)
-            .eq("id", booking.bookingId);
+            .eq('id', booking.bookingId);
         }
 
         // Create tasks for all edits (bookings team needs to know about all changes)
         try {
           // Get bookings team and admin user IDs
-          const bookingsTeamIds = await getUserIdsByRole("bookings_team");
-          const adminIds = await getUserIdsByRole("admin");
+          const bookingsTeamIds = await getUserIdsByRole('bookings_team');
+          const adminIds = await getUserIdsByRole('admin');
           const allNotifyIds = [...new Set([...bookingsTeamIds, ...adminIds])];
 
           if (allNotifyIds.length > 0) {
             // Get booking title for task
             const { data: bookingData } = await supabase
-              .from("bookings")
-              .select("title, status")
-              .eq("id", booking.bookingId)
+              .from('bookings')
+              .select('title, status')
+              .eq('id', booking.bookingId)
               .single();
 
-            const isLastMinute = isAfterDeadline && updateData.last_minute_change;
-            const wasProcessed = currentBooking?.status === "processed";
+            const isLastMinute =
+              isAfterDeadline && updateData.last_minute_change;
+            const wasProcessed = currentBooking?.status === 'processed';
 
             await createTasksForUsers(allNotifyIds, {
-              type: isLastMinute ? "last_minute_change" : "booking:edited",
+              type: isLastMinute ? 'last_minute_change' : 'booking:edited',
               title: isLastMinute
-                ? "Last-Minute Booking Change"
+                ? 'Last-Minute Booking Change'
                 : wasProcessed
-                  ? "Processed Booking Edited"
-                  : "Booking Edited",
+                  ? 'Processed Booking Edited'
+                  : 'Booking Edited',
               message: isLastMinute
-                ? `Booking "${bookingData?.title || "Untitled"}" was edited after the cutoff deadline.`
+                ? `Booking "${bookingData?.title || 'Untitled'}" was edited after the cutoff deadline.`
                 : wasProcessed
-                  ? `Processed booking "${bookingData?.title || "Untitled"}" was edited and needs reprocessing.`
-                  : `Booking "${bookingData?.title || "Untitled"}" was edited.`,
+                  ? `Processed booking "${bookingData?.title || 'Untitled'}" was edited and needs reprocessing.`
+                  : `Booking "${bookingData?.title || 'Untitled'}" was edited.`,
               link: `/bookings-team?booking=${booking.bookingId}`,
               metadata: {
                 booking_id: booking.bookingId,
@@ -668,32 +736,37 @@ export function useBookingEditor(
             });
           }
         } catch (taskError) {
-          console.error("Failed to create tasks:", taskError);
+          console.error('Failed to create tasks:', taskError);
           // Don't fail the update if tasks fail
         }
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-instances-debug"],
+        queryKey: ['snapshot'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-instances-for-time"],
+        queryKey: ['booking-instances-debug'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-series"],
+        queryKey: ['booking-instances-for-time'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["schedule-bookings"],
+        queryKey: ['booking-series'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['schedule-bookings'],
         exact: false,
       });
       return true; // Success
     } catch (err) {
-      console.error("Failed to update booking time", err);
-      setError(err instanceof Error ? err.message : "Failed to update booking time");
+      console.error('Failed to update booking time', err);
+      setError(
+        err instanceof Error ? err.message : 'Failed to update booking time'
+      );
       return false; // Failure
     } finally {
       setSaving(false);
@@ -709,9 +782,9 @@ export function useBookingEditor(
     try {
       const instanceIds = Array.from(selectedInstances);
       const { error: deleteError } = await supabase
-        .from("booking_instances")
+        .from('booking_instances')
         .delete()
-        .in("id", instanceIds);
+        .in('id', instanceIds);
 
       if (deleteError) {
         throw new Error(deleteError.message);
@@ -720,44 +793,52 @@ export function useBookingEditor(
       const remainingCount = seriesInstances.length - instanceIds.length;
       if (remainingCount === 0) {
         const { error: bookingError } = await supabase
-          .from("bookings")
+          .from('bookings')
           .delete()
-          .eq("id", booking.bookingId);
+          .eq('id', booking.bookingId);
 
         if (bookingError) {
           console.warn(
-            "Failed to delete booking after deleting all instances:",
+            'Failed to delete booking after deleting all instances:',
             bookingError
           );
         }
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-instances-debug"],
+        queryKey: ['snapshot'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-instances-for-time"],
+        queryKey: ['booking-instances-debug'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-series"],
+        queryKey: ['booking-instances-for-time'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-series-racks"],
+        queryKey: ['booking-series'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["schedule-bookings"],
+        queryKey: ['booking-series-racks'],
         exact: false,
       });
-      await queryClient.refetchQueries({ queryKey: ["snapshot"], exact: false });
+      await queryClient.invalidateQueries({
+        queryKey: ['schedule-bookings'],
+        exact: false,
+      });
+      await queryClient.refetchQueries({
+        queryKey: ['snapshot'],
+        exact: false,
+      });
       return true;
     } catch (err) {
-      console.error("Failed to delete instances", err);
-      setError(err instanceof Error ? err.message : "Failed to delete bookings");
+      console.error('Failed to delete instances', err);
+      setError(
+        err instanceof Error ? err.message : 'Failed to delete bookings'
+      );
       return false;
     } finally {
       setDeleting(false);
@@ -773,49 +854,57 @@ export function useBookingEditor(
 
     try {
       const { error: instancesError } = await supabase
-        .from("booking_instances")
+        .from('booking_instances')
         .delete()
-        .eq("booking_id", booking.bookingId);
+        .eq('booking_id', booking.bookingId);
 
       if (instancesError) {
         throw new Error(instancesError.message);
       }
 
       const { error: bookingError } = await supabase
-        .from("bookings")
+        .from('bookings')
         .delete()
-        .eq("id", booking.bookingId);
+        .eq('id', booking.bookingId);
 
       if (bookingError) {
         throw new Error(bookingError.message);
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-instances-debug"],
+        queryKey: ['snapshot'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-instances-for-time"],
+        queryKey: ['booking-instances-debug'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-series"],
+        queryKey: ['booking-instances-for-time'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-series-racks"],
+        queryKey: ['booking-series'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["schedule-bookings"],
+        queryKey: ['booking-series-racks'],
         exact: false,
       });
-      await queryClient.refetchQueries({ queryKey: ["snapshot"], exact: false });
+      await queryClient.invalidateQueries({
+        queryKey: ['schedule-bookings'],
+        exact: false,
+      });
+      await queryClient.refetchQueries({
+        queryKey: ['snapshot'],
+        exact: false,
+      });
       return true;
     } catch (err) {
-      console.error("Failed to delete series", err);
-      setError(err instanceof Error ? err.message : "Failed to delete booking series");
+      console.error('Failed to delete series', err);
+      setError(
+        err instanceof Error ? err.message : 'Failed to delete booking series'
+      );
       return false;
     } finally {
       setDeleting(false);
@@ -824,7 +913,8 @@ export function useBookingEditor(
   };
 
   const handleExtendBooking = async (): Promise<boolean> => {
-    if (!booking || seriesInstances.length === 0 || extendWeeks < 1) return false;
+    if (!booking || seriesInstances.length === 0 || extendWeeks < 1)
+      return false;
 
     setExtending(true);
     setError(null);
@@ -848,24 +938,27 @@ export function useBookingEditor(
       const areas = firstInstance.areas || [];
       const sideId = firstInstance.sideId;
       // Use the capacity from the first instance (or last if first doesn't have it)
-      const originalCapacity = firstInstance.capacity || lastInstance.capacity || 1;
+      const originalCapacity =
+        firstInstance.capacity || lastInstance.capacity || 1;
 
       // Fetch capacity schedules for validation
       const earliestDate = addWeeks(lastStart, weekOffset);
       const latestDate = addWeeks(lastEnd, weekOffset * extendWeeks);
-      const weekStartStr = format(earliestDate, "yyyy-MM-dd");
-      const weekEndStr = format(latestDate, "yyyy-MM-dd");
+      const weekStartStr = format(earliestDate, 'yyyy-MM-dd');
+      const weekEndStr = format(latestDate, 'yyyy-MM-dd');
 
       const { data: schedules, error: schedulesError } = await supabase
-        .from("capacity_schedules")
-        .select("*")
-        .eq("side_id", sideId)
-        .lte("start_date", weekEndStr)
+        .from('capacity_schedules')
+        .select('*')
+        .eq('side_id', sideId)
+        .lte('start_date', weekEndStr)
         .or(`end_date.is.null,end_date.gte.${weekStartStr}`);
 
       if (schedulesError) {
-        console.error("Error fetching capacity schedules:", schedulesError);
-        throw new Error(`Error fetching capacity schedules: ${schedulesError.message}`);
+        console.error('Error fetching capacity schedules:', schedulesError);
+        throw new Error(
+          `Error fetching capacity schedules: ${schedulesError.message}`
+        );
       }
 
       const allSchedules: ScheduleData[] = (schedules ?? []).map((s) => ({
@@ -875,25 +968,35 @@ export function useBookingEditor(
       })) as ScheduleData[];
 
       // Fetch existing instances for capacity calculation
-      const { data: existingInstancesData, error: existingInstancesError } = await supabase
-        .from("booking_instances")
-        .select("id, start, end, capacity")
-        .eq("side_id", sideId)
-        .lt("start", latestDate.toISOString())
-        .gt("end", earliestDate.toISOString());
+      const { data: existingInstancesData, error: existingInstancesError } =
+        await supabase
+          .from('booking_instances')
+          .select('id, start, end, capacity')
+          .eq('side_id', sideId)
+          .lt('start', latestDate.toISOString())
+          .gt('end', earliestDate.toISOString());
 
       if (existingInstancesError) {
-        console.error("Error fetching existing instances:", existingInstancesError);
-        throw new Error(`Error fetching existing instances: ${existingInstancesError.message}`);
+        console.error(
+          'Error fetching existing instances:',
+          existingInstancesError
+        );
+        throw new Error(
+          `Error fetching existing instances: ${existingInstancesError.message}`
+        );
       }
 
-      const existingInstances: Array<{ id: number; start: string; end: string; capacity: number }> = 
-        (existingInstancesData ?? []).map((inst) => ({
-          id: inst.id,
-          start: inst.start,
-          end: inst.end,
-          capacity: (inst as { capacity?: number }).capacity || 0,
-        }));
+      const existingInstances: Array<{
+        id: number;
+        start: string;
+        end: string;
+        capacity: number;
+      }> = (existingInstancesData ?? []).map((inst) => ({
+        id: inst.id,
+        start: inst.start,
+        end: inst.end,
+        capacity: (inst as { capacity?: number }).capacity || 0,
+      }));
 
       // Check for capacity violations before creating new instances
       const capacityViolations: Array<{
@@ -912,7 +1015,11 @@ export function useBookingEditor(
       }> = [];
 
       // Track instances we're about to create for cumulative capacity checking
-      const newInstancesForCapacity: Array<{ start: string; end: string; capacity: number }> = [];
+      const newInstancesForCapacity: Array<{
+        start: string;
+        end: string;
+        capacity: number;
+      }> = [];
 
       for (let i = 1; i <= extendWeeks; i++) {
         const newStart = addWeeks(lastStart, weekOffset * i);
@@ -942,19 +1049,22 @@ export function useBookingEditor(
         if (!result.isValid) {
           const formatDateTime = (date: Date) => {
             return date.toLocaleString([], {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
             });
           };
 
-          const maxViolation = result.violations.reduce((max, v) => (v.used > max.used ? v : max), result.violations[0]);
+          const maxViolation = result.violations.reduce(
+            (max, v) => (v.used > max.used ? v : max),
+            result.violations[0]
+          );
           capacityViolations.push({
             week: i,
             newInstanceTime: `${formatDateTime(newStart)} - ${formatDateTime(newEnd)}`,
-            violation: `Exceeds capacity by ${result.maxUsed - result.maxLimit} athlete${result.maxUsed - result.maxLimit !== 1 ? "s" : ""} at ${maxViolation.timeStr} (${maxViolation.used} / ${maxViolation.limit}, ${maxViolation.periodType})`,
+            violation: `Exceeds capacity by ${result.maxUsed - result.maxLimit} athlete${result.maxUsed - result.maxLimit !== 1 ? 's' : ''} at ${maxViolation.timeStr} (${maxViolation.used} / ${maxViolation.limit}, ${maxViolation.periodType})`,
           });
         } else {
           // If capacity is valid, add this instance to the list for next week's check
@@ -966,10 +1076,11 @@ export function useBookingEditor(
         }
 
         // Fetch all bookings that overlap with this new instance's time range
-        const { data: overlappingInstances, error: overlapError } = await supabase
-          .from("booking_instances")
-          .select(
-            `
+        const { data: overlappingInstances, error: overlapError } =
+          await supabase
+            .from('booking_instances')
+            .select(
+              `
             id,
             start,
             "end",
@@ -978,15 +1089,17 @@ export function useBookingEditor(
               title
             )
           `
-          )
-          .eq("side_id", sideId)
-          .lt("start", newEnd.toISOString()) // Other booking starts before our new end
-          .gt("end", newStart.toISOString()) // Other booking ends after our new start
-          .neq("booking_id", booking.bookingId); // Exclude instances from the same booking
+            )
+            .eq('side_id', sideId)
+            .lt('start', newEnd.toISOString()) // Other booking starts before our new end
+            .gt('end', newStart.toISOString()) // Other booking ends after our new start
+            .neq('booking_id', booking.bookingId); // Exclude instances from the same booking
 
         if (overlapError) {
-          console.error("Error checking for conflicts:", overlapError);
-          throw new Error(`Error checking for conflicts: ${overlapError.message}`);
+          console.error('Error checking for conflicts:', overlapError);
+          throw new Error(
+            `Error checking for conflicts: ${overlapError.message}`
+          );
         }
 
         // Check each rack for conflicts
@@ -1000,11 +1113,11 @@ export function useBookingEditor(
             const formatDateTime = (isoString: string) => {
               const date = new Date(isoString);
               return date.toLocaleString([], {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
               });
             };
 
@@ -1012,7 +1125,8 @@ export function useBookingEditor(
               week: i,
               rack,
               conflictingBooking:
-                (conflictingInstance.booking as { title?: string })?.title ?? "Unknown",
+                (conflictingInstance.booking as { title?: string })?.title ??
+                'Unknown',
               conflictTime: `${formatDateTime(conflictingInstance.start)} - ${formatDateTime(conflictingInstance.end)}`,
               newInstanceTime: `${formatDateTime(newStart.toISOString())} - ${formatDateTime(newEnd.toISOString())}`,
             });
@@ -1023,15 +1137,19 @@ export function useBookingEditor(
       // If capacity violations found, show detailed error and abort
       if (capacityViolations.length > 0) {
         const errorParts: string[] = [];
-        errorParts.push("⚠️ Capacity exceeded for extension:\n");
-        errorParts.push("The following weeks cannot be extended due to capacity limits:\n");
+        errorParts.push('⚠️ Capacity exceeded for extension:\n');
+        errorParts.push(
+          'The following weeks cannot be extended due to capacity limits:\n'
+        );
 
         capacityViolations.forEach((violation) => {
-          errorParts.push(`\nWeek ${violation.week} (${violation.newInstanceTime}):`);
+          errorParts.push(
+            `\nWeek ${violation.week} (${violation.newInstanceTime}):`
+          );
           errorParts.push(`  • ${violation.violation}`);
         });
 
-        setError(errorParts.join("\n"));
+        setError(errorParts.join('\n'));
         setExtending(false);
         return false;
       }
@@ -1041,7 +1159,10 @@ export function useBookingEditor(
         // Group conflicts by week for better error message
         const conflictsByWeek = new Map<
           number,
-          Map<string, { racks: number[]; conflictTime: string; newInstanceTime: string }>
+          Map<
+            string,
+            { racks: number[]; conflictTime: string; newInstanceTime: string }
+          >
         >();
 
         conflicts.forEach((conflict) => {
@@ -1060,23 +1181,26 @@ export function useBookingEditor(
         });
 
         const errorParts: string[] = [];
-        errorParts.push("⚠️ Extension conflicts detected:\n");
-        errorParts.push("The following weeks cannot be extended due to overlapping bookings:\n");
+        errorParts.push('⚠️ Extension conflicts detected:\n');
+        errorParts.push(
+          'The following weeks cannot be extended due to overlapping bookings:\n'
+        );
 
         conflictsByWeek.forEach((weekConflicts, week) => {
           const firstConflict = weekConflicts.values().next().value;
-          const newInstanceTime = firstConflict?.newInstanceTime ?? "unknown time";
+          const newInstanceTime =
+            firstConflict?.newInstanceTime ?? 'unknown time';
           errorParts.push(`\nWeek ${week} (${newInstanceTime}):`);
 
           weekConflicts.forEach((details, bookingTitle) => {
-            const racksList = details.racks.sort((a, b) => a - b).join(", ");
+            const racksList = details.racks.sort((a, b) => a - b).join(', ');
             errorParts.push(
-              `  • Rack${details.racks.length > 1 ? "s" : ""} ${racksList} conflict with "${bookingTitle}" (${details.conflictTime})`
+              `  • Rack${details.racks.length > 1 ? 's' : ''} ${racksList} conflict with "${bookingTitle}" (${details.conflictTime})`
             );
           });
         });
 
-        setError(errorParts.join("\n"));
+        setError(errorParts.join('\n'));
         setExtending(false);
         return false;
       }
@@ -1107,42 +1231,48 @@ export function useBookingEditor(
       }
 
       const { error: instancesError } = await supabase
-        .from("booking_instances")
+        .from('booking_instances')
         .insert(instancesPayload);
 
       if (instancesError) {
         throw new Error(instancesError.message);
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["snapshot"], exact: false });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-instances-debug"],
+        queryKey: ['snapshot'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-instances-for-time"],
+        queryKey: ['booking-instances-debug'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-series"],
+        queryKey: ['booking-instances-for-time'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["booking-series-racks"],
+        queryKey: ['booking-series'],
         exact: false,
       });
       await queryClient.invalidateQueries({
-        queryKey: ["schedule-bookings"],
+        queryKey: ['booking-series-racks'],
         exact: false,
       });
-      await queryClient.refetchQueries({ queryKey: ["snapshot"], exact: false });
+      await queryClient.invalidateQueries({
+        queryKey: ['schedule-bookings'],
+        exact: false,
+      });
+      await queryClient.refetchQueries({
+        queryKey: ['snapshot'],
+        exact: false,
+      });
 
       setShowExtendDialog(false);
       setExtendWeeks(1);
       return true;
     } catch (err) {
-      console.error("Failed to extend booking", err);
-      setError(err instanceof Error ? err.message : "Failed to extend booking");
+      console.error('Failed to extend booking', err);
+      setError(err instanceof Error ? err.message : 'Failed to extend booking');
       return false;
     } finally {
       setExtending(false);
@@ -1180,7 +1310,7 @@ export function useBookingEditor(
     setUserHasEdited(true);
   };
 
-    return {
+  return {
     // State
     startTime,
     endTime,
@@ -1221,4 +1351,3 @@ export function useBookingEditor(
     handleInstanceToggle,
   };
 }
-

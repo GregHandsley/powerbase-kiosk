@@ -1,15 +1,15 @@
-import { useEffect } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { supabase } from "../lib/supabaseClient";
-import { useAuth } from "../context/AuthContext";
+import { useEffect } from 'react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 
-export type TaskType = 
-  | "last_minute_change"
-  | "booking:created"
-  | "booking:processed"
-  | "booking:edited"
-  | "booking:cancelled"
-  | "system:update";
+export type TaskType =
+  | 'last_minute_change'
+  | 'booking:created'
+  | 'booking:processed'
+  | 'booking:edited'
+  | 'booking:cancelled'
+  | 'system:update';
 
 export interface Task {
   id: number;
@@ -41,19 +41,19 @@ export function useTasks() {
 
   // Fetch tasks
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["tasks", user?.id],
+    queryKey: ['tasks', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
 
       const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
         .limit(50); // Limit to most recent 50
 
       if (error) {
-        console.error("Error fetching tasks:", error);
+        console.error('Error fetching tasks:', error);
         throw error;
       }
 
@@ -70,42 +70,42 @@ export function useTasks() {
     const channel = supabase
       .channel(`tasks:${user.id}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "INSERT",
-          schema: "public",
-          table: "tasks",
+          event: 'INSERT',
+          schema: 'public',
+          table: 'tasks',
           filter: `user_id=eq.${user.id}`,
         },
         () => {
           // Immediately invalidate and refetch tasks when a new one is created
-          queryClient.invalidateQueries({ queryKey: ["tasks", user.id] });
+          queryClient.invalidateQueries({ queryKey: ['tasks', user.id] });
         }
       )
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "UPDATE",
-          schema: "public",
-          table: "tasks",
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tasks',
           filter: `user_id=eq.${user.id}`,
         },
         () => {
           // Also invalidate on updates (e.g., when marked as read)
-          queryClient.invalidateQueries({ queryKey: ["tasks", user.id] });
+          queryClient.invalidateQueries({ queryKey: ['tasks', user.id] });
         }
       )
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "DELETE",
-          schema: "public",
-          table: "tasks",
+          event: 'DELETE',
+          schema: 'public',
+          table: 'tasks',
           filter: `user_id=eq.${user.id}`,
         },
         () => {
           // Invalidate on delete
-          queryClient.invalidateQueries({ queryKey: ["tasks", user.id] });
+          queryClient.invalidateQueries({ queryKey: ['tasks', user.id] });
         }
       )
       .subscribe();
@@ -124,15 +124,15 @@ export function useTasks() {
       if (!user?.id) return;
 
       const { error } = await supabase
-        .from("tasks")
+        .from('tasks')
         .update({ read_at: new Date().toISOString() })
-        .eq("id", taskId)
-        .eq("user_id", user.id);
+        .eq('id', taskId)
+        .eq('user_id', user.id);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] });
     },
   });
 
@@ -142,15 +142,15 @@ export function useTasks() {
       if (!user?.id) return;
 
       const { error } = await supabase
-        .from("tasks")
+        .from('tasks')
         .update({ read_at: new Date().toISOString() })
-        .eq("user_id", user.id)
-        .is("read_at", null);
+        .eq('user_id', user.id)
+        .is('read_at', null);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] });
     },
   });
 
@@ -158,19 +158,19 @@ export function useTasks() {
   const deleteTaskMutation = useMutation({
     mutationFn: async (taskId: number) => {
       if (!user?.id) {
-        throw new Error("User not authenticated");
+        throw new Error('User not authenticated');
       }
 
       const { data, error } = await supabase
-        .from("tasks")
+        .from('tasks')
         .delete()
-        .eq("id", taskId)
-        .eq("user_id", user.id)
+        .eq('id', taskId)
+        .eq('user_id', user.id)
         .select();
 
       if (error) {
-        console.error("Failed to delete task:", error);
-        throw new Error(error.message || "Failed to delete task");
+        console.error('Failed to delete task:', error);
+        throw new Error(error.message || 'Failed to delete task');
       }
 
       // If no rows were deleted, the task might not belong to this user or doesn't exist
@@ -180,12 +180,14 @@ export function useTasks() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] });
     },
     onError: (error) => {
-      console.error("Error deleting task:", error);
+      console.error('Error deleting task:', error);
       // Show user-friendly error
-      alert(`Failed to delete task: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `Failed to delete task: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     },
   });
 
@@ -210,7 +212,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task | null> {
   const { userId, type, title, message, link, metadata } = input;
 
   const { data, error } = await supabase
-    .from("tasks")
+    .from('tasks')
     .insert({
       user_id: userId,
       type,
@@ -223,7 +225,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task | null> {
     .single();
 
   if (error) {
-    console.error("Error creating task:", error);
+    console.error('Error creating task:', error);
     return null;
   }
 
@@ -235,7 +237,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task | null> {
  */
 export async function createTasksForUsers(
   userIds: string[],
-  input: Omit<CreateTaskInput, "userId">
+  input: Omit<CreateTaskInput, 'userId'>
 ): Promise<Task[]> {
   if (userIds.length === 0) return [];
 
@@ -248,13 +250,10 @@ export async function createTasksForUsers(
     metadata: input.metadata || null,
   }));
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .insert(tasks)
-    .select();
+  const { data, error } = await supabase.from('tasks').insert(tasks).select();
 
   if (error) {
-    console.error("Error creating tasks:", error);
+    console.error('Error creating tasks:', error);
     return [];
   }
 
@@ -264,14 +263,16 @@ export async function createTasksForUsers(
 /**
  * Get user IDs for a specific role (e.g., all bookings team members)
  */
-export async function getUserIdsByRole(role: "admin" | "coach" | "bookings_team"): Promise<string[]> {
+export async function getUserIdsByRole(
+  role: 'admin' | 'coach' | 'bookings_team'
+): Promise<string[]> {
   const { data, error } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("role", role);
+    .from('profiles')
+    .select('id')
+    .eq('role', role);
 
   if (error) {
-    console.error("Error fetching users by role:", error);
+    console.error('Error fetching users by role:', error);
     return [];
   }
 
@@ -289,18 +290,17 @@ export async function deleteTasksForBooking(bookingId: number): Promise<void> {
     // Types that should be cleared: booking:created, booking:edited, last_minute_change
     // Note: booking_id in metadata is stored as a number, so we extract it as text and compare
     const { error } = await supabase
-      .from("tasks")
+      .from('tasks')
       .delete()
-      .eq("metadata->>booking_id", bookingId.toString())
-      .in("type", ["booking:created", "booking:edited", "last_minute_change"]);
+      .eq('metadata->>booking_id', bookingId.toString())
+      .in('type', ['booking:created', 'booking:edited', 'last_minute_change']);
 
     if (error) {
-      console.error("Error deleting tasks for booking:", error);
+      console.error('Error deleting tasks for booking:', error);
       // Don't throw - this is a cleanup operation, shouldn't fail the main process
     }
   } catch (err) {
-    console.error("Failed to delete tasks for booking:", err);
+    console.error('Failed to delete tasks for booking:', err);
     // Don't throw - this is a cleanup operation
   }
 }
-
