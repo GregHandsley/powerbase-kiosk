@@ -116,7 +116,8 @@ function getMergedBlocks(
   });
 
   // Close any remaining block at the end
-  if (currentBlock !== null) {
+  if (currentBlock) {
+    const block: CurrentBlock = currentBlock; // Explicit type annotation
     const lastSlotIndex = timeSlots.length - 1;
     // For the last block, calculate the end time as the next slot after the last slot
     // Since we're at the end, we'll use the last slot's time + 30 minutes
@@ -128,12 +129,12 @@ function getMergedBlocks(
         ? formatTimeSlot({ hour: endHour, minute: endMinute })
         : formatTimeSlot(lastSlot);
     blocks.push({
-      startSlot: currentBlock.startSlot,
+      startSlot: block.startSlot,
       endSlot: lastSlotIndex,
-      rowSpan: timeSlots.length - currentBlock.startSlot,
-      capacity: currentBlock.capacity,
-      periodType: currentBlock.periodType,
-      startTime: currentBlock.startTime,
+      rowSpan: timeSlots.length - block.startSlot,
+      capacity: block.capacity,
+      periodType: block.periodType,
+      startTime: block.startTime,
       endTime: endTime,
     });
   }

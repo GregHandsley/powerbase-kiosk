@@ -21,12 +21,13 @@ export function calculateUnavailableBlocksByRack(
 
   racks.forEach((rack) => {
     const blocks: UnavailableBlock[] = [];
-    let currentBlock: {
+    type CurrentBlockType = {
       startSlot: number;
       periodType: 'General User' | 'Closed';
       startTime: string;
       periodEndTime?: string; // Store the actual end time for closed periods
-    } | null = null;
+    };
+    let currentBlock: CurrentBlockType | null = null;
 
     timeSlots.forEach((slot, slotIndex) => {
       const capacityData = slotCapacityData.get(slotIndex);
@@ -112,19 +113,20 @@ export function calculateUnavailableBlocksByRack(
     });
 
     // Close any remaining block at the end
-    if (currentBlock !== null) {
+    if (currentBlock) {
+      const block: CurrentBlockType = currentBlock; // Explicit type annotation
       // For closed periods, use the stored periodEndTime if available
       // Otherwise, use the last slot's time
       const endTime =
-        currentBlock.periodType === 'Closed' && currentBlock.periodEndTime
-          ? currentBlock.periodEndTime
+        block.periodType === 'Closed' && block.periodEndTime
+          ? block.periodEndTime
           : formatTimeSlot(timeSlots[timeSlots.length - 1]);
       blocks.push({
-        startSlot: currentBlock.startSlot,
+        startSlot: block.startSlot,
         endSlot: timeSlots.length - 1,
-        rowSpan: timeSlots.length - currentBlock.startSlot,
-        periodType: currentBlock.periodType,
-        startTime: currentBlock.startTime,
+        rowSpan: timeSlots.length - block.startSlot,
+        periodType: block.periodType,
+        startTime: block.startTime,
         endTime: endTime,
       });
     }

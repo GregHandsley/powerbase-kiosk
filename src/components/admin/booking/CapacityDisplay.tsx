@@ -26,13 +26,21 @@ export function CapacityDisplay({
 
   // Group violations by week
   const violationsByWeek = useMemo(() => {
-    const grouped = new Map<number, typeof violations>();
+    type Violation = {
+      week?: number;
+      time: string;
+      timeStr: string;
+      used: number;
+      limit: number;
+      periodType: string;
+    };
+    const grouped = new Map<number, Violation[]>();
     violations.forEach((v) => {
-      const week = (v as (typeof violations)[0] & { week?: number }).week || 1;
+      const week = (v as Violation).week || 1;
       if (!grouped.has(week)) {
         grouped.set(week, []);
       }
-      grouped.get(week)!.push(v);
+      grouped.get(week)!.push(v as Violation);
     });
     return grouped;
   }, [violations]);

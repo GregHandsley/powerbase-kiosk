@@ -23,6 +23,4 @@ export { calculateUnavailableBlocksByRack } from './utils/unavailableBlocks';
 // Components
 export { ScheduleGridHeader } from './components/ScheduleGridHeader';
 export { ScheduleGridRow } from './components/ScheduleGridRow';
-export { BookingBlock } from './components/BookingBlock';
-export { UnavailableBlock } from './components/UnavailableBlock';
 export { CurrentTimeIndicator } from './components/CurrentTimeIndicator';

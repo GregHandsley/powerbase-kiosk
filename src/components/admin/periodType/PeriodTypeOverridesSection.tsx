@@ -101,10 +101,13 @@ export function PeriodTypeOverridesSection({
                           )
                         }
                         onDeleteSelected={() => {
-                          const instanceIds = Array.from(
+                          const rawIds = Array.from(
                             selectedInstances.get(override.booking_id!) ||
                               new Set()
                           );
+                          const instanceIds = rawIds
+                            .map((x) => (typeof x === 'number' ? x : Number(x)))
+                            .filter((x): x is number => Number.isFinite(x));
                           if (instanceIds.length === 0) {
                             alert(
                               'Please select at least one instance to delete'

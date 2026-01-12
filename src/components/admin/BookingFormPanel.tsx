@@ -60,9 +60,14 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   useEffect(() => {
     if (initialValues) {
       // Use a deep comparison or stringify to ensure we detect changes
-      const valuesToSet = {
+      // Ensure sideKey is properly typed as the union type
+      const sideKeyValue: BookingFormValues['sideKey'] =
+        initialValues.sideKey === 'Power' || initialValues.sideKey === 'Base'
+          ? initialValues.sideKey
+          : 'Power';
+
+      const valuesToSet: BookingFormValues = {
         title: '',
-        sideKey: 'Power',
         startDate: todayStr,
         startTime: '07:00',
         endTime: '08:30',
@@ -73,6 +78,8 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
         isLocked: false,
         capacity: 1,
         ...initialValues,
+        // Ensure sideKey is properly typed after spread (override if needed)
+        sideKey: sideKeyValue,
       };
       form.reset(valuesToSet, { keepDefaultValues: false });
     }

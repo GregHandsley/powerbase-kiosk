@@ -18,6 +18,18 @@ interface RecentActivity {
   activity_date: string;
 }
 
+type BookingQueryResult = {
+  id: number;
+  title: string;
+  created_at: string;
+  last_edited_at: string | null;
+  last_minute_change: boolean;
+  cutoff_at: string | null;
+  created_by: string;
+  side: { name: string; key: string } | { name: string; key: string }[] | null;
+  creator: { full_name: string | null } | { full_name: string | null }[] | null;
+};
+
 export function LastMinuteChangesWidget() {
   const { data: activities = [], isLoading } = useQuery({
     queryKey: ['recent-booking-activity'],
@@ -90,7 +102,17 @@ export function LastMinuteChangesWidget() {
       const allActivities: RecentActivity[] = [];
 
       // Add created bookings
-      (createdBookings ?? []).forEach((booking) => {
+      (createdBookings ?? []).forEach((booking: BookingQueryResult) => {
+        const creatorName = Array.isArray(booking.creator)
+          ? booking.creator[0]?.full_name
+          : booking.creator?.full_name;
+        const sideName = Array.isArray(booking.side)
+          ? booking.side[0]?.name
+          : booking.side?.name;
+        const sideKey = Array.isArray(booking.side)
+          ? booking.side[0]?.key
+          : booking.side?.key;
+
         allActivities.push({
           id: booking.id,
           title: booking.title,
@@ -99,19 +121,26 @@ export function LastMinuteChangesWidget() {
           last_minute_change: booking.last_minute_change,
           cutoff_at: booking.cutoff_at,
           created_by: booking.created_by,
-          creator_name:
-            (booking.creator as { full_name: string } | null)?.full_name ||
-            null,
-          side_name:
-            (booking.side as { name: string } | null)?.name || 'Unknown',
-          side_key: (booking.side as { key: string } | null)?.key || 'unknown',
+          creator_name: creatorName || null,
+          side_name: sideName || 'Unknown',
+          side_key: sideKey || 'unknown',
           activity_type: 'created',
           activity_date: booking.created_at,
         });
       });
 
       // Add edited bookings
-      (editedBookings ?? []).forEach((booking) => {
+      (editedBookings ?? []).forEach((booking: BookingQueryResult) => {
+        const creatorName = Array.isArray(booking.creator)
+          ? booking.creator[0]?.full_name
+          : booking.creator?.full_name;
+        const sideName = Array.isArray(booking.side)
+          ? booking.side[0]?.name
+          : booking.side?.name;
+        const sideKey = Array.isArray(booking.side)
+          ? booking.side[0]?.key
+          : booking.side?.key;
+
         allActivities.push({
           id: booking.id,
           title: booking.title,
@@ -120,12 +149,9 @@ export function LastMinuteChangesWidget() {
           last_minute_change: booking.last_minute_change,
           cutoff_at: booking.cutoff_at,
           created_by: booking.created_by,
-          creator_name:
-            (booking.creator as { full_name: string } | null)?.full_name ||
-            null,
-          side_name:
-            (booking.side as { name: string } | null)?.name || 'Unknown',
-          side_key: (booking.side as { key: string } | null)?.key || 'unknown',
+          creator_name: creatorName || null,
+          side_name: sideName || 'Unknown',
+          side_key: sideKey || 'unknown',
           activity_type: 'edited',
           activity_date: booking.last_edited_at || booking.created_at,
         });
@@ -139,24 +165,6 @@ export function LastMinuteChangesWidget() {
             new Date(a.activity_date).getTime()
         )
         .slice(0, 10);
-
-      if (error) {
-        console.error('Error fetching last-minute changes:', error);
-        return [];
-      }
-
-      return (data ?? []).map((booking) => ({
-        id: booking.id,
-        title: booking.title,
-        created_at: booking.created_at,
-        last_minute_change: booking.last_minute_change,
-        cutoff_at: booking.cutoff_at,
-        created_by: booking.created_by,
-        creator_name:
-          (booking.creator as { full_name: string } | null)?.full_name || null,
-        side_name: (booking.side as { name: string } | null)?.name || 'Unknown',
-        side_key: (booking.side as { key: string } | null)?.key || 'unknown',
-      })) as LastMinuteChange[];
     },
     refetchInterval: 30000, // Refetch every 30 seconds
   });

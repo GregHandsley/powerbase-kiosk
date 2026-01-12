@@ -34,8 +34,10 @@ export function useClosedTimes(sideId: number | null, date: string | null) {
     setIsLoading(true);
 
     async function fetchClosedTimes() {
-      const dayOfWeek = getDay(new Date(date));
-      const dateObj = new Date(date);
+      if (!date) return; // Guard against null
+      const dateStr: string = date; // Narrow type after null check
+      const dayOfWeek = getDay(new Date(dateStr));
+      const dateObj = new Date(dateStr);
       const weekStart = new Date(dateObj);
       weekStart.setDate(dateObj.getDate() - dayOfWeek);
       const weekEnd = new Date(weekStart);
@@ -70,7 +72,7 @@ export function useClosedTimes(sideId: number | null, date: string | null) {
         const appliesToDate = doesScheduleApply(
           scheduleData,
           dayOfWeek,
-          date,
+          dateStr,
           schedule.start_time
         );
 
@@ -386,8 +388,10 @@ export function useGeneralUserPeriods(
     setIsLoading(true);
 
     async function fetchGeneralUserPeriods() {
-      const dayOfWeek = getDay(new Date(date));
-      const dateObj = new Date(date);
+      if (!date) return; // Guard against null
+      const dateStr: string = date; // Narrow type after null check
+      const dayOfWeek = getDay(new Date(dateStr));
+      const dateObj = new Date(dateStr);
       const weekStart = new Date(dateObj);
       weekStart.setDate(dateObj.getDate() - dayOfWeek);
       const weekEnd = new Date(weekStart);
@@ -425,7 +429,7 @@ export function useGeneralUserPeriods(
         const appliesToDate = doesScheduleApply(
           scheduleData,
           dayOfWeek,
-          date,
+          dateStr,
           schedule.start_time
         );
 

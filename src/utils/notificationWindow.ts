@@ -178,7 +178,7 @@ export async function getNotificationWindowMessage(
  * @returns A string like "Bookings cannot be made within 12 hours of session start"
  */
 export async function getHardRestrictionMessage(
-  sessionStartTime: Date,
+  _sessionStartTime: Date,
   settings?: NotificationWindowSettings
 ): Promise<string> {
   const config = settings || (await getNotificationWindowSettings());

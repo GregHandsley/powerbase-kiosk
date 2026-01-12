@@ -40,6 +40,87 @@ type RawInstanceRow = {
     | null;
 };
 
+type BookingRowFull = {
+  title: string | null;
+  color: string | null;
+  is_locked: boolean | null;
+  created_by: string | null;
+  status: BookingStatus | null;
+  processed_by: string | null;
+  processed_at: string | null;
+  last_edited_at: string | null;
+  last_edited_by: string | null;
+};
+
+type InstanceRowFull = {
+  id: number | null;
+  booking_id: number | null;
+  side_id: number | null;
+  start: string | null;
+  end: string | null;
+  areas: unknown;
+  racks: unknown;
+  created_at: string | null;
+  updated_at: string | null;
+  booking: BookingRowFull[];
+};
+
+// Type coercion helpers
+const asStringOrNull = (v: unknown): string | null =>
+  typeof v === 'string' ? v : null;
+
+const asNumberOrNull = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) ? v : null;
+
+const asBooleanOrNull = (v: unknown): boolean | null =>
+  typeof v === 'boolean' ? v : null;
+
+const asRecord = (v: unknown): Record<string, unknown> | null =>
+  v && typeof v === 'object' && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : null;
+
+function normalizeBooking(input: unknown): BookingRowFull {
+  const b = asRecord(input);
+
+  return {
+    title: asStringOrNull(b?.title),
+    color: asStringOrNull(b?.color),
+    is_locked: asBooleanOrNull(b?.is_locked),
+    created_by: asStringOrNull(b?.created_by),
+    status: typeof b?.status === 'string' ? (b.status as BookingStatus) : null,
+    processed_by: asStringOrNull(b?.processed_by),
+    processed_at: asStringOrNull(b?.processed_at),
+    last_edited_at: asStringOrNull(b?.last_edited_at),
+    last_edited_by: asStringOrNull(b?.last_edited_by),
+  };
+}
+
+function normalizeFallbackInstanceRow(input: unknown): InstanceRowFull {
+  const row = asRecord(input);
+
+  const bookingRaw = row?.booking;
+  const bookingArray = Array.isArray(bookingRaw)
+    ? bookingRaw
+    : bookingRaw
+      ? [bookingRaw]
+      : [];
+
+  return {
+    id: asNumberOrNull(row?.id),
+    booking_id: asNumberOrNull(row?.booking_id),
+    side_id: asNumberOrNull(row?.side_id),
+    start: asStringOrNull(row?.start),
+    end: asStringOrNull(row?.end),
+    // IMPORTANT: make these always present (your error says areas was optional)
+    areas: row?.areas ?? [],
+    racks: row?.racks ?? [],
+    created_at: asStringOrNull(row?.created_at),
+    updated_at: asStringOrNull(row?.updated_at),
+    booking: bookingArray.map(normalizeBooking),
+  };
+}
+
 function normalizeInstanceRow(
   row: RawInstanceRow
 ): BookingInstanceWithBookingRow {
@@ -192,7 +273,8 @@ export async function getInstancesAtNode(sideId: number, atIso: string) {
 
     const fallbackResult = await fallbackQuery;
     if (!fallbackResult.error) {
-      data = fallbackResult.data;
+      // Map fallback data to add missing booking fields
+      data = (fallbackResult.data ?? []).map(normalizeFallbackInstanceRow);
       error = null;
     } else {
       // If fallback also fails, return the original error
@@ -290,7 +372,8 @@ export async function getFutureInstancesForRackNode(
 
     const fallbackResult = await fallbackQuery;
     if (!fallbackResult.error) {
-      data = fallbackResult.data;
+      // Map fallback data to add missing booking fields
+      data = (fallbackResult.data ?? []).map(normalizeFallbackInstanceRow);
       error = null;
     } else {
       // If fallback also fails, return the original error

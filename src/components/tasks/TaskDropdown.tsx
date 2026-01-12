@@ -182,7 +182,7 @@ export function TaskDropdown({ onClose }: TaskDropdownProps) {
         <h3 className="text-sm font-semibold text-slate-200">Tasks</h3>
         {unreadCount > 0 && (
           <button
-            onClick={markAllAsRead}
+            onClick={() => markAllAsRead()}
             className="text-xs text-slate-400 hover:text-slate-300 transition-colors"
           >
             Mark all as done

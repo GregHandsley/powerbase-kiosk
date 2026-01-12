@@ -29,15 +29,14 @@ export const BookingFormSchema = z.object({
     .min(1, { message: 'At least 1 week' })
     .max(16, { message: 'Maximum 16 weeks for now' }),
   racksInput: z.string().min(1, 'At least one rack number is required'),
-  areas: z.array(z.string()).default([]),
+  areas: z.array(z.string()), // Required - default provided in form defaultValues
   color: z.string().optional(),
   isLocked: z.boolean().optional(), // will be ignored for non-admins
   capacity: z
     .number()
     .int({ message: 'Number of athletes must be a whole number' })
     .min(1, { message: 'Number of athletes must be at least 1' })
-    .max(100, { message: 'Number of athletes cannot exceed 100' })
-    .default(1),
+    .max(100, { message: 'Number of athletes cannot exceed 100' }), // Required - default provided in form defaultValues
 });
 
 export type BookingFormValues = z.infer<typeof BookingFormSchema>;

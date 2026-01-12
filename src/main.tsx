@@ -1,7 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  QueryClient,
+  QueryClientProvider,
+  QueryCache,
+  MutationCache,
+} from '@tanstack/react-query';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { Toaster } from 'react-hot-toast';
 import * as Sentry from '@sentry/react';
@@ -14,6 +19,28 @@ import { initSentry, captureQueryError } from './lib/sentry';
 initSentry();
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error: Error, query) => {
+      // Track React Query errors in Sentry
+      const key = query.queryKey ? [...query.queryKey] : [];
+      captureQueryError(error, key, {
+        queryState: query.state,
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error: Error, _variables, _context, mutation) => {
+      // Track mutation errors in Sentry
+      // In React Query v5, mutation options are accessed via mutation.options
+      const key = mutation.options?.mutationKey
+        ? [...mutation.options.mutationKey]
+        : [];
+      captureQueryError(error, key, {
+        variables: _variables,
+        context: _context,
+      });
+    },
+  }),
   defaultOptions: {
     queries: {
       refetchInterval: 20_000,
@@ -21,21 +48,6 @@ const queryClient = new QueryClient({
       refetchOnReconnect: true,
       retry: 3,
       staleTime: 10_000,
-      onError: (error, query) => {
-        // Track React Query errors in Sentry
-        captureQueryError(error as Error, query.queryKey, {
-          queryState: query.state,
-        });
-      },
-    },
-    mutations: {
-      onError: (error, variables, context, mutation) => {
-        // Track mutation errors in Sentry
-        captureQueryError(error as Error, mutation.mutationKey || [], {
-          variables,
-          context,
-        });
-      },
     },
   },
 });
@@ -66,9 +78,20 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   );
 }
 
+// Wrapper for Sentry ErrorBoundary that matches its expected signature
+function SentryErrorFallback({
+  error,
+  resetError,
+}: {
+  error: unknown;
+  resetError: () => void;
+}) {
+  return <ErrorFallback error={error} resetErrorBoundary={resetError} />;
+}
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
+    <Sentry.ErrorBoundary fallback={SentryErrorFallback} showDialog={false}>
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>

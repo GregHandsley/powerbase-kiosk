@@ -243,8 +243,7 @@ export function Schedule() {
       timeSlots,
       currentDate,
       bookings,
-      capacitySchedules as ScheduleData[],
-      sideId
+      capacitySchedules as ScheduleData[]
     );
   }, [sideId, capacitySchedules, timeSlots, currentDate, bookings]);
 
@@ -330,7 +329,13 @@ export function Schedule() {
           onGoToToday={goToToday}
           onSideChange={setSelectedSide}
           onDateChange={setCurrentDate}
-          lockedSide={isSelectingRacks && bookingSide ? bookingSide : undefined}
+          lockedSide={
+            isSelectingRacks && bookingSide
+              ? bookingSide === 'Power' || bookingSide === 'Base'
+                ? bookingSide
+                : undefined
+              : undefined
+          }
         />
       </header>
 
@@ -361,30 +366,40 @@ export function Schedule() {
           />
 
           {/* Mini Schedule Floorplan for rack selection */}
-          {currentWeekTimeRange && (
-            <div className="border border-slate-700 rounded-lg bg-slate-900/60 p-4">
-              <MiniScheduleFloorplan
-                sideKey={bookingSide ?? selectedSide}
-                selectedRacks={selectedRacks}
-                onRackClick={(rackNumber, replaceSelection = false) => {
-                  if (replaceSelection) {
-                    setSelectedRacks([rackNumber]);
-                    setRackValidationError(null);
-                    return;
-                  }
-                  handleRackClick(rackNumber);
-                }}
-                startTime={currentWeekTimeRange.start}
-                endTime={currentWeekTimeRange.end}
-                showTitle={true}
-                allowConflictingRacks={false}
-                ignoreBookings={false}
-                excludeInstanceIds={
-                  new Set(seriesInstancesForRacks.map((inst) => inst.id))
-                }
-              />
-            </div>
-          )}
+          {currentWeekTimeRange &&
+            (() => {
+              const bookingSideKey: 'Power' | 'Base' | undefined =
+                bookingSide === 'Power' || bookingSide === 'Base'
+                  ? bookingSide
+                  : undefined;
+              const finalSideKey: 'Power' | 'Base' =
+                bookingSideKey ?? selectedSide;
+
+              return (
+                <div className="border border-slate-700 rounded-lg bg-slate-900/60 p-4">
+                  <MiniScheduleFloorplan
+                    sideKey={finalSideKey}
+                    selectedRacks={selectedRacks}
+                    onRackClick={(rackNumber, replaceSelection = false) => {
+                      if (replaceSelection) {
+                        setSelectedRacks([rackNumber]);
+                        setRackValidationError(null);
+                        return;
+                      }
+                      handleRackClick(rackNumber);
+                    }}
+                    startTime={currentWeekTimeRange.start}
+                    endTime={currentWeekTimeRange.end}
+                    showTitle={true}
+                    allowConflictingRacks={false}
+                    ignoreBookings={false}
+                    excludeInstanceIds={
+                      new Set(seriesInstancesForRacks.map((inst) => inst.id))
+                    }
+                  />
+                </div>
+              );
+            })()}
         </div>
       )}
 

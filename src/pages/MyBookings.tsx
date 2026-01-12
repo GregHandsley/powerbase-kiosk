@@ -165,7 +165,11 @@ export function MyBookings() {
           {currentWeekTimeRange && bookingSide && (
             <div className="border border-slate-700 rounded-lg bg-slate-900/60 p-4">
               <MiniScheduleFloorplan
-                sideKey={bookingSide}
+                sideKey={
+                  bookingSide === 'Power' || bookingSide === 'Base'
+                    ? bookingSide
+                    : 'Power'
+                }
                 selectedRacks={selectedRacks}
                 onRackClick={(rackNumber, replaceSelection = false) => {
                   if (replaceSelection) {
@@ -263,7 +267,7 @@ export function MyBookings() {
           isOpen={!!editingBooking && !isSelectingRacks}
           onClose={handleBookingModalClose}
           onClearRacks={handleEditRacksRacks}
-          onSaveTime={() => {}}
+          onSaveTime={async () => {}}
           initialSelectedInstances={
             savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined
           }

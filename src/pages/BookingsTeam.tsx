@@ -535,11 +535,11 @@ export function BookingsTeam() {
           isOpen={!!processingBooking}
           title="Mark as Processed"
           message={`Are you sure you want to mark "${processingBooking.title}" as processed?`}
-          confirmText="Process"
-          cancelText="Cancel"
+          confirmLabel="Process"
+          cancelLabel="Cancel"
           onConfirm={() => handleProcessBooking(processingBooking)}
           onCancel={() => setProcessingBooking(null)}
-          variant="default"
+          confirmVariant="primary"
         />
       )}
     </div>

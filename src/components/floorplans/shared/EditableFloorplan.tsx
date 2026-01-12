@@ -1,7 +1,8 @@
 import type { SideSnapshot, ActiveInstance } from '../../../types/snapshot';
 // import { BaseFloorplan } from '../base/BaseFloorplan';
 // import { PowerbaseFloorSvg } from '../power/PowerFloorplan';
-import { EditableRackSlot, type RackLayoutSlot } from './EditableRackSlot';
+import { EditableRackSlot } from './EditableRackSlot';
+import type { RackLayoutSlot } from './RackSlot';
 import { FloorShell } from '../base/FloorShell';
 import '../../../styles/floorplan.css';
 
@@ -198,7 +199,7 @@ export function EditableFloorplan({
                 nextUse={nextUseByRack[String(rack.number)] ?? null}
                 snapshotDate={snapshotDate}
                 isSelected={isSelected}
-                isDisabled={isUsedByOtherBooking}
+                isDisabled={Boolean(isUsedByOtherBooking)}
                 isClickable={isClickable}
                 onClick={onRackClick}
               />
@@ -370,7 +371,7 @@ export function EditableFloorplan({
                 nextUse={nextUseByRack[String(rack.number)] ?? null}
                 snapshotDate={snapshotDate}
                 isSelected={isSelected}
-                isDisabled={isUsedByOtherBooking}
+                isDisabled={Boolean(isUsedByOtherBooking)}
                 isClickable={isClickable}
                 onClick={onRackClick}
               />

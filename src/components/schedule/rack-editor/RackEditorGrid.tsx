@@ -170,7 +170,12 @@ export function RackEditorGrid({
             unavailableReason={unavailableReason}
             onRackClick={
               onRackClick && row.rackNumber !== null
-                ? () => onRackClick(row.rackNumber)
+                ? () => {
+                    const rackNum = row.rackNumber;
+                    if (rackNum !== null) {
+                      onRackClick(rackNum);
+                    }
+                  }
                 : undefined
             }
           />
