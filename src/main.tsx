@@ -14,6 +14,10 @@ import App from './App';
 import './styles/index.css';
 import { AuthProvider } from './context/AuthContext';
 import { initSentry, captureQueryError } from './lib/sentry';
+import { getOrganisation } from './config';
+
+// Initialize organisation once at app startup
+export const ORGANISATION = getOrganisation();
 
 // Initialize Sentry as early as possible
 initSentry();

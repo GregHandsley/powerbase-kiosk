@@ -8,6 +8,11 @@ export const SUPABASE_ANON_KEY = import.meta.env
 
 export const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
 
+// Optional org override (dev / preview)
+export const ORG_OVERRIDE = import.meta.env.VITE_ORG_OVERRIDE as
+  | string
+  | undefined;
+
 // Will be injected by Vite define(), fallback to "dev"
 declare const __APP_VERSION__: string | undefined;
 export const APP_VERSION =
