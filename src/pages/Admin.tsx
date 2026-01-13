@@ -6,6 +6,7 @@ import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { CapacityManagement } from '../components/admin/CapacityManagement';
 import { PeriodTypeCapacityManagement } from '../components/admin/PeriodTypeCapacityManagement';
 import { NotificationSettings } from '../components/admin/notification-settings/NotificationSettings';
+import { AppVersion } from '../components/shared/AppVersion';
 
 export function Admin() {
   const { user, profile, role, loading, signOut, signIn } = useAuth();
@@ -144,6 +145,7 @@ export function Admin() {
             </p>
           </div>
           <div className="flex items-center gap-4">
+            <AppVersion />
             <Clock />
             <button
               onClick={signOut}

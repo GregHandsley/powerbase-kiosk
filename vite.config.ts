@@ -2,8 +2,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 
-// You can read from package.json or a manual string
-import pkg from './package.json';
+// Determine app version from environment variables or fallback to "dev"
+const APP_VERSION =
+  process.env.CF_PAGES_COMMIT_SHA || // Cloudflare Pages env var (when building on Pages)
+  process.env.GITHUB_SHA || // GitHub Actions env var (if you build there)
+  process.env.VITE_APP_VERSION || // manual override
+  'dev';
 
 export default defineConfig({
   plugins: [
@@ -24,7 +28,7 @@ export default defineConfig({
       : null,
   ].filter(Boolean),
   define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
   },
   build: {
     // Generate source maps for production (Sentry will upload them)
