@@ -27,7 +27,6 @@ type BookingQueryResult = {
   cutoff_at: string | null;
   created_by: string;
   side: { name: string; key: string } | { name: string; key: string }[] | null;
-  creator: { full_name: string | null } | { full_name: string | null }[] | null;
 };
 
 export function LastMinuteChangesWidget() {
@@ -53,9 +52,6 @@ export function LastMinuteChangesWidget() {
           side:sides (
             name,
             key
-          ),
-          creator:profiles!bookings_created_by_fkey (
-            full_name
           )
         `
         )
@@ -82,9 +78,6 @@ export function LastMinuteChangesWidget() {
           side:sides (
             name,
             key
-          ),
-          creator:profiles!bookings_created_by_fkey (
-            full_name
           )
         `
         )
@@ -98,14 +91,43 @@ export function LastMinuteChangesWidget() {
         console.error('Error fetching edited bookings:', editedError);
       }
 
+      // Collect all creator IDs
+      const creatorIds = new Set<string>();
+      (createdBookings ?? []).forEach((booking: BookingQueryResult) => {
+        if (booking.created_by) creatorIds.add(booking.created_by);
+      });
+      (editedBookings ?? []).forEach((booking: BookingQueryResult) => {
+        if (booking.created_by) creatorIds.add(booking.created_by);
+      });
+
+      // Fetch all profiles at once
+      const allProfileIds = Array.from(creatorIds);
+      const profilesMap = new Map<
+        string,
+        { id: string; full_name: string | null }
+      >();
+
+      if (allProfileIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', allProfileIds);
+
+        if (profiles) {
+          profiles.forEach((p) => {
+            profilesMap.set(p.id, { id: p.id, full_name: p.full_name });
+          });
+        }
+      }
+
       // Combine and format
       const allActivities: RecentActivity[] = [];
 
       // Add created bookings
       (createdBookings ?? []).forEach((booking: BookingQueryResult) => {
-        const creatorName = Array.isArray(booking.creator)
-          ? booking.creator[0]?.full_name
-          : booking.creator?.full_name;
+        const creator = booking.created_by
+          ? profilesMap.get(booking.created_by)
+          : null;
         const sideName = Array.isArray(booking.side)
           ? booking.side[0]?.name
           : booking.side?.name;
@@ -121,7 +143,7 @@ export function LastMinuteChangesWidget() {
           last_minute_change: booking.last_minute_change,
           cutoff_at: booking.cutoff_at,
           created_by: booking.created_by,
-          creator_name: creatorName || null,
+          creator_name: creator?.full_name || null,
           side_name: sideName || 'Unknown',
           side_key: sideKey || 'unknown',
           activity_type: 'created',
@@ -131,9 +153,9 @@ export function LastMinuteChangesWidget() {
 
       // Add edited bookings
       (editedBookings ?? []).forEach((booking: BookingQueryResult) => {
-        const creatorName = Array.isArray(booking.creator)
-          ? booking.creator[0]?.full_name
-          : booking.creator?.full_name;
+        const creator = booking.created_by
+          ? profilesMap.get(booking.created_by)
+          : null;
         const sideName = Array.isArray(booking.side)
           ? booking.side[0]?.name
           : booking.side?.name;
@@ -149,7 +171,7 @@ export function LastMinuteChangesWidget() {
           last_minute_change: booking.last_minute_change,
           cutoff_at: booking.cutoff_at,
           created_by: booking.created_by,
-          creator_name: creatorName || null,
+          creator_name: creator?.full_name || null,
           side_name: sideName || 'Unknown',
           side_key: sideKey || 'unknown',
           activity_type: 'edited',
