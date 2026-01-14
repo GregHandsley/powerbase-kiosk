@@ -296,20 +296,6 @@ export function CapacityEditForm({
           )}
         </div>
       </div>
-
-      {/* Info Banner - Only show when editing existing schedule */}
-      {existingCapacity && (
-        <div className="p-3 rounded-md bg-amber-900/20 border border-amber-700/50">
-          <p className="text-sm text-amber-300 font-medium">
-            Editing individual day
-          </p>
-          <p className="text-xs text-amber-300/80 mt-1">
-            Changes will only apply to{' '}
-            {format(initialDate, 'EEEE, MMM d, yyyy')}. The rest of the series
-            will remain unchanged.
-          </p>
-        </div>
-      )}
     </>
   );
 }

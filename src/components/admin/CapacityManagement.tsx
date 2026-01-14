@@ -5,6 +5,7 @@ import { CapacityEditModal } from './CapacityEditModal';
 import { WeekNavigationHeader } from './capacity/WeekNavigationHeader';
 import { CapacityCalendarGrid } from './capacity/CapacityCalendarGrid';
 import { DeleteScheduleDialog } from './capacity/DeleteScheduleDialog';
+import { EditScheduleDialog } from './capacity/EditScheduleDialog';
 import { useCapacitySchedules } from './capacity/useCapacitySchedules';
 import { useScheduleDeletion } from './capacity/useScheduleDeletion';
 import { useScheduleSaving } from './capacity/useScheduleSaving';
@@ -54,6 +55,35 @@ export function CapacityManagement() {
   // Schedule saving hook
   const { saveCapacity } = useScheduleSaving(sideId);
 
+  // Edit mode state
+  const [editConfirm, setEditConfirm] = useState<{
+    isOpen: boolean;
+    selectedDate: Date | null;
+    selectedTime: string | null;
+    scheduleInfo: {
+      recurrenceType: string;
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+      periodType: string;
+    } | null;
+    editData: {
+      capacity: number;
+      periodType: PeriodType;
+      recurrenceType: RecurrenceType;
+      startTime: string;
+      endTime: string;
+      platforms: number[];
+    } | null;
+  }>({
+    isOpen: false,
+    selectedDate: null,
+    selectedTime: null,
+    scheduleInfo: null,
+    editData: null,
+  });
+  const [editMode, setEditMode] = useState<'single' | 'future'>('single');
+
   const navigateWeek = (direction: 'prev' | 'next') => {
     setCurrentWeek((prev) => addDays(prev, direction === 'next' ? 7 : -7));
   };
@@ -85,8 +115,29 @@ export function CapacityManagement() {
     const currentSchedule = cellData?.scheduleId
       ? scheduleData.get(cellData.scheduleId)
       : null;
-    const existingScheduleIds = currentSchedule ? [currentSchedule.id] : [];
 
+    // If editing an existing schedule, show the edit mode dialog
+    if (currentSchedule && cellData) {
+      const scheduleInfo = {
+        recurrenceType: currentSchedule.recurrence_type,
+        dayOfWeek: currentSchedule.day_of_week,
+        startTime: currentSchedule.start_time,
+        endTime: currentSchedule.end_time,
+        periodType: currentSchedule.period_type,
+      };
+
+      setEditConfirm({
+        isOpen: true,
+        selectedDate: editingCell.date,
+        selectedTime: editingCell.time,
+        scheduleInfo,
+        editData: data,
+      });
+      setEditMode('single');
+      return;
+    }
+
+    // For new schedules, save directly
     await saveCapacity(
       data,
       editingCell.date,
@@ -94,7 +145,45 @@ export function CapacityManagement() {
         setCurrentWeek((prev) => new Date(prev.getTime()));
         setEditingCell(null);
       },
-      existingScheduleIds
+      [],
+      'single'
+    );
+  };
+
+  const handleConfirmEdit = async () => {
+    if (
+      !editConfirm.editData ||
+      !editConfirm.selectedDate ||
+      !editConfirm.selectedTime
+    )
+      return;
+
+    const [hour, minute] = editConfirm.selectedTime.split(':').map(Number);
+    const cellData = getCellCapacity(editConfirm.selectedDate, {
+      hour,
+      minute,
+    });
+    const currentSchedule = cellData?.scheduleId
+      ? scheduleData.get(cellData.scheduleId)
+      : null;
+    const existingScheduleIds = currentSchedule ? [currentSchedule.id] : [];
+
+    await saveCapacity(
+      editConfirm.editData,
+      editConfirm.selectedDate,
+      () => {
+        setCurrentWeek((prev) => new Date(prev.getTime()));
+        setEditingCell(null);
+        setEditConfirm({
+          isOpen: false,
+          selectedDate: null,
+          selectedTime: null,
+          scheduleInfo: null,
+          editData: null,
+        });
+      },
+      existingScheduleIds,
+      editMode
     );
   };
 
@@ -205,6 +294,24 @@ export function CapacityManagement() {
             scheduleIds: [],
             selectedDate: null,
             scheduleInfo: null,
+          })
+        }
+      />
+
+      <EditScheduleDialog
+        isOpen={editConfirm.isOpen}
+        selectedDate={editConfirm.selectedDate}
+        scheduleInfo={editConfirm.scheduleInfo}
+        editMode={editMode}
+        onEditModeChange={setEditMode}
+        onConfirm={handleConfirmEdit}
+        onCancel={() =>
+          setEditConfirm({
+            isOpen: false,
+            selectedDate: null,
+            selectedTime: null,
+            scheduleInfo: null,
+            editData: null,
           })
         }
       />

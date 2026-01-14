@@ -18,7 +18,8 @@ export function useScheduleSaving(sideId: number | null) {
     data: SaveCapacityData,
     selectedDate: Date,
     onSuccess: () => void,
-    existingScheduleIds: number[] = []
+    existingScheduleIds: number[] = [],
+    editMode: 'single' | 'future' = 'single'
   ) => {
     if (!sideId) return;
 
@@ -62,7 +63,14 @@ export function useScheduleSaving(sideId: number | null) {
       platforms: number[];
     }> = [];
 
-    if (data.recurrenceType === 'single') {
+    // When editing with 'single' mode, always create a single schedule
+    // When editing with 'future' or 'all' mode, preserve the original recurrence type
+    const effectiveRecurrenceType =
+      existingScheduleIds.length > 0 && editMode === 'single'
+        ? 'single'
+        : data.recurrenceType;
+
+    if (effectiveRecurrenceType === 'single') {
       schedulesToCreate.push({
         side_id: sideId,
         day_of_week: dayOfWeek,
@@ -74,7 +82,7 @@ export function useScheduleSaving(sideId: number | null) {
         start_date: startDate,
         platforms: platformsToUse,
       });
-    } else if (data.recurrenceType === 'weekday') {
+    } else if (effectiveRecurrenceType === 'weekday') {
       for (let day = 1; day <= 5; day++) {
         schedulesToCreate.push({
           side_id: sideId,
@@ -88,7 +96,7 @@ export function useScheduleSaving(sideId: number | null) {
           platforms: platformsToUse,
         });
       }
-    } else if (data.recurrenceType === 'weekend') {
+    } else if (effectiveRecurrenceType === 'weekend') {
       schedulesToCreate.push(
         {
           side_id: sideId,
@@ -113,7 +121,7 @@ export function useScheduleSaving(sideId: number | null) {
           platforms: platformsToUse,
         }
       );
-    } else if (data.recurrenceType === 'weekly') {
+    } else if (effectiveRecurrenceType === 'weekly') {
       schedulesToCreate.push({
         side_id: sideId,
         day_of_week: dayOfWeek,
@@ -125,7 +133,7 @@ export function useScheduleSaving(sideId: number | null) {
         start_date: startDate,
         platforms: platformsToUse,
       });
-    } else if (data.recurrenceType === 'all_future') {
+    } else if (effectiveRecurrenceType === 'all_future') {
       schedulesToCreate.push({
         side_id: sideId,
         day_of_week: dayOfWeek,
@@ -195,26 +203,38 @@ export function useScheduleSaving(sideId: number | null) {
           const matchesPeriodType =
             existing.period_type === originalSchedule.period_type;
 
+          if (!matchesDay || !matchesTime || !matchesPeriodType) {
+            return false;
+          }
+
+          // Handle edit modes for recurring schedules
+          if (
+            originalSchedule.recurrence_type !== 'single' &&
+            existing.recurrence_type === originalSchedule.recurrence_type
+          ) {
+            const scheduleStart = new Date(existing.start_date);
+            const selectedDateObj = new Date(startDate);
+
+            // For 'single' mode, only match schedules that apply to the selected date
+            // (i.e., schedules that started on or before the selected date)
+            if (editMode === 'single') {
+              return scheduleStart <= selectedDateObj;
+            }
+            // For 'future' mode, match schedules that started on or before the selected date
+            // (these schedules apply to the selected date and future dates)
+            // Note: We never edit past events - only the selected date and future
+            return scheduleStart <= selectedDateObj;
+          }
+
           // If it's a "single" schedule, also match by start_date
           if (
             originalSchedule.recurrence_type === 'single' &&
             existing.recurrence_type === 'single'
           ) {
-            return (
-              matchesDay &&
-              matchesTime &&
-              matchesPeriodType &&
-              existing.start_date === originalSchedule.start_date
-            );
+            return existing.start_date === originalSchedule.start_date;
           }
 
-          // For recurring schedules, match by day, time, period type, and recurrence type
-          return (
-            matchesDay &&
-            matchesTime &&
-            matchesPeriodType &&
-            existing.recurrence_type === originalSchedule.recurrence_type
-          );
+          return false;
         });
 
         matchingOriginal.forEach((m) => {
@@ -250,6 +270,18 @@ export function useScheduleSaving(sideId: number | null) {
         // If creating a "single" schedule, also exclude any recurring schedules (weekly/all_future/weekday/weekend)
         // that match the same day/time, because we're replacing that occurrence
         if (newSchedule.recurrence_type === 'single') {
+          // For 'single' edit mode, only exclude recurring schedules that apply to the selected date
+          if (editMode === 'single' && existingScheduleIds.length > 0) {
+            const scheduleStart = new Date(existing.start_date);
+            const selectedDateObj = new Date(startDate);
+            return (
+              (existing.recurrence_type === 'weekly' ||
+                existing.recurrence_type === 'all_future' ||
+                existing.recurrence_type === 'weekday' ||
+                existing.recurrence_type === 'weekend') &&
+              scheduleStart <= selectedDateObj
+            );
+          }
           return (
             existing.recurrence_type === 'weekly' ||
             existing.recurrence_type === 'all_future' ||
@@ -279,7 +311,7 @@ export function useScheduleSaving(sideId: number | null) {
 
     // If creating a "single" schedule, we need to exclude this date from any recurring schedules
     // that match the same day/time pattern (to create an override)
-    if (data.recurrenceType === 'single') {
+    if (effectiveRecurrenceType === 'single') {
       const recurringSchedulesToExclude = (allSchedules || []).filter(
         (existing) => {
           const matchesDay = existing.day_of_week === dayOfWeek;
@@ -333,14 +365,55 @@ export function useScheduleSaving(sideId: number | null) {
       }
     }
 
-    for (const schedule of schedulesToCreate) {
-      await supabase
-        .from('capacity_schedules')
-        .delete()
-        .eq('side_id', schedule.side_id)
-        .eq('day_of_week', schedule.day_of_week)
-        .eq('start_time', schedule.start_time)
-        .eq('recurrence_type', schedule.recurrence_type);
+    // Handle schedule updates/deletions based on edit mode
+    // When editing with 'future' mode, we need to preserve past dates by setting end_date
+    // on schedules that started before the selected date
+    if (existingScheduleIds.length > 0 && editMode === 'future') {
+      // For 'future' mode, find schedules that started before the selected date
+      // and set their end_date to the day before the selected date to preserve past dates
+      const originalSchedules = (allSchedules || []).filter((existing) =>
+        existingScheduleIds.includes(existing.id)
+      );
+
+      for (const originalSchedule of originalSchedules) {
+        const scheduleStart = new Date(originalSchedule.start_date);
+        const selectedDateObj = new Date(startDate);
+
+        // If the schedule started before the selected date, set end_date to preserve past dates
+        if (scheduleStart < selectedDateObj) {
+          const endDate = new Date(selectedDateObj);
+          endDate.setDate(endDate.getDate() - 1);
+          const endDateStr = format(endDate, 'yyyy-MM-dd');
+
+          await supabase
+            .from('capacity_schedules')
+            .update({ end_date: endDateStr })
+            .eq('id', originalSchedule.id);
+        }
+      }
+
+      // Delete schedules that start on or after the selected date (they'll be replaced)
+      for (const schedule of schedulesToCreate) {
+        await supabase
+          .from('capacity_schedules')
+          .delete()
+          .eq('side_id', schedule.side_id)
+          .eq('day_of_week', schedule.day_of_week)
+          .eq('start_time', schedule.start_time)
+          .eq('recurrence_type', schedule.recurrence_type)
+          .gte('start_date', startDate);
+      }
+    } else {
+      // For 'single' mode or new schedules, delete all matching schedules
+      for (const schedule of schedulesToCreate) {
+        await supabase
+          .from('capacity_schedules')
+          .delete()
+          .eq('side_id', schedule.side_id)
+          .eq('day_of_week', schedule.day_of_week)
+          .eq('start_time', schedule.start_time)
+          .eq('recurrence_type', schedule.recurrence_type);
+      }
     }
 
     const { error } = await supabase

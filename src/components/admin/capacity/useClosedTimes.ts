@@ -207,7 +207,12 @@ export function isTimeRangeClosed(
 
       // Two ranges overlap if: startMinutes < periodEndMinutes && endMinutes > periodStartMinutes
       // Closed period is [periodStartMinutes, periodEndMinutes) - inclusive start, exclusive end
-      if (startMinutes < periodEndMinutes && endMinutes > periodStartMinutes) {
+      // BUT: if endMinutes === periodStartMinutes, that's allowed (booking ends exactly when closed period starts)
+      if (
+        startMinutes < periodEndMinutes &&
+        endMinutes > periodStartMinutes &&
+        endMinutes !== periodStartMinutes
+      ) {
         return true;
       }
     }
