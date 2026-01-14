@@ -276,10 +276,23 @@ export function useBookingSubmission(
           startTemplate,
           settings
         );
-        throw new Error(
+
+        const hardCutoffError =
           `⚠️ Hard Restriction: ${hardRestrictionMessage}\n\n` +
-            `This booking cannot be created. Please contact an administrator if this is an emergency.`
-        );
+          `Bookings within this window must be handled in person. Please speak to staff.\n`;
+
+        // Non-admins cannot override; block with clear guidance
+        if (role !== 'admin') {
+          throw new Error(hardCutoffError);
+        }
+
+        // Admins may proceed only if they provided a reason
+        if (!values.emergencyReason || !values.emergencyReason.trim()) {
+          throw new Error(
+            hardCutoffError +
+              '\n(Admin: please provide a reason for this emergency booking to proceed.)'
+          );
+        }
       }
 
       // Check notification window (not a hard block, but triggers emails)
@@ -333,7 +346,10 @@ export function useBookingSubmission(
           status: 'pending', // New bookings start as pending
           last_minute_change: lastMinuteChange,
           cutoff_at: notificationDeadline?.toISOString() || null,
-          override_by: lastMinuteChange && role === 'admin' ? userId : null,
+          override_by:
+            role === 'admin' && (lastMinuteChange || isWithinHardRestrict)
+              ? userId
+              : null,
         })
         .select('*')
         .single();

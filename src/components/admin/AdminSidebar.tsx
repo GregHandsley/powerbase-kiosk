@@ -13,17 +13,14 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
     {
       path: '/admin?view=capacity-schedule',
       label: 'Capacity Schedule',
-      icon: '📊',
     },
     {
       path: '/admin?view=period-capacity',
       label: 'Period Capacity',
-      icon: '👥',
     },
     {
       path: '/admin?view=notification-settings',
       label: 'Notification Settings',
-      icon: '🔔',
     },
   ];
 
@@ -80,7 +77,7 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
                     : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 )}
               >
-                <span>{item.icon}</span>
+                {/* <span>{item.icon}</span> */}
                 <span>{item.label}</span>
               </Link>
             );
