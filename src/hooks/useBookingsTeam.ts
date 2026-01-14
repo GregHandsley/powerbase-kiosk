@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { BookingStatus } from '../types/db';
-import { endOfDay } from 'date-fns';
+import { endOfDay, parseISO, isAfter } from 'date-fns';
 
 export type BookingsTeamFilter = {
   status?: BookingStatus | 'all';
@@ -245,7 +245,30 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
       );
 
       // Filter out bookings with no instances (if date filter was applied)
-      return bookingsWithInstances.filter((b) => b.instances.length > 0);
+      const bookingsWithValidInstances = bookingsWithInstances.filter(
+        (b) => b.instances.length > 0
+      );
+
+      // Sort by next session start time (earliest first)
+      const now = new Date();
+      return bookingsWithValidInstances.sort((a, b) => {
+        // Find the next upcoming instance for each booking
+        const getNextInstanceStart = (booking: BookingForTeam) => {
+          const nextInstance = booking.instances.find((inst) => {
+            const startTime = parseISO(inst.start);
+            return isAfter(startTime, now);
+          });
+          // If no future instance, use the last instance (all in past)
+          return nextInstance
+            ? parseISO(nextInstance.start)
+            : parseISO(booking.instances[booking.instances.length - 1].start);
+        };
+
+        const aNextStart = getNextInstanceStart(a);
+        const bNextStart = getNextInstanceStart(b);
+
+        return aNextStart.getTime() - bNextStart.getTime();
+      });
     },
   });
 }

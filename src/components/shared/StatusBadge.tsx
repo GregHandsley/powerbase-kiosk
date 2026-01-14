@@ -5,6 +5,8 @@ type Props = {
   status: BookingStatus;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  isPast?: boolean;
+  isUnprocessedPast?: boolean;
 };
 
 const STATUS_CONFIG: Record<
@@ -55,20 +57,49 @@ const SIZE_CLASSES = {
   lg: 'text-base px-3 py-1.5',
 };
 
-export function StatusBadge({ status, size = 'md', className }: Props) {
+export function StatusBadge({
+  status,
+  size = 'md',
+  className,
+  isPast = false,
+  isUnprocessedPast = false,
+}: Props) {
   const config = STATUS_CONFIG[status];
+
+  // Override styling for unprocessed past bookings (high priority warning)
+  const bgColor = isUnprocessedPast
+    ? 'bg-red-900/40'
+    : isPast
+      ? 'bg-slate-900/60'
+      : config.bgColor;
+  const textColor = isUnprocessedPast
+    ? 'text-red-200'
+    : isPast
+      ? 'text-slate-400'
+      : config.textColor;
+  const borderColor = isUnprocessedPast
+    ? 'border-red-600/70'
+    : isPast
+      ? 'border-slate-600/70'
+      : config.borderColor;
+
+  const label = isUnprocessedPast
+    ? `${config.label} (Past - Unprocessed)`
+    : isPast
+      ? `${config.label} (Past)`
+      : config.label;
 
   return (
     <span
       className={clsx(
         'inline-flex items-center font-medium rounded border',
-        config.bgColor,
-        config.textColor,
-        config.borderColor,
+        bgColor,
+        textColor,
+        borderColor,
         SIZE_CLASSES[size],
         className
       )}
-      title={`Status: ${config.label}`}
+      title={`Status: ${label}`}
     >
       {config.label}
     </span>

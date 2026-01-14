@@ -5,6 +5,7 @@ import type {
   BookingBlock,
   UnavailableBlock,
 } from '../types';
+import { isTimeSlotInPast } from '../../../admin/booking/utils';
 
 // type DragSelectionState = {
 //   isDragging: boolean;
@@ -24,12 +25,15 @@ export function useDragSelection(
   timeSlots: TimeSlot[],
   bookingBlocksByRack: Map<number, BookingBlock[]>,
   slotCapacityData: Map<number, SlotCapacityData>,
-  unavailableBlocksByRack?: Map<number, UnavailableBlock[]>,
-  onDragSelection?: (selection: {
-    startTimeSlot: TimeSlot;
-    endTimeSlot: TimeSlot;
-    racks: number[];
-  }) => void
+  unavailableBlocksByRack: Map<number, UnavailableBlock[]> | undefined,
+  onDragSelection:
+    | ((selection: {
+        startTimeSlot: TimeSlot;
+        endTimeSlot: TimeSlot;
+        racks: number[];
+      }) => void)
+    | undefined,
+  currentDate: Date
 ) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{
@@ -79,6 +83,12 @@ export function useDragSelection(
       slotIndex <= selectedRange.endSlot;
       slotIndex++
     ) {
+      const slot = timeSlots[slotIndex];
+      // Check if this time slot is in the past
+      if (slot && isTimeSlotInPast(currentDate, slot)) {
+        return false;
+      }
+
       for (
         let rackIndex = selectedRange.startRack;
         rackIndex <= selectedRange.endRack;
@@ -121,6 +131,8 @@ export function useDragSelection(
   }, [
     selectedRange,
     racks,
+    timeSlots,
+    currentDate,
     bookingBlocksByRack,
     slotCapacityData,
     unavailableBlocksByRack,
@@ -135,6 +147,12 @@ export function useDragSelection(
     // Only start drag if clicking on an empty, available cell
     const rack = racks[rackIndex];
     if (!rack) return;
+
+    // Check if this time slot is in the past
+    const slot = timeSlots[slotIndex];
+    if (slot && isTimeSlotInPast(currentDate, slot)) {
+      return;
+    }
 
     const bookingBlocks = bookingBlocksByRack.get(rack) ?? [];
     const hasBooking = bookingBlocks.some(

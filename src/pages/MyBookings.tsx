@@ -16,9 +16,13 @@ import { canEditBooking } from '../utils/bookingPermissions';
 export function MyBookings() {
   const { user, role } = useAuth();
   const queryClient = useQueryClient();
+  // Default to today's date to filter out completed sessions
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const [filters, setFilters] = useState<BookingFilter>({
     status: 'all',
     side: 'all',
+    dateFrom: today,
   });
   const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(
     null

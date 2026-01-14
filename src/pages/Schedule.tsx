@@ -5,6 +5,7 @@ import {
   generateTimeSlots,
   type TimeSlot,
 } from '../components/admin/capacity/scheduleUtils';
+import { isTimeSlotInPast } from '../components/admin/booking/utils';
 
 type SlotCapacityData = {
   availablePlatforms: Set<number> | null;
@@ -248,6 +249,11 @@ export function Schedule() {
   }, [sideId, capacitySchedules, timeSlots, currentDate, bookings]);
 
   const handleCellClick = (rack: number, timeSlot: TimeSlot) => {
+    // Prevent clicking on past times
+    if (isTimeSlotInPast(currentDate, timeSlot)) {
+      return;
+    }
+
     // Open the create booking modal with pre-filled values
     setNewBookingContext({
       date: currentDate,

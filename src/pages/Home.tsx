@@ -1,10 +1,29 @@
+import { useState } from 'react';
+import { ConfirmationDialog } from '../components/shared/ConfirmationDialog';
+
 export function Home() {
-  const openKiosk = (path: string, name: string) => {
+  const [kioskWarning, setKioskWarning] = useState<{
+    isOpen: boolean;
+    path: string;
+    name: string;
+    windowName: string;
+  }>({ isOpen: false, path: '', name: '', windowName: '' });
+
+  const handleKioskClick = (path: string, name: string, windowName: string) => {
+    setKioskWarning({ isOpen: true, path, name, windowName });
+  };
+
+  const handleKioskConfirm = () => {
     window.open(
-      path,
-      name,
+      kioskWarning.path,
+      kioskWarning.windowName,
       'noopener,noreferrer,toolbar=0,location=0,menubar=0,status=0,scrollbars=0,resizable=1,width=1600,height=900'
     );
+    setKioskWarning({ isOpen: false, path: '', name: '', windowName: '' });
+  };
+
+  const handleKioskCancel = () => {
+    setKioskWarning({ isOpen: false, path: '', name: '', windowName: '' });
   };
 
   return (
@@ -23,14 +42,18 @@ export function Home() {
         <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
           <button
             type="button"
-            onClick={() => openKiosk('/kiosk/power', 'kiosk-power')}
+            onClick={() =>
+              handleKioskClick('/kiosk/power', 'Kiosk Power', 'kiosk-power')
+            }
             className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white"
           >
             Open Power Kiosk
           </button>
           <button
             type="button"
-            onClick={() => openKiosk('/kiosk/base', 'kiosk-base')}
+            onClick={() =>
+              handleKioskClick('/kiosk/base', 'Kiosk Base', 'kiosk-base')
+            }
             className="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white"
           >
             Open Base Kiosk
@@ -42,6 +65,18 @@ export function Home() {
           point TVs directly to the kiosk URLs.
         </p>
       </div>
+
+      {/* Kiosk Warning Dialog */}
+      <ConfirmationDialog
+        isOpen={kioskWarning.isOpen}
+        title={`Open ${kioskWarning.name}?`}
+        message="This will open a kiosk view intended for display on facility screens. This view is read-only and cannot be interacted with. This is for development purposes. This view will change for production, but functionality will remain the same."
+        confirmLabel="Open Kiosk"
+        cancelLabel="Cancel"
+        onConfirm={handleKioskConfirm}
+        onCancel={handleKioskCancel}
+        confirmVariant="primary"
+      />
     </div>
   );
 }

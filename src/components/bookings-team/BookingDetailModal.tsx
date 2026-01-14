@@ -4,6 +4,10 @@ import { formatDateBritish, formatDateBritishShort } from '../shared/dateUtils';
 import { Modal } from '../shared/Modal';
 import { StatusBadge } from '../shared/StatusBadge';
 import { BookingChanges } from './BookingChanges';
+import {
+  isBookingInPast,
+  isPastBookingUnprocessed,
+} from '../admin/booking/utils';
 import type { BookingForTeam } from '../../hooks/useBookingsTeam';
 import type { BookingStatus } from '../../types/db';
 
@@ -163,6 +167,13 @@ export function BookingDetailModal({
     new Date(booking.last_edited_at) > new Date(booking.processed_at)
   );
 
+  // Check if booking is in the past
+  const bookingIsPast = isBookingInPast(booking.instances);
+  const isUnprocessedPast = isPastBookingUnprocessed(
+    booking.instances,
+    booking.status
+  );
+
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="space-y-4">
@@ -171,7 +182,17 @@ export function BookingDetailModal({
             <h2 className="text-xl font-semibold text-white">
               {booking.title}
             </h2>
-            <StatusBadge status={booking.status as BookingStatus} size="md" />
+            <StatusBadge
+              status={booking.status as BookingStatus}
+              size="md"
+              isPast={bookingIsPast}
+              isUnprocessedPast={isUnprocessedPast}
+            />
+            {bookingIsPast && (
+              <span className="px-2 py-1 text-sm font-medium rounded border bg-green-900/30 text-green-300 border-green-600/50">
+                Completed
+              </span>
+            )}
             {wasEditedAfterProcessing && (
               <span className="px-2 py-1 text-xs bg-amber-900/30 text-amber-300 rounded border border-amber-700/50">
                 Edited After Processing
@@ -179,6 +200,25 @@ export function BookingDetailModal({
             )}
           </div>
         </div>
+
+        {/* Processing Status Alert for Unprocessed Past Bookings */}
+        {isUnprocessedPast && (
+          <div className="p-4 bg-red-900/20 border border-red-600/50 rounded-md">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-red-300 font-semibold text-lg">⚠️</span>
+              <div>
+                <div className="text-red-200 font-semibold mb-1">
+                  Past Booking - Never Processed
+                </div>
+                <div className="text-red-300/90 text-xs">
+                  This booking is in the past but was never processed by the
+                  bookings team. This may indicate a missed booking or
+                  processing oversight.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Prominent Side and Booking Type */}
         <div className="mb-4 pb-4 border-b border-slate-700">
@@ -250,8 +290,23 @@ export function BookingDetailModal({
         {/* Booking Info */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="text-sm text-slate-400 mb-1">Status</div>
-            <div className="text-slate-200">{booking.status}</div>
+            <div className="text-sm text-slate-400 mb-1">Processing Status</div>
+            <div className="text-slate-200">
+              {booking.status === 'processed'
+                ? 'Processed'
+                : booking.status === 'pending'
+                  ? 'Pending Processing'
+                  : booking.status === 'draft'
+                    ? 'Draft'
+                    : booking.status || 'Unknown'}
+            </div>
+            {bookingIsPast && (
+              <div className="text-xs text-slate-500 mt-1">
+                {isUnprocessedPast
+                  ? '⚠️ Past booking - never processed'
+                  : 'All sessions completed'}
+              </div>
+            )}
           </div>
           <div>
             <div className="text-sm text-slate-400 mb-1">Created By</div>
@@ -263,7 +318,7 @@ export function BookingDetailModal({
               {format(parseISO(booking.created_at), 'HH:mm')}
             </div>
           </div>
-          {booking.processed_at && (
+          {booking.processed_at ? (
             <div>
               <div className="text-sm text-slate-400 mb-1">Processed By</div>
               <div className="text-slate-200">
@@ -274,6 +329,11 @@ export function BookingDetailModal({
                 {format(parseISO(booking.processed_at), 'HH:mm')}
               </div>
             </div>
+          ) : (
+            <div>
+              <div className="text-sm text-slate-400 mb-1">Processed By</div>
+              <div className="text-slate-500 italic">Not yet processed</div>
+            </div>
           )}
           {booking.last_edited_at && (
             <div>
@@ -282,6 +342,13 @@ export function BookingDetailModal({
                 {formatDateBritishShort(booking.last_edited_at)} at{' '}
                 {format(parseISO(booking.last_edited_at), 'HH:mm')}
               </div>
+              {booking.processed_at &&
+                new Date(booking.last_edited_at) >
+                  new Date(booking.processed_at) && (
+                  <div className="text-xs text-amber-400 mt-1">
+                    Edited after processing
+                  </div>
+                )}
             </div>
           )}
         </div>

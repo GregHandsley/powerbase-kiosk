@@ -30,6 +30,8 @@ type Props = {
   availablePlatforms?: Set<number> | null;
   /** True when the current time range is during a Closed period */
   isClosedPeriod?: boolean;
+  /** True when the session is in the past - disables all dragging */
+  isPastSession?: boolean;
 };
 
 export function RackEditorGrid({
@@ -54,6 +56,7 @@ export function RackEditorGrid({
   // bookings = [],
   availablePlatforms = null,
   isClosedPeriod = false,
+  isPastSession = false,
 }: Props) {
   const selectedSet = new Set(selectedRacks);
   return (
@@ -145,6 +148,7 @@ export function RackEditorGrid({
             activeId={activeId}
             onEdit={onEditBooking}
             isSelectingRacks={isSelectingRacks}
+            isPastSession={isPastSession}
           />
         ) : row.disabled ? (
           <span className="text-slate-600">Not bookable</span>

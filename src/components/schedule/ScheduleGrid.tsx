@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { isSameDay } from 'date-fns';
 import type { ScheduleGridProps } from './grid/types';
 import { calculateBookingBlocksByRack } from './grid/utils/bookingBlocks';
@@ -8,6 +8,7 @@ import { useDragSelection } from './grid/hooks/useDragSelection';
 import { ScheduleGridHeader } from './grid/components/ScheduleGridHeader';
 import { ScheduleGridRow } from './grid/components/ScheduleGridRow';
 import { CurrentTimeIndicator } from './grid/components/CurrentTimeIndicator';
+import { FixedHorizontalScrollbar } from '../shared/FixedHorizontalScrollbar';
 
 export function ScheduleGrid({
   racks,
@@ -65,8 +66,12 @@ export function ScheduleGrid({
     bookingBlocksByRack,
     slotCapacityData,
     unavailableBlocksByRack,
-    onDragSelection
+    onDragSelection,
+    currentDate
   );
+
+  // Ref for the horizontal scrollable container
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   return (
     <div
@@ -76,7 +81,10 @@ export function ScheduleGrid({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="flex-1 overflow-auto overflow-x-auto relative">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-auto overflow-x-auto relative"
+      >
         {/* Current Time Indicator Line - Only show if viewing today */}
         {currentTimePosition && isToday && (
           <CurrentTimeIndicator
@@ -118,6 +126,7 @@ export function ScheduleGrid({
           ))}
         </div>
       </div>
+      <FixedHorizontalScrollbar scrollContainerRef={scrollContainerRef} />
     </div>
   );
 }

@@ -1,8 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
+import clsx from 'clsx';
 import { formatDateBritish, formatDateBritishShort } from '../shared/dateUtils';
 import { StatusBadge } from '../shared/StatusBadge';
 import { BookingChanges } from './BookingChanges';
+import {
+  isBookingInPast,
+  isPastBookingUnprocessed,
+} from '../admin/booking/utils';
 import type { BookingForTeam } from '../../hooks/useBookingsTeam';
 import type { BookingStatus } from '../../types/db';
 
@@ -182,11 +187,26 @@ export function BookingTeamCard({
     booking.last_edited_at &&
     new Date(booking.last_edited_at) > new Date(booking.processed_at);
 
+  // Check if booking is in the past
+  const bookingIsPast = isBookingInPast(booking.instances);
+  const isUnprocessedPast = isPastBookingUnprocessed(
+    booking.instances,
+    booking.status
+  );
+
   return (
     <div
-      className={`bg-slate-800/50 border rounded-lg p-4 hover:border-slate-600 transition-colors ${
-        isSelected ? 'border-indigo-500 bg-indigo-900/20' : 'border-slate-700'
-      } ${isPending ? 'ring-2 ring-yellow-500/30' : ''}`}
+      className={clsx(
+        'bg-slate-800/50 border rounded-lg p-4 hover:border-slate-600 transition-colors',
+        isSelected && 'border-indigo-500 bg-indigo-900/20',
+        !isSelected &&
+          (isUnprocessedPast
+            ? 'border-red-600/50 bg-red-900/10'
+            : bookingIsPast
+              ? 'border-slate-600/50 bg-slate-900/30'
+              : 'border-slate-700'),
+        isPending && 'ring-2 ring-yellow-500/30'
+      )}
     >
       {/* Prominent Header Section */}
       <div className="mb-4 pb-3 border-b border-slate-700">
@@ -196,7 +216,17 @@ export function BookingTeamCard({
               <h3 className="text-lg font-semibold text-white truncate">
                 {booking.title}
               </h3>
-              <StatusBadge status={booking.status as BookingStatus} size="sm" />
+              <StatusBadge
+                status={booking.status as BookingStatus}
+                size="sm"
+                isPast={bookingIsPast}
+                isUnprocessedPast={isUnprocessedPast}
+              />
+              {bookingIsPast && (
+                <span className="px-2 py-0.5 text-xs font-medium rounded border bg-green-900/30 text-green-300 border-green-600/50">
+                  Completed
+                </span>
+              )}
               {wasEditedAfterProcessing && (
                 <span className="px-2 py-0.5 text-xs bg-amber-900/30 text-amber-300 rounded border border-amber-700/50">
                   Edited
@@ -428,6 +458,17 @@ export function BookingTeamCard({
           </div>
         )}
 
+      {/* Processing Status Alert for Unprocessed Past Bookings */}
+      {isUnprocessedPast && (
+        <div className="mb-4 p-3 bg-red-900/20 border border-red-600/50 rounded-md">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-red-200">
+              This booking is in the past but was never processed
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Booking Details */}
       <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
         <div>
@@ -437,6 +478,11 @@ export function BookingTeamCard({
               ? `${format(parseISO(firstInstance.start), 'HH:mm')} - ${format(parseISO(firstInstance.end), 'HH:mm')}`
               : 'N/A'}
           </div>
+          {bookingIsPast && (
+            <div className="text-xs text-slate-500 mt-1">
+              All sessions completed
+            </div>
+          )}
         </div>
         <div>
           <div className="text-slate-500 mb-1">Assigned Racks</div>
