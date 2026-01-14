@@ -288,7 +288,8 @@ export function MiniScheduleFloorplan({
             title,
             color,
             is_locked,
-            created_by
+            created_by,
+            status
           )
         `
         )
@@ -302,8 +303,22 @@ export function MiniScheduleFloorplan({
         return [];
       }
 
+      // Filter out cancelled bookings (but keep pending_cancellation until confirmed)
+      // Supabase doesn't support filtering on joined table fields
+      const validBookings = (data ?? []).filter((row: unknown) => {
+        const r = row as {
+          booking?: { status?: string } | null;
+        };
+        const status = r.booking?.status;
+        // Only exclude fully cancelled bookings
+        // pending_cancellation bookings should still appear and block capacity until confirmed
+        // If status is undefined/null, include it (backward compatibility)
+        if (!status) return true;
+        return status !== 'cancelled';
+      });
+
       // Normalize the data to match ActiveInstance format
-      return (data ?? []).map((row: unknown) => {
+      return validBookings.map((row: unknown) => {
         const r = row as {
           id: number;
           booking_id: number;
@@ -316,6 +331,7 @@ export function MiniScheduleFloorplan({
             color?: string;
             is_locked?: boolean;
             created_by?: string;
+            status?: string;
           } | null;
         };
         return {

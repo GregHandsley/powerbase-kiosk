@@ -57,7 +57,7 @@ export function BookingsTeam() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const [filters, setFilters] = useState<BookingsTeamFilter>({
-    status: 'pending', // Default to pending
+    status: 'all', // Default to all to include pending_cancellation bookings
     side: 'all',
     dateFrom: today,
   });
@@ -68,6 +68,8 @@ export function BookingsTeam() {
     null
   );
   const [processingBooking, setProcessingBooking] =
+    useState<BookingForTeam | null>(null);
+  const [cancellingBooking, setCancellingBooking] =
     useState<BookingForTeam | null>(null);
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -172,6 +174,54 @@ export function BookingsTeam() {
     } catch (err) {
       console.error('Failed to process booking:', err);
       alert(err instanceof Error ? err.message : 'Failed to process booking');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleConfirmCancellation = async (booking: BookingForTeam) => {
+    if (!user) return;
+
+    setProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          status: 'cancelled',
+          processed_by: user.id,
+          processed_at: new Date().toISOString(),
+        })
+        .eq('id', booking.id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Delete tasks related to this booking since cancellation is confirmed
+      await deleteTasksForBooking(booking.id);
+
+      // Invalidate queries to refresh all views
+      await queryClient.invalidateQueries({ queryKey: ['bookings-team'] });
+      await queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+      await queryClient.invalidateQueries({ queryKey: ['snapshot'] });
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await queryClient.invalidateQueries({ queryKey: ['schedule-bookings'] });
+      await queryClient.invalidateQueries({
+        queryKey: ['booking-instances-for-time'],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['existing-instances-for-capacity-check'],
+      });
+
+      // Close the modal and confirmation dialog immediately after successful cancellation
+      setViewingBooking(null);
+      setCancellingBooking(null);
+      setProcessingBooking(null);
+    } catch (err) {
+      console.error('Failed to confirm cancellation:', err);
+      alert(
+        err instanceof Error ? err.message : 'Failed to confirm cancellation'
+      );
     } finally {
       setProcessing(false);
     }
@@ -519,6 +569,11 @@ export function BookingsTeam() {
               onProcess={setProcessingBooking}
               isSelected={selectedBookings.has(booking.id)}
               onSelect={handleSelectBooking}
+              onConfirmCancellation={
+                booking.status === 'pending_cancellation'
+                  ? () => setCancellingBooking(booking)
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -530,6 +585,17 @@ export function BookingsTeam() {
         isOpen={!!viewingBooking}
         onClose={() => setViewingBooking(null)}
         onProcess={handleProcessBooking}
+        onConfirmCancellation={
+          viewingBooking?.status === 'pending_cancellation'
+            ? () => {
+                console.log(
+                  '[BookingsTeam] Opening cancellation confirmation for:',
+                  viewingBooking
+                );
+                setCancellingBooking(viewingBooking);
+              }
+            : undefined
+        }
         processing={processing}
       />
 
@@ -544,6 +610,30 @@ export function BookingsTeam() {
           onConfirm={() => handleProcessBooking(processingBooking)}
           onCancel={() => setProcessingBooking(null)}
           confirmVariant="primary"
+        />
+      )}
+
+      {/* Cancellation Confirmation */}
+      {cancellingBooking && (
+        <ConfirmationDialog
+          isOpen={!!cancellingBooking}
+          title="Confirm Cancellation"
+          message={`Are you sure you want to confirm the cancellation of "${cancellingBooking.title}"? This will mark it as cancelled and remove it from the schedule.`}
+          confirmLabel="Confirm Cancellation"
+          cancelLabel="Cancel"
+          onConfirm={async () => {
+            console.log(
+              '[BookingsTeam] Confirming cancellation for:',
+              cancellingBooking
+            );
+            await handleConfirmCancellation(cancellingBooking);
+          }}
+          onCancel={() => {
+            console.log('[BookingsTeam] Cancelling cancellation confirmation');
+            setCancellingBooking(null);
+          }}
+          confirmVariant="danger"
+          loading={processing}
         />
       )}
     </div>

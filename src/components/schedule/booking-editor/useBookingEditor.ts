@@ -44,10 +44,11 @@ export function useBookingEditor(
   const [capacity, setCapacity] = useState<number>(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<
-    'selected' | 'series' | null
-  >(null);
-  const [deleting, setDeleting] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelMode, setCancelMode] = useState<'single' | 'future' | 'all'>(
+    'single'
+  );
+  const [cancelling, setCancelling] = useState(false);
   const [selectedInstances, setSelectedInstances] = useState<Set<number>>(
     new Set()
   );
@@ -773,102 +774,145 @@ export function useBookingEditor(
     }
   };
 
-  const handleDeleteSelected = async (): Promise<boolean> => {
-    if (!booking || selectedInstances.size === 0) return false;
+  const handleCancelBooking = async (): Promise<boolean> => {
+    if (!booking || !user) return false;
 
-    setDeleting(true);
+    setCancelling(true);
     setError(null);
 
     try {
-      const instanceIds = Array.from(selectedInstances);
-      const { error: deleteError } = await supabase
-        .from('booking_instances')
-        .delete()
-        .in('id', instanceIds);
+      const now = new Date();
+      const selectedDate = new Date(booking.start);
 
-      if (deleteError) {
-        throw new Error(deleteError.message);
+      // Determine which instances to cancel based on cancelMode
+      let instancesToCancel: number[] = [];
+
+      if (cancelMode === 'single') {
+        // Cancel only the selected instance
+        instancesToCancel = [booking.instanceId];
+      } else if (cancelMode === 'future') {
+        // Cancel selected instance and all future instances
+        instancesToCancel = seriesInstances
+          .filter((inst) => {
+            const instDate = new Date(inst.start);
+            return instDate >= selectedDate;
+          })
+          .map((inst) => inst.id);
+      } else if (cancelMode === 'all') {
+        // Cancel all instances in the series
+        instancesToCancel = seriesInstances.map((inst) => inst.id);
       }
 
-      const remainingCount = seriesInstances.length - instanceIds.length;
-      if (remainingCount === 0) {
+      if (instancesToCancel.length === 0) {
+        throw new Error('No instances to cancel');
+      }
+
+      // Get booking data for task creation
+      const { data: bookingData } = await supabase
+        .from('bookings')
+        .select('title, status, recurrence')
+        .eq('id', booking.bookingId)
+        .single();
+
+      if (!bookingData) {
+        throw new Error('Booking not found');
+      }
+
+      // Check if all instances are being cancelled
+      const allInstancesCancelled =
+        instancesToCancel.length === seriesInstances.length;
+
+      // Update booking status to pending_cancellation if all instances are cancelled
+      // Otherwise, we'll mark individual instances (we may need to add a status field to instances)
+      // For now, if all instances are cancelled, update the booking status
+      if (allInstancesCancelled) {
         const { error: bookingError } = await supabase
           .from('bookings')
-          .delete()
+          .update({
+            status: 'pending_cancellation',
+            last_edited_at: now.toISOString(),
+            last_edited_by: user.id,
+          })
           .eq('id', booking.bookingId);
 
         if (bookingError) {
-          console.warn(
-            'Failed to delete booking after deleting all instances:',
-            bookingError
-          );
+          throw new Error(bookingError.message);
+        }
+      } else {
+        // For partial cancellations, we need to track which instances are cancelled
+        // Since booking_instances doesn't have a status field, we'll:
+        // 1. Update the booking status to pending_cancellation if it's not already
+        // 2. Store cancelled instance IDs in metadata or create a separate tracking table
+        // For now, let's update the booking status and note in the task metadata
+        const { error: bookingError } = await supabase
+          .from('bookings')
+          .update({
+            status: 'pending_cancellation',
+            last_edited_at: now.toISOString(),
+            last_edited_by: user.id,
+          })
+          .eq('id', booking.bookingId);
+
+        if (bookingError) {
+          throw new Error(bookingError.message);
         }
       }
 
-      await queryClient.invalidateQueries({
-        queryKey: ['snapshot'],
-        exact: false,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['booking-instances-debug'],
-        exact: false,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['booking-instances-for-time'],
-        exact: false,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['booking-series'],
-        exact: false,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['booking-series-racks'],
-        exact: false,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['schedule-bookings'],
-        exact: false,
-      });
-      await queryClient.refetchQueries({
-        queryKey: ['snapshot'],
-        exact: false,
-      });
-      return true;
-    } catch (err) {
-      console.error('Failed to delete instances', err);
-      setError(
-        err instanceof Error ? err.message : 'Failed to delete bookings'
-      );
-      return false;
-    } finally {
-      setDeleting(false);
-      setShowDeleteConfirm(null);
-    }
-  };
+      // Create tasks for bookings team
+      let allNotifyIds: string[] = [];
+      try {
+        const bookingsTeamIds = await getUserIdsByRole('bookings_team');
+        const adminIds = await getUserIdsByRole('admin');
+        allNotifyIds = [...new Set([...bookingsTeamIds, ...adminIds])];
 
-  const handleDeleteSeries = async (): Promise<boolean> => {
-    if (!booking) return false;
+        if (allNotifyIds.length > 0) {
+          const cancelledCount = instancesToCancel.length;
+          const totalCount = seriesInstances.length;
+          const isPartial = cancelledCount < totalCount;
 
-    setDeleting(true);
-    setError(null);
+          const createdTasks = await createTasksForUsers(allNotifyIds, {
+            type: 'booking:cancelled',
+            title: isPartial
+              ? `Booking Partially Cancelled`
+              : 'Booking Cancellation Request',
+            message: isPartial
+              ? `Booking "${bookingData.title || 'Untitled'}" has ${cancelledCount} of ${totalCount} sessions marked for cancellation.`
+              : `Booking "${bookingData.title || 'Untitled'}" has been requested for cancellation and needs to be removed from Legend.`,
+            link: `/bookings-team?booking=${booking.bookingId}`,
+            metadata: {
+              booking_id: booking.bookingId,
+              booking_title: bookingData.title || null,
+              cancelled_by: user.id,
+              cancelled_instance_ids: instancesToCancel,
+              cancel_mode: cancelMode,
+              is_partial: isPartial,
+            },
+          });
 
-    try {
-      const { error: instancesError } = await supabase
-        .from('booking_instances')
-        .delete()
-        .eq('booking_id', booking.bookingId);
-
-      if (instancesError) {
-        throw new Error(instancesError.message);
-      }
-
-      const { error: bookingError } = await supabase
-        .from('bookings')
-        .delete()
-        .eq('id', booking.bookingId);
-
-      if (bookingError) {
-        throw new Error(bookingError.message);
+          // Invalidate tasks queries for all notified users so tasks appear immediately
+          if (createdTasks.length > 0) {
+            await Promise.all(
+              allNotifyIds.map((userId) =>
+                queryClient.invalidateQueries({ queryKey: ['tasks', userId] })
+              )
+            );
+          }
+        }
+      } catch (taskError) {
+        console.error('Failed to create tasks for cancellation:', taskError);
+        // Log more details for debugging
+        if (taskError instanceof Error) {
+          console.error('Task creation error details:', {
+            message: taskError.message,
+            stack: taskError.stack,
+            bookingId: booking.bookingId,
+            allNotifyIds,
+          });
+        }
+        // Don't fail the cancellation if tasks fail, but log it prominently
+        setError(
+          `Booking cancelled, but failed to notify bookings team. Please check console for details.`
+        );
       }
 
       await queryClient.invalidateQueries({
@@ -895,20 +939,30 @@ export function useBookingEditor(
         queryKey: ['schedule-bookings'],
         exact: false,
       });
+      await queryClient.invalidateQueries({
+        queryKey: ['bookings-team'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['my-bookings'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['tasks'],
+        exact: false,
+      });
       await queryClient.refetchQueries({
         queryKey: ['snapshot'],
         exact: false,
       });
       return true;
     } catch (err) {
-      console.error('Failed to delete series', err);
-      setError(
-        err instanceof Error ? err.message : 'Failed to delete booking series'
-      );
+      console.error('Failed to cancel booking', err);
+      setError(err instanceof Error ? err.message : 'Failed to cancel booking');
       return false;
     } finally {
-      setDeleting(false);
-      setShowDeleteConfirm(null);
+      setCancelling(false);
+      setShowCancelDialog(false);
     }
   };
 
@@ -1317,8 +1371,9 @@ export function useBookingEditor(
     capacity,
     saving,
     error,
-    showDeleteConfirm,
-    deleting,
+    showCancelDialog,
+    cancelMode,
+    cancelling,
     selectedInstances,
     applyToAll,
     currentWeekIndex,
@@ -1335,7 +1390,8 @@ export function useBookingEditor(
     setEndTime: handleEndTimeChange,
     setCapacity: handleCapacityChange,
     setError,
-    setShowDeleteConfirm,
+    setShowCancelDialog,
+    setCancelMode,
     setApplyToAll,
     setCurrentWeekIndex,
     setShowExtendDialog,
@@ -1345,8 +1401,7 @@ export function useBookingEditor(
     // Handlers
     handleSaveTime,
     performUpdate,
-    handleDeleteSelected,
-    handleDeleteSeries,
+    handleCancelBooking,
     handleExtendBooking,
     handleInstanceToggle,
   };

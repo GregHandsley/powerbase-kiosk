@@ -43,6 +43,12 @@ const STATUS_CONFIG: Record<
     textColor: 'text-slate-400',
     borderColor: 'border-slate-600',
   },
+  pending_cancellation: {
+    label: 'Pending Cancellation',
+    bgColor: 'bg-orange-900/30',
+    textColor: 'text-orange-300',
+    borderColor: 'border-orange-600/50',
+  },
   cancelled: {
     label: 'Cancelled',
     bgColor: 'bg-red-900/30',

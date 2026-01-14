@@ -75,6 +75,24 @@ function TaskItem({ task }: { task: Task }) {
             </svg>
           </div>
         );
+      case 'booking:cancelled':
+        return (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/20">
+            <svg
+              className="h-4 w-4 text-red-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </div>
+        );
       default:
         return (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-500/20">

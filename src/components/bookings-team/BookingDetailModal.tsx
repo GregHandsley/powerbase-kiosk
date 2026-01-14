@@ -16,6 +16,7 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   onProcess: (booking: BookingForTeam) => void;
+  onConfirmCancellation?: (booking: BookingForTeam) => void;
   processing?: boolean;
 };
 
@@ -24,6 +25,7 @@ export function BookingDetailModal({
   isOpen,
   onClose,
   onProcess,
+  onConfirmCancellation,
   processing = false,
 }: Props) {
   // Track which changes have been acknowledged
@@ -485,6 +487,17 @@ export function BookingDetailModal({
           >
             Close
           </button>
+          {booking.status === 'pending_cancellation' &&
+            onConfirmCancellation && (
+              <button
+                type="button"
+                onClick={() => onConfirmCancellation(booking)}
+                disabled={processing}
+                className="px-4 py-2 text-sm font-medium rounded-md bg-red-600 hover:bg-red-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {processing ? 'Confirming...' : 'Confirm Cancellation'}
+              </button>
+            )}
           {isPending && (
             <button
               type="button"

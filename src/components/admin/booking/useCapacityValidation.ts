@@ -289,7 +289,17 @@ export function useCapacityValidation(
 
       const { data, error } = await supabase
         .from('booking_instances')
-        .select('id, start, end, capacity')
+        .select(
+          `
+          id,
+          start,
+          "end",
+          capacity,
+          booking:bookings (
+            status
+          )
+        `
+        )
         .eq('side_id', sideId)
         .lt('start', dateRange.latest.toISOString())
         .gt('end', dateRange.earliest.toISOString());
@@ -299,10 +309,24 @@ export function useCapacityValidation(
         return [];
       }
 
-      return (data ?? []).map((inst) => ({
-        id: inst.id,
-        start: inst.start,
-        end: inst.end,
+      // Filter out cancelled bookings (but keep pending_cancellation until confirmed)
+      // Supabase doesn't support filtering on joined table fields
+      const validInstances = (data ?? []).filter((inst: unknown) => {
+        const i = inst as {
+          booking?: { status?: string } | null;
+        };
+        const status = i.booking?.status;
+        // Only exclude fully cancelled bookings
+        // pending_cancellation bookings should still appear and block capacity until confirmed
+        // If status is undefined/null, include it (backward compatibility)
+        if (!status) return true;
+        return status !== 'cancelled';
+      });
+
+      return validInstances.map((inst) => ({
+        id: (inst as { id: number }).id,
+        start: (inst as { start: string }).start,
+        end: (inst as { end: string }).end,
         capacity: (inst as { capacity?: number }).capacity || 0,
       })) as BookingInstance[];
     },

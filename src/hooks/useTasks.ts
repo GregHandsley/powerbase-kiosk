@@ -287,13 +287,18 @@ export async function getUserIdsByRole(
 export async function deleteTasksForBooking(bookingId: number): Promise<void> {
   try {
     // Delete tasks that reference this booking in their metadata
-    // Types that should be cleared: booking:created, booking:edited, last_minute_change
+    // Types that should be cleared: booking:created, booking:edited, last_minute_change, booking:cancelled
     // Note: booking_id in metadata is stored as a number, so we extract it as text and compare
     const { error } = await supabase
       .from('tasks')
       .delete()
       .eq('metadata->>booking_id', bookingId.toString())
-      .in('type', ['booking:created', 'booking:edited', 'last_minute_change']);
+      .in('type', [
+        'booking:created',
+        'booking:edited',
+        'last_minute_change',
+        'booking:cancelled',
+      ]);
 
     if (error) {
       console.error('Error deleting tasks for booking:', error);

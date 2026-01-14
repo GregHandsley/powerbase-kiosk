@@ -16,6 +16,7 @@ export function BookingsTeamFilters({
     [
       { value: 'all', label: 'All Statuses' },
       { value: 'pending', label: 'Pending' },
+      { value: 'pending_cancellation', label: 'Pending Cancellation' },
       { value: 'processed', label: 'Processed' },
       { value: 'confirmed', label: 'Confirmed' },
       { value: 'completed', label: 'Completed' },

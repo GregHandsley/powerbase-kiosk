@@ -173,7 +173,8 @@ export function useBookingSubmission(
             "end",
             racks,
             booking:bookings (
-              title
+              title,
+              status
             )
           `
             )
@@ -189,9 +190,25 @@ export function useBookingSubmission(
           );
         }
 
-        // Check each selected rack for conflicts
+        // Filter out cancelled bookings (but keep pending_cancellation until confirmed)
+        // Supabase doesn't support filtering on joined table fields
+        const validInstances = (overlappingInstances ?? []).filter(
+          (inst: unknown) => {
+            const i = inst as {
+              booking?: { status?: string } | null;
+            };
+            const status = i.booking?.status;
+            // Only exclude fully cancelled bookings
+            // pending_cancellation bookings should still appear and block capacity until confirmed
+            // If status is undefined/null, include it (backward compatibility)
+            if (!status) return true;
+            return status !== 'cancelled';
+          }
+        );
+
+        // Check each selected rack for conflicts (using filtered instances that exclude cancelled bookings)
         for (const rack of weekRacks) {
-          const conflictingInstance = overlappingInstances?.find((inst) => {
+          const conflictingInstance = validInstances.find((inst) => {
             const instRacks = Array.isArray(inst.racks) ? inst.racks : [];
             return instRacks.includes(rack);
           });

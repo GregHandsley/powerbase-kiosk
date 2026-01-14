@@ -15,6 +15,7 @@ type Props = {
   booking: BookingForTeam;
   onView: (booking: BookingForTeam) => void;
   onProcess: (booking: BookingForTeam) => void;
+  onConfirmCancellation?: (booking: BookingForTeam) => void;
   isSelected?: boolean;
   onSelect?: (bookingId: number, selected: boolean) => void;
 };
@@ -23,6 +24,7 @@ export function BookingTeamCard({
   booking,
   onView,
   onProcess,
+  onConfirmCancellation,
   isSelected = false,
   // onSelect,
 }: Props) {
@@ -547,6 +549,15 @@ export function BookingTeamCard({
         >
           View Details
         </button>
+        {booking.status === 'pending_cancellation' && onConfirmCancellation && (
+          <button
+            type="button"
+            onClick={() => onConfirmCancellation(booking)}
+            className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-500 text-white rounded-md transition-colors"
+          >
+            Confirm Cancellation
+          </button>
+        )}
         {isPending && (
           <button
             type="button"
