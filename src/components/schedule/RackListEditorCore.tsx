@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { createTasksForUsers, getUserIdsByRole } from '../../hooks/useTasks';
+import { isSessionInPast } from '../admin/booking/utils';
 import type { SideSnapshot } from '../../types/snapshot';
 import type { ActiveInstance } from '../../types/snapshot';
 import type { BookingStatus } from '../../types/db';
@@ -727,6 +728,12 @@ export function RackListEditorCore({
 
   const sensors = useDragSensors();
 
+  // Check if the session is in the past - if so, disable all dragging
+  const isPastSession = useMemo(
+    () => isSessionInPast(date, time),
+    [date, time]
+  );
+
   // Use week-specific bookings when in rack selection mode, otherwise use snapshot bookings
   const bookingsForDisplay = useMemo(() => {
     if (isSelectingRacks && bookingsForCurrentWeek.length > 0) {
@@ -842,6 +849,40 @@ export function RackListEditorCore({
                 bookings={bookingsForDisplay}
                 availablePlatforms={availablePlatforms}
                 isClosedPeriod={isClosedPeriod}
+                isPastSession={false}
+              />
+            </div>
+          </div>
+        ) : isPastSession ? (
+          // When session is in the past, render without DndContext to disable all dragging
+          <div className="w-full h-full">
+            <div
+              className="relative overflow-hidden"
+              style={{ width: renderedWidth, height: renderedHeight }}
+            >
+              <RackEditorGrid
+                layout={layout}
+                assignments={assignments}
+                bookingById={bookingById}
+                activeId={null}
+                beforeRacks={beforeRacks}
+                showBanner={showBanner}
+                bannerRowSpan={bannerRowSpan}
+                gridTemplateColumns={gridTemplateColumns}
+                numRows={numRows}
+                spacerRow={spacerRow}
+                BASE_WIDTH={BASE_WIDTH}
+                BASE_HEIGHT={BASE_HEIGHT}
+                zoomLevel={zoomLevel}
+                onEditBooking={handleEditBooking}
+                isSelectingRacks={false}
+                selectedRacks={[]}
+                editingBookingId={editingBooking?.instanceId ?? null}
+                onRackClick={handleRackClick}
+                bookings={bookingsForDisplay}
+                availablePlatforms={availablePlatforms}
+                isClosedPeriod={isClosedPeriod}
+                isPastSession={true}
               />
             </div>
           </div>
@@ -879,6 +920,7 @@ export function RackListEditorCore({
                   bookings={bookingsForDisplay}
                   availablePlatforms={availablePlatforms}
                   isClosedPeriod={isClosedPeriod}
+                  isPastSession={false}
                 />
               </div>
             </div>

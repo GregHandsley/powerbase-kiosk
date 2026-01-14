@@ -1,6 +1,11 @@
 import { format, parseISO, isAfter } from 'date-fns';
 import { Link } from 'react-router-dom';
+import clsx from 'clsx';
 import { StatusBadge } from '../shared/StatusBadge';
+import {
+  isBookingInPast,
+  isPastBookingUnprocessed,
+} from '../admin/booking/utils';
 import type { BookingStatus } from '../../types/db';
 import type { BookingWithInstances } from '../../hooks/useMyBookings';
 
@@ -52,8 +57,24 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
     ? isAfter(parseISO(nextInstance.start), now)
     : false;
 
+  // Check if booking is in the past
+  const bookingIsPast = isBookingInPast(booking.instances);
+  const isUnprocessedPast = isPastBookingUnprocessed(
+    booking.instances,
+    booking.status as BookingStatus | undefined
+  );
+
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors">
+    <div
+      className={clsx(
+        'bg-slate-800/50 border rounded-lg p-4 hover:border-slate-600 transition-colors',
+        isUnprocessedPast
+          ? 'border-red-600/50 bg-red-900/10'
+          : bookingIsPast
+            ? 'border-slate-600/50 bg-slate-900/30'
+            : 'border-slate-700'
+      )}
+    >
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
@@ -61,7 +82,17 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
               {booking.title}
             </h3>
             {booking.status && (
-              <StatusBadge status={booking.status as BookingStatus} size="sm" />
+              <StatusBadge
+                status={booking.status as BookingStatus}
+                size="sm"
+                isPast={bookingIsPast}
+                isUnprocessedPast={isUnprocessedPast}
+              />
+            )}
+            {bookingIsPast && (
+              <span className="px-2 py-0.5 text-xs font-medium rounded border bg-green-900/30 text-green-300 border-green-600/50">
+                Completed
+              </span>
             )}
           </div>
           <div className="flex items-center gap-4 text-sm text-slate-400">
@@ -78,6 +109,17 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
         </div>
       </div>
 
+      {/* Processing Status Alert for Unprocessed Past Bookings */}
+      {isUnprocessedPast && (
+        <div className="mb-4 p-3 bg-red-900/20 border border-red-600/50 rounded-md">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-red-200">
+              This booking is in the past but was never processed
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Booking Details */}
       <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
         <div>
@@ -90,6 +132,11 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
           {nextInstance && isNextInstanceFuture && (
             <div className="text-xs text-slate-500 mt-1">
               Next: {format(parseISO(nextInstance.start), 'MMM d, HH:mm')}
+            </div>
+          )}
+          {bookingIsPast && (
+            <div className="text-xs text-slate-500 mt-1">
+              All sessions completed
             </div>
           )}
         </div>
@@ -111,6 +158,27 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
             {format(parseISO(booking.created_at), 'MMM d, yyyy')}
           </div>
         </div>
+        {/* Processing Status */}
+        <div>
+          <div className="text-slate-500 mb-1">Processing Status</div>
+          <div className="text-slate-300">
+            {booking.status === 'processed' && booking.processed_at
+              ? `Processed on ${format(parseISO(booking.processed_at), 'MMM d, yyyy')}`
+              : booking.status === 'pending'
+                ? 'Pending processing'
+                : booking.status === 'draft'
+                  ? 'Draft'
+                  : booking.status || 'Unknown'}
+          </div>
+        </div>
+        {booking.processed_at && (
+          <div>
+            <div className="text-slate-500 mb-1">Processed At</div>
+            <div className="text-slate-300">
+              {format(parseISO(booking.processed_at), 'MMM d, yyyy HH:mm')}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Actions */}

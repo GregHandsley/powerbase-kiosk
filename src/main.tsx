@@ -25,7 +25,21 @@ initSentry();
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error: Error, query) => {
-      // Track React Query errors in Sentry
+      // Suppress errors when user is not authenticated (expected)
+      // Check if error is auth-related or if we're on login page
+      const isAuthError =
+        error.message?.includes('JWT') ||
+        error.message?.includes('auth') ||
+        error.message?.includes('unauthorized') ||
+        error.message?.includes('401') ||
+        window.location.pathname === '/login';
+
+      if (isAuthError) {
+        // Silently ignore auth errors before login
+        return;
+      }
+
+      // Track React Query errors in Sentry (only for authenticated users)
       const key = query.queryKey ? [...query.queryKey] : [];
       captureQueryError(error, key, {
         queryState: query.state,
@@ -34,7 +48,20 @@ const queryClient = new QueryClient({
   }),
   mutationCache: new MutationCache({
     onError: (error: Error, _variables, _context, mutation) => {
-      // Track mutation errors in Sentry
+      // Suppress errors when user is not authenticated (expected)
+      const isAuthError =
+        error.message?.includes('JWT') ||
+        error.message?.includes('auth') ||
+        error.message?.includes('unauthorized') ||
+        error.message?.includes('401') ||
+        window.location.pathname === '/login';
+
+      if (isAuthError) {
+        // Silently ignore auth errors before login
+        return;
+      }
+
+      // Track mutation errors in Sentry (only for authenticated users)
       // In React Query v5, mutation options are accessed via mutation.options
       const key = mutation.options?.mutationKey
         ? [...mutation.options.mutationKey]
@@ -50,7 +77,19 @@ const queryClient = new QueryClient({
       refetchInterval: 20_000,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
-      retry: 3,
+      retry: (failureCount, error) => {
+        // Don't retry auth errors
+        if (
+          error instanceof Error &&
+          (error.message?.includes('JWT') ||
+            error.message?.includes('auth') ||
+            error.message?.includes('unauthorized') ||
+            error.message?.includes('401'))
+        ) {
+          return false;
+        }
+        return failureCount < 3;
+      },
       staleTime: 10_000,
     },
   },

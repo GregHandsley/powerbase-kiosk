@@ -1,11 +1,12 @@
 // src/pages/LiveView.tsx
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useSnapshotFromSearchParams } from '../hooks/useSnapshotFromSearchParams';
 import { Clock } from '../components/Clock';
 import { RackListEditor } from '../components/schedule/RackListEditor';
 import { useLiveViewCapacity } from '../components/schedule/hooks/useLiveViewCapacity';
+import { isSessionInPast } from '../components/admin/booking/utils';
 import { supabase } from '../lib/supabaseClient';
 
 type SideMode = 'power' | 'base';
@@ -148,6 +149,12 @@ export function LiveView() {
   const capacityLimit = currentCapacityUsage?.limit ?? null;
   const capacityUsed = currentCapacityUsage?.used ?? 0;
 
+  // Check if the session is in the past
+  const isPastSession = useMemo(
+    () => isSessionInPast(date, time),
+    [date, time]
+  );
+
   return (
     <div className="p-4 space-y-4">
       {/* Header / Controls */}
@@ -283,9 +290,29 @@ export function LiveView() {
       {/* Rack list editor */}
       <section className="space-y-3">
         <div className="flex items-center justify-between text-xs text-slate-300">
-          <span className="font-semibold">
-            {sideMode === 'power' ? 'Power' : 'Base'} — {date} {time}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">
+              {sideMode === 'power' ? 'Power' : 'Base'} — {date} {time}
+            </span>
+            {isPastSession && (
+              <span className="px-2 py-0.5 text-xs bg-slate-700/60 text-slate-300 rounded border border-slate-600/50 flex items-center gap-1">
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+                Locked
+              </span>
+            )}
+          </div>
           <span className="text-slate-400">
             Snapshot at {selectedSnapshot.snapshot?.at ?? '…'}
           </span>

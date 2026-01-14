@@ -11,6 +11,7 @@ type Props = {
   activeId?: string | null;
   onEdit?: (booking: ActiveInstance) => void;
   isSelectingRacks?: boolean;
+  isPastSession?: boolean;
 };
 
 export function DraggableBooking({
@@ -19,6 +20,7 @@ export function DraggableBooking({
   // activeId,
   onEdit,
   isSelectingRacks = false,
+  isPastSession = false,
 }: Props) {
   const { role } = useAuth();
   const dragId = `booking-${booking.instanceId}-${fromRack}`;
@@ -32,7 +34,7 @@ export function DraggableBooking({
     useDraggable({
       id: dragId,
       data: { bookingId: booking.instanceId, fromRack },
-      disabled: !canMove || isLocked || isSelectingRacks, // Disable dragging if not admin, locked, or selecting racks
+      disabled: !canMove || isLocked || isSelectingRacks || isPastSession, // Disable dragging if not admin, locked, selecting racks, or session is past
     });
 
   // Only hide if this item is being dragged (use hook's isDragging state)
@@ -45,7 +47,7 @@ export function DraggableBooking({
     <div
       ref={setNodeRef}
       style={style}
-      {...(isLocked || !canMove || isSelectingRacks
+      {...(isLocked || !canMove || isSelectingRacks || isPastSession
         ? {}
         : { ...listeners, ...attributes })}
       onDoubleClick={(e) => {
@@ -62,7 +64,7 @@ export function DraggableBooking({
         }
       }}
       className={`inline-flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-3 rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-base sm:text-lg w-full border-2 ${
-        isLocked
+        isLocked || isPastSession
           ? 'bg-slate-800/40 border-slate-600/50 text-slate-400 cursor-not-allowed opacity-75'
           : !canMove
             ? 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-pointer hover:bg-slate-800/80'

@@ -12,8 +12,7 @@ import type { ActiveInstance } from '../../../../types/snapshot';
 import { BookingBlock as BookingBlockComponent } from './BookingBlock';
 import { UnavailableBlock as UnavailableBlockComponent } from './UnavailableBlock';
 import { isRackAtCapacity } from '../utils/capacityExceeded';
-// import { format } from 'date-fns';
-// import { combineDateAndTime } from '../../../admin/booking/utils';
+import { isTimeSlotInPast } from '../../../admin/booking/utils';
 
 type Props = {
   slot: TimeSlot;
@@ -131,6 +130,9 @@ export function ScheduleGridRow({
           capacityData.availablePlatforms !== null && // null means all platforms available
           !capacityData.availablePlatforms.has(rack); // rack not in available set
 
+        // Check if this time slot is in the past
+        const isPast = isTimeSlotInPast(currentDate, slot);
+
         return (
           <div
             key={rackIndex}
@@ -142,13 +144,15 @@ export function ScheduleGridRow({
               isRackUnavailable && 'bg-red-950/20' // Same subtle red as capacity exceeded
             )}
             title={
-              isAtCapacity && !isInBookingBlock
-                ? 'Capacity exceeded - cannot book additional sessions'
-                : isRackUnavailable
-                  ? 'Platform not available for booking in this time slot'
-                  : isInGeneralUserBlock
-                    ? 'General User period - platform not available for booking'
-                    : undefined
+              isPast && !isInBookingBlock
+                ? 'This time is in the past - cannot select'
+                : isAtCapacity && !isInBookingBlock
+                  ? 'Capacity exceeded - cannot book additional sessions'
+                  : isRackUnavailable
+                    ? 'Platform not available for booking in this time slot'
+                    : isInGeneralUserBlock
+                      ? 'General User period - platform not available for booking'
+                      : undefined
             }
           >
             {/* Booking Block */}
@@ -175,7 +179,8 @@ export function ScheduleGridRow({
                   ? 'pointer-events-none'
                   : (isAtCapacity ||
                         isRackUnavailable ||
-                        isInGeneralUserBlock) &&
+                        isInGeneralUserBlock ||
+                        isPast) &&
                       !isInBookingBlock
                     ? 'cursor-not-allowed opacity-60'
                     : 'cursor-pointer hover:bg-slate-800/30'
@@ -186,14 +191,18 @@ export function ScheduleGridRow({
                   !isBlockStart &&
                   !isAtCapacity &&
                   !isRackUnavailable &&
-                  !isInGeneralUserBlock
+                  !isInGeneralUserBlock &&
+                  !isPast
                 ) {
                   onMouseDown(e, slotIndex, rackIndex);
                 }
               }}
               onClick={() => {
                 if (
-                  (isAtCapacity || isRackUnavailable || isInGeneralUserBlock) &&
+                  (isAtCapacity ||
+                    isRackUnavailable ||
+                    isInGeneralUserBlock ||
+                    isPast) &&
                   !isInBookingBlock
                 ) {
                   // Show a message or prevent action

@@ -1,6 +1,7 @@
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Home } from './pages/Home';
+import { Login } from './pages/Login';
 import { KioskPower } from './pages/KioskPower';
 import { KioskBase } from './pages/KioskBase';
 import { LiveView } from './pages/LiveView';
@@ -9,15 +10,53 @@ import { Bookings } from './pages/Bookings';
 import { MyBookings } from './pages/MyBookings';
 import { BookingsTeam } from './pages/BookingsTeam';
 import { Admin } from './pages/Admin';
-import { TestLayout } from './pages/TestLayout';
 import { KioskErrorScreen } from './components/KioskErrorScreen';
 import { TaskBell } from './components/tasks/TaskBell';
 import { useAuth } from './context/AuthContext';
 
+// Protected route wrapper
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <div className="text-slate-300 text-sm">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 export default function App() {
   const { pathname } = useLocation();
-  const { user } = useAuth();
-  const showHeader = !pathname.startsWith('/kiosk');
+  const { user, loading } = useAuth();
+  const showHeader =
+    !pathname.startsWith('/kiosk') && !pathname.startsWith('/login');
+
+  // Show only login page if not authenticated
+  if (!loading && !user) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <div className="text-slate-300 text-sm">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -26,13 +65,7 @@ export default function App() {
         <header className="px-4 py-3 border-b border-slate-700/60 bg-slate-950/70 backdrop-blur">
           <nav className="flex items-center gap-4 text-sm text-slate-200">
             <Link to="/" className="font-semibold tracking-wide">
-              Powerbase Kiosk
-            </Link>
-            <Link to="/kiosk/power" className="hover:text-white">
-              Kiosk Power
-            </Link>
-            <Link to="/kiosk/base" className="hover:text-white">
-              Kiosk Base
+              Facility OS
             </Link>
             <Link to="/live-view" className="hover:text-white">
               Session View
@@ -46,9 +79,6 @@ export default function App() {
             <Link to="/bookings-team" className="hover:text-white">
               Bookings Team
             </Link>
-            <Link to="/test-layout" className="hover:text-white">
-              Test
-            </Link>
             <div className="ml-auto flex items-center gap-4">
               {user && <TaskBell />}
               <Link to="/admin" className="hover:text-white">
@@ -61,30 +91,83 @@ export default function App() {
 
       <main className="flex-1">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/kiosk/power"
             element={
-              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-                <KioskPower />
-              </ErrorBoundary>
+              <ProtectedRoute>
+                <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                  <KioskPower />
+                </ErrorBoundary>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/kiosk/base"
             element={
-              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-                <KioskBase />
-              </ErrorBoundary>
+              <ProtectedRoute>
+                <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                  <KioskBase />
+                </ErrorBoundary>
+              </ProtectedRoute>
             }
           />
-          <Route path="/live-view" element={<LiveView />} />
-          <Route path="/schedule" element={<Schedule />} />
-          <Route path="/my-bookings" element={<MyBookings />} />
-          <Route path="/bookings-team" element={<BookingsTeam />} />
-          <Route path="/test-layout" element={<TestLayout />} />
-          <Route path="/bookings" element={<Bookings />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route
+            path="/live-view"
+            element={
+              <ProtectedRoute>
+                <LiveView />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/schedule"
+            element={
+              <ProtectedRoute>
+                <Schedule />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-bookings"
+            element={
+              <ProtectedRoute>
+                <MyBookings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/bookings-team"
+            element={
+              <ProtectedRoute>
+                <BookingsTeam />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/bookings"
+            element={
+              <ProtectedRoute>
+                <Bookings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <Admin />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>

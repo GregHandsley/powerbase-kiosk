@@ -74,7 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
 
         if (error) {
-          console.warn('getUser error', error.message);
+          // Only log auth errors if we're not on the login page (expected errors)
+          if (window.location.pathname !== '/login') {
+            console.warn('getUser error', error.message);
+          }
           setUser(null);
           setProfile(null);
           return;
@@ -121,7 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSentryUser(null); // Clear Sentry user context
         }
       } catch (err) {
-        console.warn('onAuthStateChange error', err);
+        // Only log auth errors if we're not on the login page (expected errors)
+        if (window.location.pathname !== '/login') {
+          console.warn('onAuthStateChange error', err);
+        }
       } finally {
         // auth change completed → ensure we are not stuck loading
         setLoading(false);

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { BookingRow, BookingStatus } from '../types/db';
-import { endOfDay } from 'date-fns';
+import { endOfDay, parseISO, isAfter } from 'date-fns';
 
 export type BookingFilter = {
   status?: BookingStatus | 'all';
@@ -121,12 +121,14 @@ export function useMyBookings(
       }
 
       // Filter by status in memory if status column doesn't exist in DB
-      let filteredBookings = bookings as BookingFromSupabase[];
+      let statusFilteredBookings = bookings as BookingFromSupabase[];
       if (filters.status && filters.status !== 'all') {
         // Check if status field exists in the data
-        const hasStatusField = filteredBookings.some((b) => 'status' in b);
+        const hasStatusField = statusFilteredBookings.some(
+          (b) => 'status' in b
+        );
         if (hasStatusField) {
-          filteredBookings = filteredBookings.filter(
+          statusFilteredBookings = statusFilteredBookings.filter(
             (b) => b.status === filters.status
           );
         }
@@ -135,7 +137,7 @@ export function useMyBookings(
 
       // Fetch instances for each booking
       const bookingsWithInstances: BookingWithInstances[] = await Promise.all(
-        filteredBookings.map(async (booking) => {
+        statusFilteredBookings.map(async (booking) => {
           // Apply date filters to instances
           let instancesQuery = supabase
             .from('booking_instances')
@@ -173,7 +175,30 @@ export function useMyBookings(
       );
 
       // Filter out bookings with no instances (if date filter was applied)
-      return bookingsWithInstances.filter((b) => b.instances.length > 0);
+      const bookingsWithValidInstances = bookingsWithInstances.filter(
+        (b) => b.instances.length > 0
+      );
+
+      // Sort by next session start time (earliest first)
+      const now = new Date();
+      return bookingsWithValidInstances.sort((a, b) => {
+        // Find the next upcoming instance for each booking
+        const getNextInstanceStart = (booking: BookingWithInstances) => {
+          const nextInstance = booking.instances.find((inst) => {
+            const startTime = parseISO(inst.start);
+            return isAfter(startTime, now);
+          });
+          // If no future instance, use the last instance (all in past)
+          return nextInstance
+            ? parseISO(nextInstance.start)
+            : parseISO(booking.instances[booking.instances.length - 1].start);
+        };
+
+        const aNextStart = getNextInstanceStart(a);
+        const bNextStart = getNextInstanceStart(b);
+
+        return aNextStart.getTime() - bNextStart.getTime();
+      });
     },
     enabled: !!userId,
   });

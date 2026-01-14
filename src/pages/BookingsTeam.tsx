@@ -53,9 +53,13 @@ function InfoTooltip({ content }: { content: string }) {
 export function BookingsTeam() {
   const { user, role } = useAuth();
   const queryClient = useQueryClient();
+  // Default to today's date to filter out completed sessions
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const [filters, setFilters] = useState<BookingsTeamFilter>({
     status: 'pending', // Default to pending
     side: 'all',
+    dateFrom: today,
   });
   const [selectedBookings, setSelectedBookings] = useState<Set<number>>(
     new Set()

@@ -2,11 +2,72 @@
  * Utility functions for booking form
  */
 
+import { parseISO } from 'date-fns';
+import type { BookingStatus } from '../../../types/db';
+
 export function combineDateAndTime(dateStr: string, timeStr: string): Date {
   // date: yyyy-mm-dd, time: HH:mm
   const [year, month, day] = dateStr.split('-').map(Number);
   const [hour, minute] = timeStr.split(':').map(Number);
   return new Date(year, month - 1, day, hour, minute, 0, 0);
+}
+
+/**
+ * Check if all instances of a booking are in the past
+ * @param instances Array of booking instances with start and end times
+ * @returns true if all instances have ended, false otherwise
+ */
+export function isBookingInPast(
+  instances: Array<{ start: string; end: string }>
+): boolean {
+  if (instances.length === 0) return false;
+  const now = new Date();
+  return instances.every((inst) => {
+    const endTime = parseISO(inst.end);
+    return endTime < now;
+  });
+}
+
+/**
+ * Check if a booking is in the past but was never processed
+ * @param instances Array of booking instances with start and end times
+ * @param status The booking status
+ * @returns true if booking is past and unprocessed (pending or draft), false otherwise
+ */
+export function isPastBookingUnprocessed(
+  instances: Array<{ start: string; end: string }>,
+  status: BookingStatus | undefined
+): boolean {
+  if (!isBookingInPast(instances)) return false;
+  return status === 'pending' || status === 'draft';
+}
+
+/**
+ * Check if a time slot is in the past
+ * @param date The date to check
+ * @param timeSlot The time slot to check
+ * @returns true if the time slot is in the past, false otherwise
+ */
+export function isTimeSlotInPast(
+  date: Date,
+  timeSlot: { hour: number; minute: number }
+): boolean {
+  const now = new Date();
+  const slotDate = new Date(date);
+  slotDate.setHours(timeSlot.hour, timeSlot.minute, 0, 0);
+  return slotDate < now;
+}
+
+/**
+ * Check if a session (date + time) is in the past
+ * @param date Date string in YYYY-MM-DD format
+ * @param time Time string in HH:mm format
+ * @returns true if the session time is in the past, false otherwise
+ */
+export function isSessionInPast(date: string, time: string): boolean {
+  const sessionDateTime = combineDateAndTime(date, time);
+  const now = new Date();
+  return sessionDateTime < now;
 }
 
 /**
