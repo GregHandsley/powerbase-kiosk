@@ -3,6 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabaseClient';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
+import {
+  getUserEmailsByIds,
+  getUserNamesByIds,
+} from '../../utils/emailRecipients';
 
 interface RecentActivity {
   id: number;
@@ -12,7 +16,7 @@ interface RecentActivity {
   last_minute_change: boolean;
   cutoff_at: string | null;
   created_by: string;
-  creator_name: string | null;
+  creator_name: string;
   side_name: string;
   side_key: string;
   activity_type: 'created' | 'edited';
@@ -34,6 +38,7 @@ export function LastMinuteChangesWidget() {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     // Check localStorage for saved preference
     const saved = localStorage.getItem('recent-activity-collapsed');
+    if (saved === null) return true;
     return saved === 'true';
   });
 
@@ -113,7 +118,7 @@ export function LastMinuteChangesWidget() {
         if (booking.created_by) creatorIds.add(booking.created_by);
       });
 
-      // Fetch all profiles at once
+      // Fetch all user names using database function (bypasses RLS)
       const allProfileIds = Array.from(creatorIds);
       const profilesMap = new Map<
         string,
@@ -121,15 +126,72 @@ export function LastMinuteChangesWidget() {
       >();
 
       if (allProfileIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', allProfileIds);
+        // Use database function to get names (bypasses RLS)
+        try {
+          const nameMap = await getUserNamesByIds(allProfileIds);
 
-        if (profiles) {
-          profiles.forEach((p) => {
-            profilesMap.set(p.id, { id: p.id, full_name: p.full_name });
+          // Populate profiles map with fetched names
+          nameMap.forEach((fullName, userId) => {
+            profilesMap.set(userId, { id: userId, full_name: fullName });
           });
+
+          // Fetch emails only for users without names
+          const usersNeedingEmail = allProfileIds.filter((id) => {
+            const profile = profilesMap.get(id);
+            return (
+              !profile || !profile.full_name || profile.full_name.trim() === ''
+            );
+          });
+
+          if (usersNeedingEmail.length > 0) {
+            console.log('Users needing email fallback:', usersNeedingEmail);
+            try {
+              const emailMap = await getUserEmailsByIds(usersNeedingEmail);
+              // Use email as fallback for users without full_name
+              emailMap.forEach((email, userId) => {
+                const existingProfile = profilesMap.get(userId);
+                if (
+                  !existingProfile ||
+                  !existingProfile.full_name ||
+                  existingProfile.full_name.trim() === ''
+                ) {
+                  // Extract name from email (part before @) as fallback
+                  const emailName = email.split('@')[0];
+                  profilesMap.set(userId, {
+                    id: userId,
+                    full_name: emailName || 'Unknown user',
+                  });
+                }
+              });
+            } catch (error) {
+              console.error('Error fetching user emails:', error);
+            }
+          }
+
+          // Ensure all users have at least something in the map
+          allProfileIds.forEach((id) => {
+            if (!profilesMap.has(id)) {
+              profilesMap.set(id, { id, full_name: 'Unknown user' });
+            }
+          });
+        } catch (error) {
+          console.error('Error fetching user names:', error);
+          // Fallback to email if name function fails
+          try {
+            const emailMap = await getUserEmailsByIds(allProfileIds);
+            emailMap.forEach((email, userId) => {
+              const emailName = email.split('@')[0];
+              profilesMap.set(userId, {
+                id: userId,
+                full_name: emailName || 'Unknown user',
+              });
+            });
+          } catch (emailError) {
+            console.error(
+              'Error fetching user emails as fallback:',
+              emailError
+            );
+          }
         }
       }
 
@@ -156,7 +218,7 @@ export function LastMinuteChangesWidget() {
           last_minute_change: booking.last_minute_change,
           cutoff_at: booking.cutoff_at,
           created_by: booking.created_by,
-          creator_name: creator?.full_name || null,
+          creator_name: creator?.full_name || 'Unknown user',
           side_name: sideName || 'Unknown',
           side_key: sideKey || 'unknown',
           activity_type: 'created',
@@ -184,7 +246,7 @@ export function LastMinuteChangesWidget() {
           last_minute_change: booking.last_minute_change,
           cutoff_at: booking.cutoff_at,
           created_by: booking.created_by,
-          creator_name: creator?.full_name || null,
+          creator_name: creator?.full_name || 'Unknown user',
           side_name: sideName || 'Unknown',
           side_key: sideKey || 'unknown',
           activity_type: 'edited',
@@ -339,14 +401,10 @@ export function LastMinuteChangesWidget() {
                     <span className="text-[10px] text-slate-500">
                       {activity.side_name}
                     </span>
-                    {activity.creator_name && (
-                      <>
-                        <span className="text-[10px] text-slate-600">•</span>
-                        <span className="text-[10px] text-slate-500 truncate">
-                          {activity.creator_name}
-                        </span>
-                      </>
-                    )}
+                    <span className="text-[10px] text-slate-600">•</span>
+                    <span className="text-[10px] text-slate-500 truncate">
+                      {activity.creator_name}
+                    </span>
                   </div>
                 </div>
                 <div className="text-right shrink-0">

@@ -34,6 +34,8 @@ export function BookingDetailModal({
   );
   const [totalChanges, setTotalChanges] = useState(0);
   const [showAllDates, setShowAllDates] = useState(false);
+  const [isBookingStructureExpanded, setIsBookingStructureExpanded] =
+    useState(false);
 
   const handleAcknowledgeChange = (
     changeIndex: number,
@@ -60,6 +62,7 @@ export function BookingDetailModal({
       setAcknowledgedChanges(new Set());
       setTotalChanges(0);
       setShowAllDates(false);
+      setIsBookingStructureExpanded(false);
     }
   }, [isOpen, booking]);
 
@@ -155,13 +158,6 @@ export function BookingDetailModal({
   const lastInstance = booking.instances[booking.instances.length - 1];
   const isSingleBooking = booking.instances.length === 1;
 
-  // Get unique racks across all instances
-  const allRacks = new Set<number>();
-  booking.instances.forEach((inst) => {
-    inst.racks.forEach((rack) => allRacks.add(rack));
-  });
-  const racksList = Array.from(allRacks).sort((a, b) => a - b);
-
   const isPending = booking.status === 'pending';
   const wasEditedAfterProcessing = Boolean(
     booking.processed_at &&
@@ -177,7 +173,7 @@ export function BookingDetailModal({
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={isOpen} onClose={onClose} maxWidth="6xl">
       <div className="space-y-4">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-700">
           <div className="flex items-center gap-3">
@@ -196,7 +192,7 @@ export function BookingDetailModal({
               </span>
             )}
             {wasEditedAfterProcessing && (
-              <span className="px-2 py-1 text-xs bg-amber-900/30 text-amber-300 rounded border border-amber-700/50">
+              <span className="px-2 py-1 text-sm font-medium bg-amber-900/30 text-amber-300 rounded border border-amber-700/50">
                 Edited After Processing
               </span>
             )}
@@ -358,51 +354,74 @@ export function BookingDetailModal({
         {/* Week Variations - Show if different weeks have different racks/capacity */}
         {weekVariations && (
           <div className="p-4 bg-blue-900/20 border border-blue-700/50 rounded-md">
-            <div className="text-sm font-semibold text-blue-300 mb-3">
-              Booking Structure (varies by week)
-            </div>
-            <div className="space-y-3 text-sm">
-              {weekVariations.racks && (
-                <div>
-                  <div className="text-blue-300 font-medium mb-2">
-                    Racks vary by week:
+            <button
+              type="button"
+              onClick={() =>
+                setIsBookingStructureExpanded(!isBookingStructureExpanded)
+              }
+              className="flex items-center justify-between w-full text-sm font-semibold text-blue-300 mb-3 hover:text-blue-200 transition-colors"
+            >
+              <span>Booking Structure (varies by week)</span>
+              <svg
+                className={`w-4 h-4 transition-transform ${isBookingStructureExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+            {isBookingStructureExpanded && (
+              <div className="space-y-3 text-sm">
+                {weekVariations.racks && (
+                  <div>
+                    <div className="text-blue-300 font-medium mb-2">
+                      Racks vary by week:
+                    </div>
+                    <div className="text-blue-200/90 space-y-1.5 ml-3">
+                      {Array.from(weekVariations.racks.entries()).map(
+                        ([racks, dates], idx) => (
+                          <div key={idx} className="text-sm font-mono">
+                            <span className="text-blue-400">
+                              Racks {racks}:
+                            </span>{' '}
+                            <span className="text-blue-300">
+                              {dates.join(', ')}
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
-                  <div className="text-blue-200/90 space-y-1.5 ml-3">
-                    {Array.from(weekVariations.racks.entries()).map(
-                      ([racks, dates], idx) => (
-                        <div key={idx} className="text-sm font-mono">
-                          <span className="text-blue-400">Racks {racks}:</span>{' '}
-                          <span className="text-blue-300">
-                            {dates.join(', ')}
-                          </span>
-                        </div>
-                      )
-                    )}
+                )}
+                {weekVariations.capacity && (
+                  <div>
+                    <div className="text-blue-300 font-medium mb-2">
+                      Athletes vary by week:
+                    </div>
+                    <div className="text-blue-200/90 space-y-1.5 ml-3">
+                      {Array.from(weekVariations.capacity.entries()).map(
+                        ([capacity, dates], idx) => (
+                          <div key={idx} className="text-sm font-mono">
+                            <span className="text-blue-400">
+                              {capacity} athletes:
+                            </span>{' '}
+                            <span className="text-blue-300">
+                              {dates.join(', ')}
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-              {weekVariations.capacity && (
-                <div>
-                  <div className="text-blue-300 font-medium mb-2">
-                    Athletes vary by week:
-                  </div>
-                  <div className="text-blue-200/90 space-y-1.5 ml-3">
-                    {Array.from(weekVariations.capacity.entries()).map(
-                      ([capacity, dates], idx) => (
-                        <div key={idx} className="text-sm font-mono">
-                          <span className="text-blue-400">
-                            {capacity} athletes:
-                          </span>{' '}
-                          <span className="text-blue-300">
-                            {dates.join(', ')}
-                          </span>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -467,16 +486,6 @@ export function BookingDetailModal({
             })}
           </div>
         </div>
-
-        {/* All Racks Summary */}
-        {racksList.length > 0 && (
-          <div>
-            <div className="text-sm font-medium text-slate-300 mb-2">
-              All Racks
-            </div>
-            <div className="text-slate-200">{racksList.join(', ')}</div>
-          </div>
-        )}
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">

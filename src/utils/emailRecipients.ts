@@ -4,6 +4,70 @@ import { getUserIdsByRole } from '../hooks/useTasks';
 import type { NotificationSettings } from '../hooks/useNotificationSettings';
 
 /**
+ * Gets full names for users by their IDs
+ * Uses a database function to safely get names from profiles table, bypassing RLS
+ */
+export async function getUserNamesByIds(
+  userIds: string[]
+): Promise<Map<string, string>> {
+  if (userIds.length === 0) {
+    console.log('getUserNamesByIds: No user IDs provided');
+    return new Map();
+  }
+
+  try {
+    console.log(
+      'getUserNamesByIds: Calling database function with',
+      userIds.length,
+      'user IDs'
+    );
+    // Call a database function to get user names
+    // This function needs to be created in Supabase
+    const { data, error } = await supabase.rpc('get_user_names', {
+      user_ids: userIds,
+    });
+
+    if (error) {
+      console.error('Error getting user names from database function:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+      });
+
+      // If the function doesn't exist, provide helpful error message
+      if (error.code === '42883' || error.message?.includes('does not exist')) {
+        console.error("⚠️ Database function 'get_user_names' does not exist!");
+        console.error(
+          'Please run the migration: migrations/add_get_user_names_function.sql'
+        );
+      }
+
+      return new Map();
+    }
+
+    console.log('getUserNamesByIds: Received', data?.length || 0, 'names');
+
+    // Return a map of userId -> full_name
+    const nameMap = new Map<string, string>();
+    if (data && Array.isArray(data)) {
+      for (const item of data) {
+        if (item.user_id && item.full_name) {
+          nameMap.set(item.user_id, item.full_name);
+          console.log(`  - ${item.user_id}: ${item.full_name}`);
+        }
+      }
+    }
+
+    return nameMap;
+  } catch (error) {
+    console.error('Unexpected error getting user names:', error);
+    return new Map();
+  }
+}
+
+/**
  * Gets email addresses for users by their IDs
  * Uses a database function to safely get emails from auth.users
  */

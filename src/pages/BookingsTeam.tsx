@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   useBookingsTeam,
@@ -53,13 +54,15 @@ function InfoTooltip({ content }: { content: string }) {
 export function BookingsTeam() {
   const { user, role } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // Default to today's date to filter out completed sessions
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const [filters, setFilters] = useState<BookingsTeamFilter>({
-    status: 'all', // Default to all to include pending_cancellation bookings
+    status: 'pending', // Only show pending bookings by default
     side: 'all',
-    dateFrom: today,
+    dateFrom: today, // Filter out past sessions
   });
   const [selectedBookings, setSelectedBookings] = useState<Set<number>>(
     new Set()
@@ -79,6 +82,30 @@ export function BookingsTeam() {
 
   // Fetch bookings
   const { data: bookings = [], isLoading, error } = useBookingsTeam(filters);
+
+  // Handle booking query parameter to open modal
+  useEffect(() => {
+    const bookingIdParam = searchParams.get('booking');
+    if (bookingIdParam) {
+      const bookingId = parseInt(bookingIdParam, 10);
+      if (!isNaN(bookingId)) {
+        // Find the booking in the current list
+        const booking = bookings.find((b) => b.id === bookingId);
+        if (booking) {
+          setViewingBooking(booking);
+        }
+      }
+    }
+  }, [searchParams, bookings]);
+
+  // Clear booking query parameter when modal is closed
+  const handleCloseModal = () => {
+    setViewingBooking(null);
+    // Remove booking query parameter from URL
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('booking');
+    setSearchParams(newSearchParams, { replace: true });
+  };
 
   // Fetch coaches for filter dropdown
   const { data: coaches = [] } = useQuery({
@@ -583,7 +610,7 @@ export function BookingsTeam() {
       <BookingDetailModal
         booking={viewingBooking}
         isOpen={!!viewingBooking}
-        onClose={() => setViewingBooking(null)}
+        onClose={handleCloseModal}
         onProcess={handleProcessBooking}
         onConfirmCancellation={
           viewingBooking?.status === 'pending_cancellation'

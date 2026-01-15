@@ -230,7 +230,7 @@ export function BookingTeamCard({
                 </span>
               )}
               {wasEditedAfterProcessing && (
-                <span className="px-2 py-0.5 text-xs bg-amber-900/30 text-amber-300 rounded border border-amber-700/50">
+                <span className="px-1.5 py-0.5 text-xs font-medium bg-amber-900/30 text-amber-300 rounded border border-amber-700/50">
                   Edited
                 </span>
               )}
