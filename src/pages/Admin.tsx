@@ -6,6 +6,7 @@ import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { CapacityManagement } from '../components/admin/CapacityManagement';
 import { PeriodTypeCapacityManagement } from '../components/admin/PeriodTypeCapacityManagement';
 import { NotificationSettings } from '../components/admin/notification-settings/NotificationSettings';
+import { InvitationManagement } from '../components/admin/invitations/InvitationManagement';
 import { AppVersion } from '../components/shared/AppVersion';
 
 export function Admin() {
@@ -160,6 +161,7 @@ export function Admin() {
           {view === 'capacity-schedule' && <CapacityManagement />}
           {view === 'period-capacity' && <PeriodTypeCapacityManagement />}
           {view === 'notification-settings' && <NotificationSettings />}
+          {view === 'invitations' && <InvitationManagement />}
         </main>
       </div>
     </div>

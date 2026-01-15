@@ -79,6 +79,21 @@ export function useBookingSubmission(
     try {
       const sideId = await getSideIdByKeyNode(values.sideKey as SideKey);
 
+      // Get the side's organization_id (required for booking creation)
+      const { data: sideData, error: sideError } = await supabase
+        .from('sides')
+        .select('organization_id')
+        .eq('id', sideId)
+        .maybeSingle();
+
+      if (sideError || !sideData || !sideData.organization_id) {
+        throw new Error(
+          'Failed to determine organization for this booking. Please try again.'
+        );
+      }
+
+      const organizationId = sideData.organization_id;
+
       const startTemplate = combineDateAndTime(
         values.startDate,
         values.startTime
@@ -351,6 +366,7 @@ export function useBookingSubmission(
         .insert({
           title: values.title,
           side_id: sideId,
+          organization_id: organizationId, // Required: bookings must belong to an organization
           start_template: startTemplate.toISOString(),
           end_template: endTemplate.toISOString(),
           recurrence,

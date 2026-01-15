@@ -22,6 +22,10 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
       path: '/admin?view=notification-settings',
       label: 'Notification Settings',
     },
+    {
+      path: '/admin?view=invitations',
+      label: 'Invitations',
+    },
   ];
 
   return (

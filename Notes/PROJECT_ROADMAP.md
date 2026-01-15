@@ -118,117 +118,319 @@ This document outlines the planned features and implementation phases for the Po
 
 ## 👥 **Phase 2: User Management & Organizations**
 
-### 2.1 Organization Management
+Phase 2 – Incremental Delivery Breakdown
 
-**Core Requirements:**
+Think of this as “identity & access hardening”, delivered in layers.
 
-- Multi-tenant support (multiple organizations)
-- Organization creation/management
-- Organization-specific settings
-- Organization isolation (users see only their org's data)
+🧱 Layer 1: Foundations (No UI, Low Risk)
+2.1.1 Create organizations table
 
-**Database Changes:**
+Goal: Existence of organizations without behaviour change.
 
-- Add `organizations` table:
-  - `id`, `name`, `slug`, `settings` (jsonb), `created_at`
-- Add `organization_id` to:
-  - `profiles` table
-  - `bookings` table (optional? or inherit from user)
-  - `sides` table? (or keep global?)
+Add organizations table
 
-**Features:**
+Add id, name, slug, settings, created_at
 
-- Organization switcher (for super admins)
-- Organization settings page
-- Organization branding (optional future feature)
+Seed a default organization for existing users
 
----
+No RLS yet
 
-### 2.2 Invitation-Only System
+No UI yet
 
-**Core Requirements:**
+✅ Outcome: Org concept exists, nothing breaks
 
-- Remove public sign-up
-- Invitation system with email tokens
-- Invitation management (resend, revoke, expire)
-- Invitation acceptance flow
+2.1.2 Add organization ownership to core tables
 
-**Database Changes:**
+Goal: Make tenant ownership explicit.
 
-- Add `invitations` table:
-  - `id`, `email`, `token`, `organization_id`, `role`, `invited_by`, `expires_at`, `accepted_at`, `created_at`
-- Add `invitation_token` to `profiles` (temporary, until accepted)
+Add organization_id to:
 
-**Features:**
+bookings
 
-- Invitation creation form (super admin only)
-- Email invitation with acceptance link
-- Invitation acceptance page
-- Invitation management dashboard
-- Expiration handling (7 days default?)
+sides (decide now; safer to scope per org)
 
----
+Backfill existing rows with default org
 
-### 2.3 Role-Based Access Control (RBAC)
+Add indexes on organization_id
 
-**Core Requirements:**
+❌ No permission logic yet
+❌ No isolation yet
 
-- Default roles: `super_admin`, `admin`, `bookings_team`, `coach`, `facility_manager`
-- Configurable permissions per user
-- Permission inheritance from roles
-- Permission overrides
+✅ Outcome: All important data is org-aware
 
-**Database Changes:**
+🔒 Layer 2: Isolation & Safety (Security First)
+2.1.3 Introduce organization memberships
 
-- Add `permissions` table:
-  - `id`, `key`, `name`, `description`, `category`
-- Add `role_permissions` junction table
-- Add `user_permissions` junction table (for overrides)
-- Update `profiles` table with `role` (already exists, may need expansion)
+Goal: Prepare for multi-org users without changing UX.
 
-**Default Permissions:**
+Create organization_memberships table
 
-- `bookings:create`, `bookings:edit`, `bookings:delete`, `bookings:view_all`
-- `capacity:manage`, `capacity:view`
-- `users:invite`, `users:manage`, `users:view_all`
-- `organizations:manage`
-- `admin:access`
-- `feedback:submit`
-- `notifications:view`
+Migrate users:
 
-**Features:**
+One membership per user → default org
 
-- Permission management UI (super admin)
-- User permission override UI
-- Permission checks throughout application
-- Permission-based UI rendering (hide/show features)
+Assign default role (eg admin)
 
----
+Keep profiles unchanged otherwise
 
-### 2.4 User Profile Management
+✅ Outcome: Membership model exists
+✅ Future-proofed for multi-org
 
-**Core Requirements:**
+2.1.4 Enforce org isolation (RLS)
 
-- User profile pages (`/profile`)
-- Password change functionality
-- Email change (with verification)
-- Profile information editing
-- Account deletion (with proper cleanup)
+Goal: Prevent cross-org data leaks.
 
-**Features:**
+Enable RLS on:
 
-- Profile settings page
-- Password change form (with current password verification)
-- Email change flow (send verification email)
-- Account deletion with confirmation
-- Activity log (optional - what they've done)
+bookings
 
-**Security Considerations:**
+sides
 
-- Password strength requirements
-- Email verification for changes
-- Soft delete vs hard delete (GDPR compliance)
-- Data retention policies
+any org-scoped table
+
+Policy:
+
+user must have active membership in organization_id
+
+Test with two orgs + two users
+
+⚠️ No permissions yet — just visibility
+
+✅ Outcome: True multi-tenant isolation
+
+✉️ Layer 3: Invitations (Access Control Entry Point)
+2.2.1 Disable public sign-up
+
+Goal: Lock the front door.
+
+Remove / block public registration
+
+Only allow auth via invite acceptance
+
+Keep login untouched
+
+✅ Outcome: Access is now controlled
+
+2.2.2 Invitations table (data only)
+
+Goal: Model invite lifecycle safely.
+
+Create invitations table
+
+Store:
+
+email
+
+organization_id
+
+role
+
+token_hash
+
+expires_at
+
+accepted_at
+
+revoked_at
+
+No UI yet
+
+No email yet
+
+✅ Outcome: Secure invite model exists
+
+2.2.3 Invitation acceptance flow
+
+Goal: Let people actually join.
+
+Accept invite token
+
+Validate:
+
+hash match
+
+not expired
+
+not revoked
+
+Create:
+
+user (if needed)
+
+org membership
+
+Mark invite as accepted
+
+✅ Outcome: Controlled onboarding works end-to-end
+
+2.2.4 Invitation management (admin)
+
+Goal: Make invites usable.
+
+Invite creation form
+
+Resend (rotate token)
+
+Revoke
+
+Status display
+
+✨ Nice-to-have later:
+
+bulk invite
+
+domain restrictions
+
+🧭 Layer 4: Roles & Permissions (RBAC)
+2.3.1 Define roles (static)
+
+Goal: Replace “role as a string” with intent.
+
+Define default roles:
+
+super_admin
+
+admin
+
+bookings_team
+
+coach
+
+facility_manager
+
+Assign roles per membership, not profile
+
+No permissions yet
+
+✅ Outcome: Roles are meaningful but inert
+
+2.3.2 Introduce permissions table
+
+Goal: Central permission registry.
+
+Create permissions table
+
+Seed known permissions (bookings.create, etc.)
+
+No enforcement yet
+
+✅ Outcome: Permission vocabulary exists
+
+2.3.3 Role → permission mapping
+
+Goal: Make roles do something.
+
+Create role_permissions
+
+Assign sensible defaults per role
+
+Build helper:
+
+hasPermission(user, org, permissionKey)
+
+✅ Outcome: RBAC logic exists (backend)
+
+2.3.4 Enforce permissions (API first)
+
+Goal: Secure behaviour, not UI.
+
+Guard API routes using permission helper
+
+Leave UI unchanged initially
+
+✅ Outcome: Real access control is live
+
+2.3.5 Permission-based UI rendering
+
+Goal: Improve UX, not security.
+
+Hide buttons / pages based on permissions
+
+Add “access denied” states
+
+✨ Nice-to-have:
+
+“Why can’t I see this?” explanation
+
+👤 Layer 5: User Profile & Compliance
+2.4.1 Profile basics
+
+Goal: User self-service.
+
+/profile page
+
+Edit name / display info
+
+View org memberships + role(s)
+
+2.4.2 Password & email changes
+
+Goal: Account security.
+
+Password change (requires current password)
+
+Email change with verification
+
+Re-auth required
+
+2.4.3 Account deletion (GDPR-safe)
+
+Goal: Legal + ethical compliance.
+
+Soft delete account
+
+Anonymize PII
+
+Preserve bookings + audit history
+
+📜 Layer 6: Audit & Governance (Gold Standard)
+2.5.1 Audit log (minimal)
+
+Goal: Accountability.
+
+Create audit_log table
+
+Log:
+
+invites created/accepted/revoked
+
+role changes
+
+permission changes
+
+org setting changes
+
+2.5.2 Admin audit UI
+
+Goal: Trust & transparency.
+
+View audit events per org
+
+Filter by user / action
+
+✨ Optional:
+
+export audit logs
+
+retention policies
+
+🔔 Layer 7: Nice-to-Haves (Only When Ready)
+
+Each of these is independent and can be added later:
+
+Org branding (logo, colours)
+
+Notification preferences
+
+Bulk invite CSV
+
+Domain-restricted invites
+
+Admin impersonation (fully audited)
+
+Feature flags per org
+
+“Explain access” UI
 
 ---
 

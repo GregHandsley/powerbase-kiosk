@@ -2,6 +2,7 @@ import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
+import { AcceptInvite } from './pages/AcceptInvite';
 import { KioskPower } from './pages/KioskPower';
 import { KioskBase } from './pages/KioskBase';
 import { LiveView } from './pages/LiveView';
@@ -37,13 +38,16 @@ export default function App() {
   const { pathname } = useLocation();
   const { user, loading } = useAuth();
   const showHeader =
-    !pathname.startsWith('/kiosk') && !pathname.startsWith('/login');
+    !pathname.startsWith('/kiosk') &&
+    !pathname.startsWith('/login') &&
+    !pathname.startsWith('/accept-invite');
 
-  // Show only login page if not authenticated
+  // Show only login and accept-invite pages if not authenticated
   if (!loading && !user) {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/accept-invite" element={<AcceptInvite />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -167,6 +171,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/accept-invite" element={<AcceptInvite />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
