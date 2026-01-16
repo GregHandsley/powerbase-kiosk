@@ -2,6 +2,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { useTasks } from '../../hooks/useTasks';
 import type { Task } from '../../hooks/useTasks';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../../hooks/usePermissions';
 
 function TaskItem({ task, onClose }: { task: Task; onClose: () => void }) {
   const navigate = useNavigate();
@@ -153,6 +157,11 @@ type TaskDropdownProps = {
 
 export function TaskDropdown({ onClose }: TaskDropdownProps) {
   const { tasks, isLoading } = useTasks();
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canViewAllBookings } = usePermission(
+    primaryOrgId,
+    'bookings.view_all'
+  );
 
   if (isLoading) {
     return (
@@ -199,7 +208,7 @@ export function TaskDropdown({ onClose }: TaskDropdownProps) {
       </div>
 
       {/* Footer */}
-      {tasks.length > 0 && (
+      {tasks.length > 0 && canViewAllBookings && (
         <div className="p-3 border-t border-slate-700">
           <Link
             to="/bookings-team"

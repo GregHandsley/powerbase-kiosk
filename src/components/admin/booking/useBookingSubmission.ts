@@ -51,9 +51,12 @@ type CapacityValidation = {
 /**
  * Hook to handle booking form submission
  */
+import type { OrgRole } from '../../../types/auth';
+import { isAdminRole } from '../../../types/auth';
+
 export function useBookingSubmission(
   form: UseFormReturn<BookingFormValues>,
-  role: 'admin' | 'coach',
+  role: OrgRole, // Now accepts all org roles (2.3.1)
   userId: string | null,
   timeRangeIsClosed: boolean,
   weekManagement: WeekManagement,
@@ -79,10 +82,10 @@ export function useBookingSubmission(
     try {
       const sideId = await getSideIdByKeyNode(values.sideKey as SideKey);
 
-      // Get the side's organization_id (required for booking creation)
+      // Get the side's organization_id and site_id (required for booking creation)
       const { data: sideData, error: sideError } = await supabase
         .from('sides')
-        .select('organization_id')
+        .select('organization_id, site_id')
         .eq('id', sideId)
         .maybeSingle();
 
@@ -92,7 +95,14 @@ export function useBookingSubmission(
         );
       }
 
+      if (!sideData.site_id) {
+        throw new Error(
+          'Failed to determine site for this booking. The side must have a site_id assigned.'
+        );
+      }
+
       const organizationId = sideData.organization_id;
+      const siteId = sideData.site_id;
 
       const startTemplate = combineDateAndTime(
         values.startDate,
@@ -314,7 +324,7 @@ export function useBookingSubmission(
           `Bookings within this window must be handled in person. Please speak to staff.\n`;
 
         // Non-admins cannot override; block with clear guidance
-        if (role !== 'admin') {
+        if (!isAdminRole(role)) {
           throw new Error(hardCutoffError);
         }
 
@@ -336,7 +346,7 @@ export function useBookingSubmission(
       const areasKeys = values.areas || [];
 
       // Admin can lock; coaches cannot
-      const isLocked = role === 'admin' ? !!values.isLocked : false;
+      const isLocked = isAdminRole(role) ? !!values.isLocked : false;
 
       // Recurrence descriptor (for info/debug)
       const recurrence = {
@@ -367,6 +377,7 @@ export function useBookingSubmission(
           title: values.title,
           side_id: sideId,
           organization_id: organizationId, // Required: bookings must belong to an organization
+          site_id: siteId, // Required: bookings must belong to a site (S6a/S6b)
           start_template: startTemplate.toISOString(),
           end_template: endTemplate.toISOString(),
           recurrence,
@@ -380,7 +391,7 @@ export function useBookingSubmission(
           last_minute_change: lastMinuteChange,
           cutoff_at: notificationDeadline?.toISOString() || null,
           override_by:
-            role === 'admin' && (lastMinuteChange || isWithinHardRestrict)
+            isAdminRole(role) && (lastMinuteChange || isWithinHardRestrict)
               ? userId
               : null,
         })

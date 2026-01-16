@@ -14,6 +14,10 @@ import { Admin } from './pages/Admin';
 import { KioskErrorScreen } from './components/KioskErrorScreen';
 import { TaskBell } from './components/tasks/TaskBell';
 import { useAuth } from './context/AuthContext';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from './hooks/usePermissions';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -37,6 +41,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { pathname } = useLocation();
   const { user, loading } = useAuth();
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canViewAllBookings } = usePermission(
+    primaryOrgId,
+    'bookings.view_all'
+  );
+
   const showHeader =
     !pathname.startsWith('/kiosk') &&
     !pathname.startsWith('/login') &&
@@ -80,9 +90,11 @@ export default function App() {
             <Link to="/my-bookings" className="hover:text-white">
               My Bookings
             </Link>
-            <Link to="/bookings-team" className="hover:text-white">
-              Bookings Team
-            </Link>
+            {canViewAllBookings && (
+              <Link to="/bookings-team" className="hover:text-white">
+                Bookings Team
+              </Link>
+            )}
             <div className="ml-auto flex items-center gap-4">
               {user && <TaskBell />}
               <Link to="/admin" className="hover:text-white">

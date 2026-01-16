@@ -6,6 +6,10 @@ import {
   type TimeSlot,
 } from '../components/admin/capacity/scheduleUtils';
 import { isTimeSlotInPast } from '../components/admin/booking/utils';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../hooks/usePermissions';
 
 type SlotCapacityData = {
   availablePlatforms: Set<number> | null;
@@ -273,9 +277,21 @@ export function Schedule() {
     );
   }, [sideId, capacitySchedules, timeSlots, currentDate, bookings]);
 
+  // Check permissions for creating bookings
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canCreateBookings } = usePermission(
+    primaryOrgId,
+    'bookings.create'
+  );
+
   const handleCellClick = (rack: number, timeSlot: TimeSlot) => {
     // Prevent clicking on past times
     if (isTimeSlotInPast(currentDate, timeSlot)) {
+      return;
+    }
+
+    // Check permission before opening create modal
+    if (!canCreateBookings) {
       return;
     }
 
@@ -475,7 +491,7 @@ export function Schedule() {
           initialTimeSlot={newBookingContext.timeSlot}
           initialRack={newBookingContext.rack}
           initialSide={newBookingContext.side}
-          role={role || 'coach'}
+          role={role || 'snc_coach'}
           selectedRacks={newBookingContext.selectedRacks}
           endTimeSlot={newBookingContext.endTimeSlot}
           onSuccess={handleCloseNewBookingModal}

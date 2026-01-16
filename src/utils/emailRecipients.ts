@@ -154,9 +154,30 @@ export async function getEmailRecipients(
     const roleUserIds: string[] = [];
     for (const role of settings.last_minute_alert_roles || []) {
       console.log(`getEmailRecipients: Getting user IDs for role: ${role}`);
-      const userIds = await getUserIdsByRole(
-        role as 'admin' | 'coach' | 'bookings_team'
-      );
+      // Map legacy role names to new enum values
+      const roleMap: Record<
+        string,
+        | 'admin'
+        | 'bookings_team'
+        | 'snc_coach'
+        | 'fitness_coach'
+        | 'customer_service_assistant'
+        | 'duty_manager'
+      > = {
+        admin: 'admin',
+        coach: 'snc_coach', // Legacy 'coach' maps to 'snc_coach'
+        bookings_team: 'bookings_team',
+      };
+      const mappedRole =
+        roleMap[role] ||
+        (role as
+          | 'admin'
+          | 'bookings_team'
+          | 'snc_coach'
+          | 'fitness_coach'
+          | 'customer_service_assistant'
+          | 'duty_manager');
+      const userIds = await getUserIdsByRole(mappedRole);
       console.log(
         `getEmailRecipients: Found ${userIds.length} users with role ${role}`
       );

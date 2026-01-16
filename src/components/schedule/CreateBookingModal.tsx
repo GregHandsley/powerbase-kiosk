@@ -4,6 +4,7 @@ import { Modal } from '../shared/Modal';
 import { BookingFormPanel } from '../admin/BookingFormPanel';
 import { formatTimeSlot, type TimeSlot } from '../admin/capacity/scheduleUtils';
 import type { BookingFormValues } from '../../schemas/bookingForm';
+import type { OrgRole } from '../../types/auth';
 
 type Props = {
   isOpen: boolean;
@@ -12,7 +13,7 @@ type Props = {
   initialTimeSlot: TimeSlot;
   initialRack: number;
   initialSide: 'Power' | 'Base';
-  role: 'admin' | 'coach';
+  role: OrgRole; // Now accepts all org roles (2.3.1)
   onSuccess?: () => void;
   /** Selected racks from drag selection */
   selectedRacks?: number[];

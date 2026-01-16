@@ -8,6 +8,10 @@ import { RackListEditor } from '../components/schedule/RackListEditor';
 import { useLiveViewCapacity } from '../components/schedule/hooks/useLiveViewCapacity';
 import { isSessionInPast } from '../components/admin/booking/utils';
 import { supabase } from '../lib/supabaseClient';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../hooks/usePermissions';
 
 type SideMode = 'power' | 'base';
 
@@ -65,7 +69,18 @@ export function LiveView() {
     }
   };
 
+  // Check permissions for creating bookings
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canCreateBookings } = usePermission(
+    primaryOrgId,
+    'bookings.create'
+  );
+
   const handleAddBooking = () => {
+    if (!canCreateBookings) {
+      return;
+    }
+
     // Calculate end time as 90 minutes after start time
     const [startHour, startMinute] = time.split(':').map(Number);
     const startTotalMinutes = startHour * 60 + startMinute;
@@ -241,16 +256,18 @@ export function LiveView() {
           </div>
 
           {/* Add Booking button */}
-          <div className="flex flex-col">
-            <span className="mb-1 text-slate-300">Actions</span>
-            <button
-              type="button"
-              onClick={handleAddBooking}
-              className="px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-medium"
-            >
-              Add Booking
-            </button>
-          </div>
+          {canCreateBookings && (
+            <div className="flex flex-col">
+              <span className="mb-1 text-slate-300">Actions</span>
+              <button
+                type="button"
+                onClick={handleAddBooking}
+                className="px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-medium"
+              >
+                Add Booking
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

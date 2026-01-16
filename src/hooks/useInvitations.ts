@@ -3,24 +3,29 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
+import type { OrgRole } from '../types/auth';
+
 export interface Invitation {
   id: number;
   email: string;
   organization_id: number;
-  role: 'admin' | 'coach';
+  role: OrgRole; // Organization-level role (no super_admin)
   expires_at: string;
   accepted_at: string | null;
   revoked_at: string | null;
   created_at: string;
   invited_by: string | null;
   organization_name?: string;
+  site_ids?: number[]; // Sites assigned to this invitation
+  site_names?: string[]; // Site names for display
 }
 
 export interface CreateInvitationParams {
   email: string;
   organization_id: number;
-  role: 'admin' | 'coach';
+  role: OrgRole; // Organization-level role (no super_admin)
   expires_in_days?: number;
+  site_ids?: number[]; // Optional: sites to grant access to
 }
 
 export interface CreateInvitationResult {
@@ -29,18 +34,29 @@ export interface CreateInvitationResult {
   error_message: string | null;
 }
 
-// Type for raw Supabase invitation data with organization join
+// Type for raw Supabase invitation data with organization and sites join
+// Note: Supabase PostgREST can return nested relations as single objects or arrays
 type InvitationWithOrganization = {
   id: number;
   email: string;
   organization_id: number;
-  role: 'admin' | 'coach';
+  role: OrgRole;
   expires_at: string;
   accepted_at: string | null;
   revoked_at: string | null;
   created_at: string;
   invited_by: string | null;
   organization: { name: string } | { name: string }[] | null | undefined;
+  invitation_sites:
+    | Array<{
+        site_id: number;
+        site:
+          | { id: number; name: string }
+          | { id: number; name: string }[]
+          | null;
+      }>
+    | null
+    | undefined;
 };
 
 /**
@@ -80,7 +96,7 @@ export function useInvitations() {
         return [];
       }
 
-      // Fetch invitations for user's organizations
+      // Fetch invitations for user's organizations (with sites)
       const { data, error: invitationsError } = await supabase
         .from('invitations')
         .select(
@@ -96,6 +112,13 @@ export function useInvitations() {
           invited_by,
           organization:organizations (
             name
+          ),
+          invitation_sites:invitation_sites (
+            site_id,
+            site:sites (
+              id,
+              name
+            )
           )
         `
         )
@@ -107,7 +130,7 @@ export function useInvitations() {
         return [];
       }
 
-      // Transform the data to include organization name
+      // Transform the data to include organization name and sites
       return (data || []).map((inv: InvitationWithOrganization) => {
         let orgName: string | null = null;
         const org = inv.organization;
@@ -118,41 +141,105 @@ export function useInvitations() {
             orgName = org.name || null;
           }
         }
+
+        // Extract site IDs and names
+        const siteIds: number[] = [];
+        const siteNames: string[] = [];
+        if (inv.invitation_sites && Array.isArray(inv.invitation_sites)) {
+          inv.invitation_sites.forEach((is) => {
+            // Handle both single object and array formats from Supabase
+            const site = is.site;
+            if (site) {
+              if (Array.isArray(site)) {
+                // If site is an array, take the first one
+                const firstSite = site[0];
+                if (firstSite?.id) {
+                  siteIds.push(firstSite.id);
+                  if (firstSite.name) {
+                    siteNames.push(firstSite.name);
+                  }
+                }
+              } else {
+                // If site is a single object
+                if (site.id) {
+                  siteIds.push(site.id);
+                  if (site.name) {
+                    siteNames.push(site.name);
+                  }
+                }
+              }
+            }
+          });
+        }
+
         return {
           ...inv,
           organization_name: orgName,
+          site_ids: siteIds.length > 0 ? siteIds : undefined,
+          site_names: siteNames.length > 0 ? siteNames : undefined,
         } as Invitation;
       });
     },
     enabled: !!user?.id,
   });
 
-  // Create invitation mutation
+  // Create invitation mutation (with site support)
   const createInvitationMutation = useMutation({
     mutationFn: async (params: CreateInvitationParams) => {
-      const { data, error } = await supabase.rpc('create_invitation', {
+      // Use create_invitation_with_sites if site_ids are provided, otherwise use create_invitation
+      const hasSites = params.site_ids && params.site_ids.length > 0;
+      const functionName = hasSites
+        ? 'create_invitation_with_sites'
+        : 'create_invitation';
+
+      const rpcParams: Record<string, unknown> = {
         p_email: params.email.toLowerCase().trim(),
         p_organization_id: params.organization_id,
         p_role: params.role,
         p_expires_in_days: params.expires_in_days || 7,
-        p_invited_by: user?.id || null,
-      });
+      };
+
+      // Only include p_invited_by if user is available (let default handle it otherwise)
+      if (user?.id) {
+        rpcParams.p_invited_by = user.id;
+      }
+
+      // Always pass p_site_ids when using create_invitation_with_sites
+      // Even if empty, Supabase RPC may require it to be passed explicitly
+      if (functionName === 'create_invitation_with_sites') {
+        // Ensure we pass an array, not undefined
+        rpcParams.p_site_ids = params.site_ids ?? [];
+      }
+
+      const { data, error } = await supabase.rpc(functionName, rpcParams);
 
       if (error) {
+        console.error(`Error calling ${functionName}:`, error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        console.error('Parameters:', rpcParams);
+
         // Check if function doesn't exist
         if (
           error.code === '42883' ||
-          error.message?.includes('does not exist')
+          error.message?.includes('does not exist') ||
+          error.details?.includes('does not exist')
         ) {
           throw new Error(
-            "Database function 'create_invitation' does not exist. Please run the migration: migrations/add_invitation_management_functions.sql"
+            `Database function '${functionName}' does not exist. Please run the migration: migrations/add_invitation_sites_and_function.sql`
           );
         }
-        throw new Error(error.message || 'Failed to create invitation');
+
+        // Provide more detailed error message
+        const errorMessage =
+          error.message ||
+          error.details ||
+          error.hint ||
+          'Failed to create invitation';
+        throw new Error(`${errorMessage} (Function: ${functionName})`);
       }
 
       if (!data || data.length === 0) {
-        throw new Error('No data returned from create_invitation');
+        throw new Error(`No data returned from ${functionName}`);
       }
 
       const result = data[0];

@@ -38,6 +38,7 @@ type BookingFromSupabase = {
   processed_at: string | null;
   processed_by: string | null;
   processed_snapshot: ProcessedSnapshot | null;
+  organization_id: number;
   side:
     | {
         key: string;
@@ -62,6 +63,7 @@ export type BookingForTeam = {
   processed_at: string | null;
   processed_by: string | null;
   processed_snapshot: ProcessedSnapshot | null;
+  organization_id: number;
   side: {
     key: string;
     name: string;
@@ -104,6 +106,7 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
           processed_at,
           processed_by,
           processed_snapshot,
+          organization_id,
           side:sides (
             key,
             name
@@ -236,6 +239,7 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
             processed_snapshot: booking.processed_snapshot
               ? (booking.processed_snapshot as ProcessedSnapshot)
               : null,
+            organization_id: booking.organization_id,
             side,
             creator: creator
               ? {

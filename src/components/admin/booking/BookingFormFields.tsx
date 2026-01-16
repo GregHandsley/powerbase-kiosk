@@ -2,9 +2,12 @@ import type { UseFormReturn } from 'react-hook-form';
 import type { BookingFormValues } from '../../../schemas/bookingForm';
 import clsx from 'clsx';
 
+import type { OrgRole } from '../../../types/auth';
+import { isAdminRole } from '../../../types/auth';
+
 type Props = {
   form: UseFormReturn<BookingFormValues>;
-  role: 'admin' | 'coach';
+  role: OrgRole; // Now accepts all org roles (2.3.1)
   areas: Array<{
     id: number;
     side_id: number;
@@ -136,7 +139,7 @@ export function BookingFormFields({
         </div>
       </div>
 
-      {role === 'admin' && (
+      {isAdminRole(role) && (
         <div className="flex items-center gap-2 mt-2">
           <input
             type="checkbox"

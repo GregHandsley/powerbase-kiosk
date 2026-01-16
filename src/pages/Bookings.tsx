@@ -4,6 +4,7 @@ import { BookingFormPanel } from '../components/admin/BookingFormPanel';
 import { Clock } from '../components/Clock';
 import { useAuth } from '../context/AuthContext';
 import type { BookingFormValues } from '../schemas/bookingForm';
+import { isCoachRole } from '../types/auth';
 
 export function Bookings() {
   const { user, profile, role, loading, signOut, signIn } = useAuth();
@@ -107,7 +108,7 @@ export function Bookings() {
     );
   }
 
-  if (!role || (role !== 'admin' && role !== 'coach')) {
+  if (!role || (role !== 'admin' && !isCoachRole(role))) {
     return (
       <div className="p-4 space-y-4">
         <header className="flex items-center justify-between">

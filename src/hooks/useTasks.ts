@@ -403,13 +403,22 @@ export async function createTasksForUsers(
 
 /**
  * Get user IDs for a specific role (e.g., all bookings team members)
+ * Now queries organization_memberships instead of profiles (2.3.1)
  */
 export async function getUserIdsByRole(
-  role: 'admin' | 'coach' | 'bookings_team'
+  role:
+    | 'admin'
+    | 'bookings_team'
+    | 'snc_coach'
+    | 'fitness_coach'
+    | 'customer_service_assistant'
+    | 'duty_manager'
 ): Promise<string[]> {
+  // Query organization_memberships for the role
+  // Note: This gets users from ALL organizations with this role
   const { data, error } = await supabase
-    .from('profiles')
-    .select('id')
+    .from('organization_memberships')
+    .select('user_id')
     .eq('role', role);
 
   if (error) {
@@ -417,7 +426,7 @@ export async function getUserIdsByRole(
     return [];
   }
 
-  return (data ?? []).map((p) => p.id);
+  return (data ?? []).map((m) => m.user_id);
 }
 
 /**

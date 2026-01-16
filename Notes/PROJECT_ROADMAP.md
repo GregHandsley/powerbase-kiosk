@@ -281,91 +281,250 @@ bulk invite
 
 domain restrictions
 
+# Insert Now (Before Continuing Layer 4): Sites + Site-Scoped Invites
+
+Goal: Add “Sites within Organizations” without breaking existing org/invite flow.
+Outcome: Invites can specify site access; accepted users only see data for assigned sites once RLS is added later.
+
+---
+
+## Step S1 — Add Sites (org → many sites) (DB only)
+
+- Create `sites` table (org-owned):
+  - `id`
+  - `organization_id` (FK → organizations)
+  - `name`
+  - `slug` (unique per org)
+  - `settings` (optional)
+  - `created_at`
+- Seed: create 1 default site per existing org (e.g., “Main Site”)
+- Add indexes:
+  - `(organization_id)`
+  - unique `(organization_id, slug)`
+
+✅ Outcome: Site concept exists, nothing breaks.
+
+---
+
+## Step S2 — Add Site Memberships (user → many sites) (DB only)
+
+- Create `site_memberships` table:
+  - `site_id` (FK → sites)
+  - `user_id` (FK → auth.users)
+  - `created_at`
+  - PK `(site_id, user_id)`
+- Backfill:
+  - for every `organization_memberships` row, grant membership to that org’s default site
+
+✅ Outcome: All existing users continue to work (they implicitly get the default site).
+
+---
+
+## Step S3 — Allow Invites to Assign Site Access (DB + functions)
+
+Choose multi-site now so you don’t regret it later.
+
+- Create `invitation_sites` table (join):
+  - `invitation_id` (FK → invitations)
+  - `site_id` (FK → sites)
+  - PK `(invitation_id, site_id)`
+
+- Add new function `create_invitation_with_sites(...)` (non-breaking):
+  - Inputs: `email, organization_id, role, site_ids[]`
+  - Creates invitation (using existing `create_invitation`)
+  - Inserts rows into `invitation_sites`
+
+✅ Outcome: You can invite a user to specific site(s) without changing existing create_invitation immediately.
+
+---
+
+## Step S4 — Update Invite Acceptance to Grant Site Access (DB + functions)
+
+Update `accept_invitation(...)`:
+
+After creating `organization_memberships`, also:
+
+- Insert into `site_memberships` for each `invitation_sites.site_id` for that invitation
+- Decide behaviour if no sites specified:
+  - Recommended for now: fallback to org default site (non-breaking)
+  - Later: enforce “invite must include at least one site”
+
+✅ Outcome: On acceptance, the user is placed into the org AND assigned to the intended site(s).
+
+---
+
+## Step S5 — Minimal UI changes (admin invite screen)
+
+- Update “Invite user” form:
+  - Add site selector (single or multi-select)
+  - Call `create_invitation_with_sites` instead of `create_invitation`
+- Optional: show “Sites assigned” on invitation list
+
+✅ Outcome: Admin can target sites when inviting.
+
+---
+
+## Step S6 — (Later, after RBAC or alongside RLS hardening): Site Isolation via RLS
+
+Do NOT block current progress; implement when ready.
+
+- Add `site_id` to site-scoped tables (recommended):
+  - `sides.site_id` (required)
+  - `bookings.site_id` (recommended)
+  - `areas`, `racks`, `capacity_schedules`, etc. (inherit or denormalise depending on model)
+- Backfill all existing data → default site
+- Enable RLS policies:
+  - user must have `site_memberships` for `site_id`
+  - super admins bypass
+
+✅ Outcome: True site-level isolation.
+
+---
+
 🧭 Layer 4: Roles & Permissions (RBAC)
 2.3.1 Define roles (static)
 
-Goal: Replace “role as a string” with intent.
+Goal: Replace “role as a string” with intent (org-scoped roles).
 
-Define default roles:
+Define org_role enum (admin, bookings_team, coach, facility_manager)
 
-super_admin
+Ensure roles live on organization_memberships.role (not profiles)
 
-admin
+Add profiles.is_super_admin as global flag (bypass checks later)
 
-bookings_team
-
-coach
-
-facility_manager
-
-Assign roles per membership, not profile
-
-No permissions yet
-
-✅ Outcome: Roles are meaningful but inert
+✅ Outcome: Roles are meaningful but inert.
 
 2.3.2 Introduce permissions table
 
-Goal: Central permission registry.
+Goal: Create a central permission vocabulary.
 
-Create permissions table
+Create permissions table (e.g. bookings.create, bookings.process, sites.manage)
 
-Seed known permissions (bookings.create, etc.)
+Seed known permissions
 
-No enforcement yet
-
-✅ Outcome: Permission vocabulary exists
+✅ Outcome: Permission vocabulary exists (no enforcement yet).
 
 2.3.3 Role → permission mapping
 
-Goal: Make roles do something.
+Goal: Make roles map to permissions.
 
-Create role_permissions
+Create role_permissions table
 
-Assign sensible defaults per role
+Seed defaults per role
 
-Build helper:
+Create helper function(s):
 
-hasPermission(user, org, permissionKey)
+has_permission(user_id, organization_id, permission_key)
 
-✅ Outcome: RBAC logic exists (backend)
+(optional) has_site_access(user_id, site_id) via site_memberships
+
+✅ Outcome: RBAC logic exists (backend).
 
 2.3.4 Enforce permissions (API first)
 
 Goal: Secure behaviour, not UI.
 
-Guard API routes using permission helper
+Guard API routes / RPC calls using has_permission(...)
 
-Leave UI unchanged initially
+Start with high-risk actions:
 
-✅ Outcome: Real access control is live
+invite/create/resend/revoke
+
+booking approval / processing
+
+overrides / last-minute changes
+
+✅ Outcome: Real access control is live at API level.
 
 2.3.5 Permission-based UI rendering
 
-Goal: Improve UX, not security.
+Goal: Improve UX (not security).
 
-Hide buttons / pages based on permissions
+Hide buttons/pages based on permissions
 
 Add “access denied” states
 
-✨ Nice-to-have:
+Optional: “Why can’t I see this?” tooltip/help
 
-“Why can’t I see this?” explanation
+✅ Outcome: UI matches permissions model.
+
+🧱 Site Isolation via RLS (S6) — Correct Place & Gated
+
+You’ve already done S1–S5 (Sites, Site Memberships, Invitation Sites, Accept Invite grants site access, minimal UI).
+S6 is enforcement, so place it after RBAC exists and you’re ready to harden RLS without breaking writes.
+
+S6a — Prepare site scoping (schema + backfill only)
+
+When: After 2.3.3 or 2.3.4 (RBAC exists, but before enforcement).
+Goal: Make DB “site-aware” without breaking the app.
+
+Add site_id columns to site-scoped tables:
+
+sides.site_id (required)
+
+bookings.site_id (recommended)
+
+areas.site_id, racks.site_id, capacity_schedules.site_id (denormalize for RLS performance)
+
+Backfill per organization’s default site, not “first site globally”:
+
+derive from organization_id where possible (e.g. sides.organization_id → sites.organization_id AND slug='main-site')
+
+bookings/areas/racks derive from side’s site
+
+Add indexes on site_id
+
+🚫 Do not:
+
+set NOT NULL
+
+enable RLS
+
+add policies yet
+
+✅ Outcome: App still works, DB is ready for isolation.
+
+S6b — Enforce site isolation (RLS + constraints)
+
+When: After 2.3.4 (API permission enforcement is stable) or alongside broader RLS hardening.
+Goal: Flip the enforcement switches safely.
+
+Prereq checklist (must be true before running):
+
+All write paths supply site_id (create/edit booking, create side, etc.)
+
+Your “current site” concept exists (selected site in UI / persisted preference / route param)
+
+You can handle multi-site users (site selector, or default site fallback)
+
+Then:
+
+Set site_id NOT NULL on site-scoped tables
+
+Enable RLS on site-scoped tables
+
+Add policies:
+
+user must have site_memberships for row’s site_id
+
+profiles.is_super_admin bypass
+
+Ensure policies include proper WITH CHECK for inserts/updates (not just USING)
+
+✅ Outcome: True site-level isolation is live.
 
 👤 Layer 5: User Profile & Compliance
 2.4.1 Profile basics
-
-Goal: User self-service.
 
 /profile page
 
 Edit name / display info
 
-View org memberships + role(s)
+View org memberships + roles
+
+View site memberships (sites user can access)
 
 2.4.2 Password & email changes
-
-Goal: Account security.
 
 Password change (requires current password)
 
@@ -375,18 +534,14 @@ Re-auth required
 
 2.4.3 Account deletion (GDPR-safe)
 
-Goal: Legal + ethical compliance.
-
 Soft delete account
 
 Anonymize PII
 
 Preserve bookings + audit history
 
-📜 Layer 6: Audit & Governance (Gold Standard)
+📜 Layer 6: Audit & Governance
 2.5.1 Audit log (minimal)
-
-Goal: Accountability.
 
 Create audit_log table
 
@@ -398,25 +553,19 @@ role changes
 
 permission changes
 
-org setting changes
+site membership changes
+
+org/site settings changes
 
 2.5.2 Admin audit UI
 
-Goal: Trust & transparency.
-
 View audit events per org
 
-Filter by user / action
+Filter by user/action
 
-✨ Optional:
-
-export audit logs
-
-retention policies
+Optional export + retention
 
 🔔 Layer 7: Nice-to-Haves (Only When Ready)
-
-Each of these is independent and can be added later:
 
 Org branding (logo, colours)
 

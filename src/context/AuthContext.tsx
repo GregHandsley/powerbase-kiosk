@@ -2,13 +2,14 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
-import type { Profile, ProfileRole } from '../types/auth';
+import type { Profile, OrgRole } from '../types/auth';
 import { setSentryUser } from '../lib/sentry';
 
 type AuthContextValue = {
   user: User | null;
   profile: Profile | null;
-  role: ProfileRole | null;
+  role: OrgRole | null; // Role from organization_memberships (2.3.1) - org-level only
+  isSuperAdmin: boolean; // Global super admin flag from profiles
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -20,41 +21,65 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [role, setRole] = useState<OrgRole | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  const role: ProfileRole | null = profile?.role ?? null;
 
   // --- helpers -------------------------------------------------------
 
   async function fetchProfile(userId: string, userEmail?: string) {
     try {
-      const { data, error } = await supabase
+      // Fetch profile (for full_name, etc.)
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) {
-        console.warn('fetchProfile error', error.message);
+      if (profileError) {
+        console.warn('fetchProfile error', profileError.message);
         setProfile(null);
-        return;
+        setIsSuperAdmin(false);
+      } else {
+        const profile = profileData ? (profileData as Profile) : null;
+        setProfile(profile);
+        setIsSuperAdmin(profile?.is_super_admin ?? false);
       }
 
-      const profileData = data ? (data as Profile) : null;
-      setProfile(profileData);
+      // Fetch role from organization_memberships (2.3.1: roles per membership, not profile)
+      // Get the first/default organization membership role
+      const { data: membershipData, error: membershipError } = await supabase
+        .from('organization_memberships')
+        .select('role')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
-      // Update Sentry user context with full profile info
-      if (profileData) {
-        setSentryUser({
-          id: userId,
-          email: userEmail,
-          role: profileData.role,
-          name: profileData.full_name || undefined,
-        });
+      if (membershipError) {
+        console.warn('fetchMembershipRole error', membershipError.message);
+        setRole(null);
+      } else {
+        const membershipRole = membershipData?.role as OrgRole | null;
+        setRole(membershipRole ?? null);
       }
+
+      // Update Sentry user context
+      const currentRole = (membershipData?.role as OrgRole | null) ?? null;
+      const profile = profileData ? (profileData as Profile) : null;
+      const superAdmin = profile?.is_super_admin ?? false;
+
+      setSentryUser({
+        id: userId,
+        email: userEmail,
+        role: superAdmin ? 'super_admin' : currentRole || undefined,
+        name: profile?.full_name || undefined,
+      });
     } catch (err) {
       console.warn('fetchProfile unexpected error', err);
       setProfile(null);
+      setRole(null);
+      setIsSuperAdmin(false);
     }
   }
 
@@ -197,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     profile,
     role,
+    isSuperAdmin,
     loading,
     signIn,
     signOut,

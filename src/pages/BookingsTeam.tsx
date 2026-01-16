@@ -14,6 +14,10 @@ import { ConfirmationDialog } from '../components/shared/ConfirmationDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import { deleteTasksForBooking } from '../hooks/useTasks';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../hooks/usePermissions';
 
 function InfoTooltip({ content }: { content: string }) {
   const [show, setShow] = useState(false);
@@ -80,6 +84,13 @@ export function BookingsTeam() {
   // Check if user has access (admin or bookings_team role)
   const hasAccess = role === 'admin'; // TODO: Add "bookings_team" role check when implemented
 
+  // Check permissions for processing bookings
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canProcessBookings } = usePermission(
+    primaryOrgId,
+    'bookings.process'
+  );
+
   // Fetch bookings
   const { data: bookings = [], isLoading, error } = useBookingsTeam(filters);
 
@@ -107,25 +118,45 @@ export function BookingsTeam() {
     setSearchParams(newSearchParams, { replace: true });
   };
 
-  // Fetch coaches for filter dropdown
+  // Fetch coach-like roles for filter dropdown (2.3.1: query organization_memberships)
   const { data: coaches = [] } = useQuery({
     queryKey: ['coaches-list'],
     queryFn: async () => {
+      // Get all users with coach-like roles (S&C Coach, Fitness Coach, etc.)
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .eq('role', 'coach')
-        .order('full_name', { ascending: true });
+        .from('organization_memberships')
+        .select('user_id, profiles!inner(id, full_name)')
+        .in('role', [
+          'snc_coach',
+          'fitness_coach',
+          'customer_service_assistant',
+          'duty_manager',
+        ])
+        .order('profiles(full_name)', { ascending: true });
 
       if (error) {
         console.error('Error fetching coaches:', error);
         return [];
       }
 
-      return (data || []).map((p) => ({
-        id: p.id,
-        full_name: p.full_name,
-      }));
+      // Extract unique users (a user might have multiple coach roles in different orgs)
+      const uniqueUsers = new Map<
+        string,
+        { id: string; full_name: string | null }
+      >();
+      (data || []).forEach((m) => {
+        const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+        if (profile && !uniqueUsers.has(m.user_id)) {
+          uniqueUsers.set(m.user_id, {
+            id: profile.id,
+            full_name: profile.full_name,
+          });
+        }
+      });
+
+      return Array.from(uniqueUsers.values()).sort((a, b) =>
+        (a.full_name || '').localeCompare(b.full_name || '')
+      );
     },
   });
 
@@ -547,16 +578,22 @@ export function BookingsTeam() {
                 ? 'Deselect All'
                 : 'Select All Pending'}
             </button>
-            <button
-              type="button"
-              onClick={handleBulkProcess}
-              disabled={bulkProcessing || selectedPendingCount === 0}
-              className="px-4 py-1.5 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {bulkProcessing
-                ? 'Processing...'
-                : `Process ${selectedPendingCount} Pending`}
-            </button>
+            {canProcessBookings ? (
+              <button
+                type="button"
+                onClick={handleBulkProcess}
+                disabled={bulkProcessing || selectedPendingCount === 0}
+                className="px-4 py-1.5 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {bulkProcessing
+                  ? 'Processing...'
+                  : `Process ${selectedPendingCount} Pending`}
+              </button>
+            ) : (
+              <span className="px-4 py-1.5 text-sm text-slate-500 italic">
+                No permission to process
+              </span>
+            )}
           </div>
         </div>
       )}

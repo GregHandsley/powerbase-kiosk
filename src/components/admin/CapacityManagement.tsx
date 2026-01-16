@@ -16,8 +16,19 @@ import {
   type RecurrenceType,
   type TimeSlot,
 } from './capacity/scheduleUtils';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../../hooks/usePermissions';
 
 export function CapacityManagement() {
+  // Check permissions for managing capacity
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canManageCapacity } = usePermission(
+    primaryOrgId,
+    'capacity.manage'
+  );
+
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedSide, setSelectedSide] = useState<'Power' | 'Base'>('Power');
   const [sideId, setSideId] = useState<number | null>(null);
@@ -93,6 +104,9 @@ export function CapacityManagement() {
   };
 
   const handleCellClick = (day: Date, timeSlot: TimeSlot) => {
+    if (!canManageCapacity) {
+      return;
+    }
     const timeStr = `${String(timeSlot.hour).padStart(2, '0')}:${String(timeSlot.minute).padStart(2, '0')}`;
     setEditingCell({ date: day, time: timeStr });
   };
@@ -197,6 +211,35 @@ export function CapacityManagement() {
     setCurrentWeek((prev) => new Date(prev.getTime()));
     setEditingCell(null);
   };
+
+  // Show access denied message if user doesn't have permission
+  if (!canManageCapacity) {
+    return (
+      <div className="h-full flex items-center justify-center p-8">
+        <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-md">
+          <div className="flex items-center gap-2 text-slate-400">
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span className="text-sm">
+              You don't have permission to manage capacity. Contact your
+              administrator if you need access.
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col space-y-4">

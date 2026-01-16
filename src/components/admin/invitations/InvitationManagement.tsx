@@ -1,8 +1,16 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useInvitations } from '../../../hooks/useInvitations';
 import { useOrganizations } from '../../../hooks/useOrganizations';
+import { useSites } from '../../../hooks/useSites';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../../../hooks/usePermissions';
 import toast from 'react-hot-toast';
 import { format, parseISO, isAfter } from 'date-fns';
+import { ConfirmationDialog } from '../../shared/ConfirmationDialog';
+import type { OrgRole } from '../../../types/auth';
+import { getRoleDisplayName } from '../../../types/auth';
 
 type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 
@@ -34,6 +42,66 @@ function StatusBadge({ status }: { status: InvitationStatus }) {
   );
 }
 
+/**
+ * Component to render action buttons for an invitation with permission checks
+ */
+function InvitationActions({
+  invitation,
+  isPending,
+  onResend,
+  onRevoke,
+  resendLoading,
+  revokeLoading,
+}: {
+  invitation: { id: number; organization_id: number };
+  isPending: boolean;
+  onResend: () => void;
+  onRevoke: () => void;
+  resendLoading: boolean;
+  revokeLoading: boolean;
+}) {
+  const { hasPermission: canResend } = usePermission(
+    invitation.organization_id,
+    'invitations.resend'
+  );
+  const { hasPermission: canRevoke } = usePermission(
+    invitation.organization_id,
+    'invitations.revoke'
+  );
+
+  if (!isPending) {
+    return null;
+  }
+
+  return (
+    <>
+      {canResend && (
+        <button
+          onClick={onResend}
+          disabled={resendLoading}
+          className="px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 hover:underline disabled:opacity-50"
+          title="Resend invitation (rotate token)"
+        >
+          Resend
+        </button>
+      )}
+      {canRevoke && (
+        <button
+          onClick={onRevoke}
+          disabled={revokeLoading}
+          className="px-2 py-1 text-xs text-red-400 hover:text-red-300 hover:underline disabled:opacity-50"
+          title="Revoke invitation"
+        >
+          Revoke
+        </button>
+      )}
+      {!canResend && !canRevoke && (
+        <span className="text-xs text-slate-500 italic">No permissions</span>
+      )}
+    </>
+  );
+}
+
 export function InvitationManagement() {
   const {
     invitations,
@@ -51,9 +119,35 @@ export function InvitationManagement() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formEmail, setFormEmail] = useState('');
   const [formOrganizationId, setFormOrganizationId] = useState<number | ''>('');
-  const [formRole, setFormRole] = useState<'admin' | 'coach'>('coach');
+  const [formRole, setFormRole] = useState<OrgRole>('snc_coach');
   const [formExpiresInDays, setFormExpiresInDays] = useState(7);
+  const [formSiteIds, setFormSiteIds] = useState<number[]>([]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const [revokingInvitationId, setRevokingInvitationId] = useState<
+    number | null
+  >(null);
+  const [statusFilter, setStatusFilter] = useState<InvitationStatus | 'all'>(
+    'all'
+  );
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Fetch sites for the selected organization
+  const { sites, isLoading: sitesLoading } = useSites(
+    formOrganizationId ? (formOrganizationId as number) : null
+  );
+
+  // Check permissions for creating invitations (for the selected organization)
+  const { hasPermission: canCreate } = usePermission(
+    formOrganizationId ? (formOrganizationId as number) : null,
+    'invitations.create'
+  );
+
+  // Check permissions for the primary organization (fallback for create button visibility)
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canCreatePrimary } = usePermission(
+    primaryOrgId,
+    'invitations.create'
+  );
 
   const handleCreateInvitation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,14 +163,16 @@ export function InvitationManagement() {
         organization_id: formOrganizationId as number,
         role: formRole,
         expires_in_days: formExpiresInDays,
+        site_ids: formSiteIds.length > 0 ? formSiteIds : undefined,
       });
 
       toast.success('Invitation created successfully!');
       setCreatedToken(result.token);
       setFormEmail('');
       setFormOrganizationId('');
-      setFormRole('coach');
+      setFormRole('snc_coach');
       setFormExpiresInDays(7);
+      setFormSiteIds([]);
       setShowCreateForm(false);
     } catch (error) {
       toast.error(
@@ -101,19 +197,48 @@ export function InvitationManagement() {
   };
 
   const handleRevoke = async (invitationId: number) => {
-    if (!confirm('Are you sure you want to revoke this invitation?')) {
-      return;
-    }
+    setRevokingInvitationId(invitationId);
+  };
+
+  const confirmRevoke = async () => {
+    if (!revokingInvitationId) return;
 
     try {
-      await revokeInvitation(invitationId);
+      await revokeInvitation(revokingInvitationId);
       toast.success('Invitation revoked');
+      setRevokingInvitationId(null);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to revoke invitation'
       );
     }
   };
+
+  // Filter and search invitations
+  const filteredInvitations = useMemo(() => {
+    return invitations.filter((invitation) => {
+      const status = getInvitationStatus(invitation);
+
+      // Status filter
+      if (statusFilter !== 'all' && status !== statusFilter) {
+        return false;
+      }
+
+      // Search filter (email or organization name)
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesEmail = invitation.email.toLowerCase().includes(query);
+        const matchesOrg = (invitation.organization_name || '')
+          .toLowerCase()
+          .includes(query);
+        if (!matchesEmail && !matchesOrg) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [invitations, statusFilter, searchQuery]);
 
   const copyInviteLink = (token: string) => {
     const url = `${window.location.origin}/accept-invite?token=${token}`;
@@ -141,12 +266,14 @@ export function InvitationManagement() {
             Create and manage user invitations
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-md transition-colors"
-        >
-          {showCreateForm ? 'Cancel' : '+ Create Invitation'}
-        </button>
+        {(canCreate || canCreatePrimary) && (
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-md transition-colors"
+          >
+            {showCreateForm ? 'Cancel' : '+ Create Invitation'}
+          </button>
+        )}
       </div>
 
       {/* Token Display Modal */}
@@ -198,6 +325,31 @@ export function InvitationManagement() {
         </div>
       )}
 
+      {/* Access Denied Message */}
+      {!canCreate && !canCreatePrimary && !showCreateForm && (
+        <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-slate-400">
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span className="text-sm">
+              You don't have permission to create invitations. Contact your
+              administrator if you need access.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Create Form */}
       {showCreateForm && (
         <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 shrink-0">
@@ -225,11 +377,12 @@ export function InvitationManagement() {
               </label>
               <select
                 value={formOrganizationId}
-                onChange={(e) =>
-                  setFormOrganizationId(
-                    e.target.value ? Number(e.target.value) : ''
-                  )
-                }
+                onChange={(e) => {
+                  const newOrgId = e.target.value ? Number(e.target.value) : '';
+                  setFormOrganizationId(newOrgId);
+                  // Reset site selection when organization changes
+                  setFormSiteIds([]);
+                }}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 required
               >
@@ -242,20 +395,83 @@ export function InvitationManagement() {
               </select>
             </div>
 
+            {/* Site Selector - only show when organization is selected */}
+            {formOrganizationId && (
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Sites (optional)
+                  <span className="text-slate-500 ml-1 font-normal">
+                    - Leave empty for all sites
+                  </span>
+                </label>
+                {sitesLoading ? (
+                  <div className="text-xs text-slate-400 py-2">
+                    Loading sites...
+                  </div>
+                ) : sites.length === 0 ? (
+                  <div className="text-xs text-slate-400 py-2">
+                    No sites found for this organization
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-40 overflow-y-auto border border-slate-600 rounded p-2 bg-slate-950">
+                    {sites.map((site) => (
+                      <label
+                        key={site.id}
+                        className="flex items-center space-x-2 cursor-pointer hover:bg-slate-800/50 p-1.5 rounded"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formSiteIds.includes(site.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormSiteIds([...formSiteIds, site.id]);
+                            } else {
+                              setFormSiteIds(
+                                formSiteIds.filter((id) => id !== site.id)
+                              );
+                            }
+                          }}
+                          className="w-4 h-4 text-indigo-600 bg-slate-800 border-slate-600 rounded focus:ring-indigo-500"
+                        />
+                        <span className="text-sm text-slate-200">
+                          {site.name}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1.5">
                 Role *
               </label>
               <select
                 value={formRole}
-                onChange={(e) =>
-                  setFormRole(e.target.value as 'admin' | 'coach')
-                }
+                onChange={(e) => setFormRole(e.target.value as OrgRole)}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 required
               >
-                <option value="coach">Coach</option>
-                <option value="admin">Admin</option>
+                <option value="admin">{getRoleDisplayName('admin')}</option>
+                <option value="bookings_team">
+                  {getRoleDisplayName('bookings_team')}
+                </option>
+                <option value="snc_coach">
+                  {getRoleDisplayName('snc_coach')}
+                </option>
+                <option value="fitness_coach">
+                  {getRoleDisplayName('fitness_coach')}
+                </option>
+                <option value="customer_service_assistant">
+                  {getRoleDisplayName('customer_service_assistant')}
+                </option>
+                <option value="duty_manager">
+                  {getRoleDisplayName('duty_manager')}
+                </option>
+                <option value="facility_manager">
+                  {getRoleDisplayName('facility_manager')}
+                </option>
               </select>
             </div>
 
@@ -295,6 +511,32 @@ export function InvitationManagement() {
         </div>
       )}
 
+      {/* Filters and Search */}
+      <div className="flex items-center gap-4 shrink-0">
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Search by email or organization..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) =>
+            setStatusFilter(e.target.value as InvitationStatus | 'all')
+          }
+          className="px-3 py-2 bg-slate-900 border border-slate-700 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        >
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="accepted">Accepted</option>
+          <option value="revoked">Revoked</option>
+          <option value="expired">Expired</option>
+        </select>
+      </div>
+
       {/* Invitations List */}
       <div className="flex-1 min-h-0">
         <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
@@ -312,6 +554,9 @@ export function InvitationManagement() {
                     Role
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
+                    Sites
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
@@ -326,17 +571,19 @@ export function InvitationManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
-                {invitations.length === 0 ? (
+                {filteredInvitations.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-4 py-8 text-center text-sm text-slate-400"
                     >
-                      No invitations found. Create one to get started.
+                      {invitations.length === 0
+                        ? 'No invitations found. Create one to get started.'
+                        : 'No invitations match your filters.'}
                     </td>
                   </tr>
                 ) : (
-                  invitations.map((invitation) => {
+                  filteredInvitations.map((invitation) => {
                     const status = getInvitationStatus(invitation);
                     const isPending = status === 'pending';
 
@@ -351,8 +598,27 @@ export function InvitationManagement() {
                         <td className="px-4 py-3 text-sm text-slate-300">
                           {invitation.organization_name || 'Unknown'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-300 capitalize">
-                          {invitation.role}
+                        <td className="px-4 py-3 text-sm text-slate-300">
+                          {getRoleDisplayName(invitation.role)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-300">
+                          {invitation.site_names &&
+                          invitation.site_names.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {invitation.site_names.map((name, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded text-xs"
+                                >
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 italic">
+                              All sites
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <StatusBadge status={status} />
@@ -371,27 +637,16 @@ export function InvitationManagement() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {isPending && (
-                              <>
-                                <button
-                                  onClick={() => handleResend(invitation.id)}
-                                  disabled={resendInvitationLoading}
-                                  className="px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 hover:underline disabled:opacity-50"
-                                  title="Resend invitation (rotate token)"
-                                >
-                                  Resend
-                                </button>
-                                <button
-                                  onClick={() => handleRevoke(invitation.id)}
-                                  disabled={revokeInvitationLoading}
-                                  className="px-2 py-1 text-xs text-red-400 hover:text-red-300 hover:underline disabled:opacity-50"
-                                  title="Revoke invitation"
-                                >
-                                  Revoke
-                                </button>
-                              </>
-                            )}
-                            {status === 'accepted' && (
+                            {isPending ? (
+                              <InvitationActions
+                                invitation={invitation}
+                                isPending={isPending}
+                                onResend={() => handleResend(invitation.id)}
+                                onRevoke={() => handleRevoke(invitation.id)}
+                                resendLoading={resendInvitationLoading}
+                                revokeLoading={revokeInvitationLoading}
+                              />
+                            ) : status === 'accepted' ? (
                               <span className="text-xs text-slate-500">
                                 Accepted{' '}
                                 {invitation.accepted_at &&
@@ -400,7 +655,7 @@ export function InvitationManagement() {
                                     'MMM d, yyyy'
                                   )}
                               </span>
-                            )}
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -412,6 +667,18 @@ export function InvitationManagement() {
           </div>
         </div>
       </div>
+
+      {/* Revoke Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={revokingInvitationId !== null}
+        title="Revoke Invitation"
+        message="Are you sure you want to revoke this invitation? This action cannot be undone."
+        confirmLabel="Revoke"
+        cancelLabel="Cancel"
+        onConfirm={confirmRevoke}
+        onCancel={() => setRevokingInvitationId(null)}
+        confirmVariant="danger"
+      />
     </div>
   );
 }
