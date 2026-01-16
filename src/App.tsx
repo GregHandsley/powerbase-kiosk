@@ -11,6 +11,7 @@ import { Bookings } from './pages/Bookings';
 import { MyBookings } from './pages/MyBookings';
 import { BookingsTeam } from './pages/BookingsTeam';
 import { Admin } from './pages/Admin';
+import { Profile } from './pages/Profile';
 import { KioskErrorScreen } from './components/KioskErrorScreen';
 import { TaskBell } from './components/tasks/TaskBell';
 import { useAuth } from './context/AuthContext';
@@ -97,6 +98,9 @@ export default function App() {
             )}
             <div className="ml-auto flex items-center gap-4">
               {user && <TaskBell />}
+              <Link to="/profile" className="hover:text-white">
+                Profile
+              </Link>
               <Link to="/admin" className="hover:text-white">
                 Admin
               </Link>
@@ -180,6 +184,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Admin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

@@ -13,6 +13,7 @@ export interface Invitation {
   expires_at: string;
   accepted_at: string | null;
   revoked_at: string | null;
+  deleted_at: string | null;
   created_at: string;
   invited_by: string | null;
   organization_name?: string;
@@ -44,6 +45,7 @@ type InvitationWithOrganization = {
   expires_at: string;
   accepted_at: string | null;
   revoked_at: string | null;
+  deleted_at: string | null;
   created_at: string;
   invited_by: string | null;
   organization: { name: string } | { name: string }[] | null | undefined;
@@ -108,6 +110,7 @@ export function useInvitations() {
           expires_at,
           accepted_at,
           revoked_at,
+          deleted_at,
           created_at,
           invited_by,
           organization:organizations (
@@ -238,11 +241,11 @@ export function useInvitations() {
         throw new Error(`${errorMessage} (Function: ${functionName})`);
       }
 
-      if (!data || data.length === 0) {
+      const result = Array.isArray(data) ? data[0] : data;
+      if (!result) {
         throw new Error(`No data returned from ${functionName}`);
       }
 
-      const result = data[0];
       if (result.error_message) {
         throw new Error(result.error_message);
       }

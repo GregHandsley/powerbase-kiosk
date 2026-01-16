@@ -12,13 +12,20 @@ import { ConfirmationDialog } from '../../shared/ConfirmationDialog';
 import type { OrgRole } from '../../../types/auth';
 import { getRoleDisplayName } from '../../../types/auth';
 
-type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+type InvitationStatus =
+  | 'pending'
+  | 'accepted'
+  | 'revoked'
+  | 'expired'
+  | 'deleted';
 
 function getInvitationStatus(invitation: {
   accepted_at: string | null;
   revoked_at: string | null;
+  deleted_at: string | null;
   expires_at: string;
 }): InvitationStatus {
+  if (invitation.deleted_at) return 'deleted';
   if (invitation.accepted_at) return 'accepted';
   if (invitation.revoked_at) return 'revoked';
   if (!isAfter(parseISO(invitation.expires_at), new Date())) return 'expired';
@@ -31,6 +38,7 @@ function StatusBadge({ status }: { status: InvitationStatus }) {
     accepted: 'bg-green-900/30 text-green-300 border-green-700/50',
     revoked: 'bg-red-900/30 text-red-300 border-red-700/50',
     expired: 'bg-slate-700/30 text-slate-400 border-slate-600/50',
+    deleted: 'bg-orange-900/30 text-orange-300 border-orange-700/50',
   };
 
   return (
@@ -533,6 +541,7 @@ export function InvitationManagement() {
           <option value="pending">Pending</option>
           <option value="accepted">Accepted</option>
           <option value="revoked">Revoked</option>
+          <option value="deleted">Deleted</option>
           <option value="expired">Expired</option>
         </select>
       </div>
