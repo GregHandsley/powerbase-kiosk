@@ -26,6 +26,10 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
       path: '/admin?view=invitations',
       label: 'Invitations',
     },
+    {
+      path: '/admin?view=audit',
+      label: 'Audit Log',
+    },
   ];
 
   return (

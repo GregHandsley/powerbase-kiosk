@@ -91,3 +91,44 @@ export function usePrimaryOrganizationId() {
 
   return { organizationId, isLoading, error };
 }
+
+/**
+ * Hook to check if the current user is an admin of a specific organization
+ * Uses the is_org_admin database function as the single source of truth
+ * @param organizationId - The organization ID to check admin status for
+ * @returns Object with isOrgAdmin boolean and isLoading state
+ */
+export function useIsOrgAdmin(organizationId: number | null) {
+  const { user } = useAuth();
+
+  const {
+    data: isOrgAdmin = false,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['is-org-admin', user?.id, organizationId],
+    queryFn: async () => {
+      if (!user?.id || !organizationId) {
+        return false;
+      }
+
+      const { data, error: rpcError } = await supabase.rpc('is_org_admin', {
+        p_org_id: organizationId,
+      });
+
+      if (rpcError) {
+        console.error(
+          `Error checking org admin status for org ${organizationId}:`,
+          rpcError.message
+        );
+        return false;
+      }
+
+      return data === true;
+    },
+    enabled: !!user?.id && organizationId !== null,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  return { isOrgAdmin, isLoading, error };
+}

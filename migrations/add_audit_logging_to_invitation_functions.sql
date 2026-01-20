@@ -1,0 +1,176 @@
+-- Migration: Add audit logging to invitation DB functions (Layer 6, Step 5)
+-- 
+-- This migration adds audit logging to invitation-related DB functions.
+-- 
+-- Type consistency (verified):
+-- - audit_log.organization_id = bigint (matches organizations.id)
+-- - audit_log.site_id = bigint (matches sites.id)
+-- - audit_log.entity_id = uuid NULL (optional, for UUID entities only)
+-- - invitations.id = bigint → use entity_id = NULL, store invitation_id in metadata
+--
+-- Entity ID rule:
+-- - entity_id is optional and used ONLY when the target entity has a UUID id
+-- - For bigint IDs (invitations, etc.), use entity_id = NULL
+-- - Store stable identifiers in metadata: { invitation_id: 123 }, { permission_key: 'audit.read' }
+--
+-- PII handling:
+-- - Do not log raw email addresses in metadata
+-- - Use email_hash (SHA256) for diagnostics without exposing PII
+-- - Alternative: email_masked (first char + domain) if human readability is needed
+
+-- ============================================================================
+-- Step 5A: Locate create_invitation function
+-- ============================================================================
+-- Run this query to find the function definition:
+-- 
+--   SELECT pg_get_functiondef(oid)
+--   FROM pg_proc
+--   WHERE proname = 'create_invitation'
+--     AND pronamespace = 'public'::regnamespace;
+--
+-- Or check Supabase dashboard SQL editor → Functions → create_invitation
+--
+-- ============================================================================
+-- Step 5B: Add audit logging to create_invitation
+-- ============================================================================
+-- Find the line that creates the invitation (typically: INSERT INTO invitations ... RETURNING id INTO invitation_id)
+-- Add this code block IMMEDIATELY AFTER that INSERT succeeds:
+--
+-- BEGIN
+--   PERFORM public.log_audit_event(
+--     p_organization_id := p_organization_id,
+--     p_site_id := NULL,
+--     p_event_type := 'invitation.created',
+--     p_entity_type := 'invitation',
+--     p_entity_id := NULL,  -- invitations.id is bigint, store in metadata instead
+--     p_actor_user_id := COALESCE(p_invited_by, auth.uid()),
+--     p_subject_user_id := NULL,
+--     p_old_value := NULL,
+--     p_new_value := NULL,
+--     p_metadata := jsonb_build_object(
+--       'invitation_id', invitation_id,
+--       'email_hash', encode(digest(lower(p_email), 'sha256'), 'hex'),
+--       'role', p_role,
+--       'expires_in_days', p_expires_in_days
+--     )
+--   );
+-- EXCEPTION
+--   WHEN OTHERS THEN
+--     -- Fail-open: ignore audit errors, don't break invitation creation
+--     NULL;
+-- END;
+--
+-- Then run: CREATE OR REPLACE FUNCTION public.create_invitation(...) with the updated body
+
+-- ============================================================================
+-- Step 5C: Locate create_invitation_with_sites function
+-- ============================================================================
+-- Run this query:
+-- 
+--   SELECT pg_get_functiondef(oid)
+--   FROM pg_proc
+--   WHERE proname = 'create_invitation_with_sites'
+--     AND pronamespace = 'public'::regnamespace;
+--
+-- ============================================================================
+-- Step 5D: Add audit logging to create_invitation_with_sites
+-- ============================================================================
+-- Find the line that creates the invitation (INSERT INTO invitations ... RETURNING id INTO invitation_id)
+-- Add this code block IMMEDIATELY AFTER that INSERT succeeds:
+--
+-- BEGIN
+--   PERFORM public.log_audit_event(
+--     p_organization_id := p_organization_id,
+--     p_site_id := NULL,  -- Multiple sites possible, log in metadata
+--     p_event_type := 'invitation.created',
+--     p_entity_type := 'invitation',
+--     p_entity_id := NULL,
+--     p_actor_user_id := COALESCE(p_invited_by, auth.uid()),
+--     p_subject_user_id := NULL,
+--     p_old_value := NULL,
+--     p_new_value := NULL,
+--     p_metadata := jsonb_build_object(
+--       'invitation_id', invitation_id,
+--       'email_hash', encode(digest(lower(p_email), 'sha256'), 'hex'),
+--       'role', p_role,
+--       'expires_in_days', p_expires_in_days,
+--       'site_ids', p_site_ids
+--     )
+--   );
+-- EXCEPTION
+--   WHEN OTHERS THEN
+--     NULL;
+-- END;
+--
+-- Then run: CREATE OR REPLACE FUNCTION public.create_invitation_with_sites(...) with the updated body
+
+-- ============================================================================
+-- Step 5E: Locate revoke_invitation function
+-- ============================================================================
+-- Run this query:
+-- 
+--   SELECT pg_get_functiondef(oid)
+--   FROM pg_proc
+--   WHERE proname = 'revoke_invitation'
+--     AND pronamespace = 'public'::regnamespace;
+--
+-- ============================================================================
+-- Step 5F: Add audit logging to revoke_invitation
+-- ============================================================================
+-- 
+-- Part 1: Add to DECLARE section (if not already present):
+--   v_org_id bigint;
+--   v_invited_by uuid;
+--
+-- Part 2: Add BEFORE the revoke operation (to fetch context):
+--   SELECT i.organization_id, i.invited_by
+--   INTO v_org_id, v_invited_by
+--   FROM public.invitations i
+--   WHERE i.id = p_invitation_id;
+--
+--   IF NOT FOUND THEN
+--     -- Handle error (your existing logic)
+--   END IF;
+--
+-- Part 3: Find the line that revokes the invitation (typically: UPDATE invitations SET revoked_at = now() ...)
+-- Add this code block IMMEDIATELY AFTER that UPDATE succeeds:
+--
+-- BEGIN
+--   PERFORM public.log_audit_event(
+--     p_organization_id := v_org_id,
+--     p_site_id := NULL,
+--     p_event_type := 'invitation.revoked',
+--     p_entity_type := 'invitation',
+--     p_entity_id := NULL,
+--     p_actor_user_id := COALESCE(auth.uid(), v_invited_by),
+--     p_subject_user_id := NULL,
+--     p_old_value := NULL,
+--     p_new_value := NULL,
+--     p_metadata := jsonb_build_object(
+--       'invitation_id', p_invitation_id
+--     )
+--   );
+-- EXCEPTION
+--   WHEN OTHERS THEN
+--     NULL;
+-- END;
+--
+-- Then run: CREATE OR REPLACE FUNCTION public.revoke_invitation(...) with the updated body
+
+-- ============================================================================
+-- Implementation summary:
+-- ============================================================================
+-- 1. For each function (create_invitation, create_invitation_with_sites, revoke_invitation):
+--    a. Use pg_get_functiondef() or Supabase dashboard to get current definition
+--    b. Add the audit logging code block AFTER the successful operation
+--    c. Run CREATE OR REPLACE FUNCTION with the updated body
+--
+-- 2. Verify audit logs are created:
+--    SELECT * FROM public.audit_log WHERE event_type LIKE 'invitation.%' ORDER BY created_at DESC;
+--
+-- Key principles:
+-- - entity_id = NULL for bigint IDs (store in metadata: { invitation_id: 123 })
+-- - Use email_hash (SHA256), not raw email (PII protection)
+-- - Wrap in EXCEPTION handler (fail-open: audit never breaks core operations)
+-- - Only log AFTER successful operations (not on errors)
+-- - entity_id is optional: use only for UUID entities, otherwise store ID in metadata

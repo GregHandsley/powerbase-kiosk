@@ -18,6 +18,7 @@ export function AcceptInvite() {
   const [submitting, setSubmitting] = useState(false);
   const [invitation, setInvitation] =
     useState<InvitationValidationResult | null>(null);
+  const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +64,11 @@ export function AcceptInvite() {
       return;
     }
 
+    if (!fullName || fullName.trim().length === 0) {
+      setError('Full name is required');
+      return;
+    }
+
     if (!password || password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
@@ -98,6 +104,7 @@ export function AcceptInvite() {
             token: token,
             email: invitation.email.toLowerCase(),
             password: password,
+            full_name: fullName.trim(),
           }),
         }
       ).catch((error) => {
@@ -271,6 +278,22 @@ export function AcceptInvite() {
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
+          <div>
+            <label className="block text-sm font-medium mb-1.5 text-slate-200">
+              Full Name
+            </label>
+            <input
+              type="text"
+              className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              autoComplete="name"
+              required
+              autoFocus
+              placeholder="Enter your full name"
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-1.5 text-slate-200">
               Password

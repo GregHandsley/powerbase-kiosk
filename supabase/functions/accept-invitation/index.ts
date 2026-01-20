@@ -11,6 +11,7 @@ declare const Deno: {
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 // @ts-expect-error: Remote Supabase client import is resolved at runtime/deploy time
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { AuditEvents } from '../_shared/audit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +24,7 @@ interface AcceptInvitationRequest {
   token: string;
   email: string;
   password: string;
+  full_name: string;
 }
 
 serve(async (req) => {
@@ -76,12 +78,26 @@ serve(async (req) => {
       );
     }
 
-    const { token, email, password } = requestBody;
+    const { token, email, password, full_name } = requestBody;
 
-    if (!token || !email || !password) {
+    if (!token || !email || !password || !full_name) {
       return new Response(
         JSON.stringify({
-          error: 'Missing required fields: token, email, or password',
+          error:
+            'Missing required fields: token, email, password, or full_name',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Validate full_name is not empty
+    if (!full_name.trim()) {
+      return new Response(
+        JSON.stringify({
+          error: 'Full name cannot be empty',
         }),
         {
           status: 400,
@@ -190,7 +206,35 @@ serve(async (req) => {
 
     const userId = createdUser.user.id;
 
-    // Step 3: Finalize invitation acceptance in the database
+    // Step 3: Create or update profile with full_name
+    const { error: profileError } = await supabaseAdmin.from('profiles').upsert(
+      {
+        id: userId,
+        full_name: full_name.trim(),
+      },
+      {
+        onConflict: 'id',
+      }
+    );
+
+    if (profileError) {
+      // Cleanup: delete the user if profile creation fails
+      await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {
+        // Ignore cleanup errors
+      });
+
+      return new Response(
+        JSON.stringify({
+          error: `Failed to create profile: ${profileError.message}`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Step 4: Finalize invitation acceptance in the database
     const { data: acceptData, error: acceptError } = await supabaseAdmin.rpc(
       'accept_invitation',
       {
@@ -234,6 +278,50 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
+    }
+
+    // Log audit event: invitation accepted (fail-open, don't break on audit errors)
+    // Log after successful acceptance (result.success is true)
+    if (
+      result?.success &&
+      validation.organization_id &&
+      validation.invitation_id
+    ) {
+      // Fetch the invited_by (actor) from the invitation
+      const { data: invitationData } = await supabaseAdmin
+        .from('invitations')
+        .select('invited_by')
+        .eq('id', validation.invitation_id)
+        .maybeSingle();
+
+      // Hash email for PII protection (using Web Crypto API available in Deno)
+      const emailBytes = new TextEncoder().encode(
+        normalizedEmail.toLowerCase()
+      );
+      const hashBuffer = await crypto.subtle.digest('SHA-256', emailBytes);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const emailHash = hashArray
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      await AuditEvents.invitation
+        .accepted(
+          validation.organization_id,
+          userId, // subject_user_id (the person accepting)
+          Number(validation.invitation_id),
+          {
+            email_hash: emailHash, // Use hash instead of raw email
+            role: validation.role || null,
+          },
+          invitationData?.invited_by || null // actor_user_id (the person who created the invitation)
+        )
+        .catch((auditError) => {
+          // Fail-open: log but don't fail the operation
+          console.error(
+            '[audit] Failed to log invitation acceptance:',
+            auditError
+          );
+        });
     }
 
     // Success!

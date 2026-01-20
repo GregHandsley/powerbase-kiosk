@@ -7,6 +7,7 @@ import { CapacityManagement } from '../components/admin/CapacityManagement';
 import { PeriodTypeCapacityManagement } from '../components/admin/PeriodTypeCapacityManagement';
 import { NotificationSettings } from '../components/admin/notification-settings/NotificationSettings';
 import { InvitationManagement } from '../components/admin/invitations/InvitationManagement';
+import { AuditLog } from '../components/admin/audit/AuditLog';
 import { AppVersion } from '../components/shared/AppVersion';
 
 export function Admin() {
@@ -162,6 +163,7 @@ export function Admin() {
           {view === 'period-capacity' && <PeriodTypeCapacityManagement />}
           {view === 'notification-settings' && <NotificationSettings />}
           {view === 'invitations' && <InvitationManagement />}
+          {view === 'audit' && <AuditLog />}
         </main>
       </div>
     </div>
