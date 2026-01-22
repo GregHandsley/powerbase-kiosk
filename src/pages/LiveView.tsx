@@ -273,7 +273,7 @@ export function LiveView() {
 
       {/* Period Type and Capacity Info */}
       {(periodType || capacityLimit !== null) && (
-        <div className="rounded-md bg-slate-800/50 border border-slate-700 p-3">
+        <div className="rounded-md glass-panel p-3">
           <div className="flex items-center justify-between gap-4">
             {periodType && (
               <div>

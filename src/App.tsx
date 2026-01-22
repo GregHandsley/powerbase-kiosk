@@ -15,6 +15,7 @@ import { Profile } from './pages/Profile';
 import { KioskErrorScreen } from './components/KioskErrorScreen';
 import { TaskBell } from './components/tasks/TaskBell';
 import { useAuth } from './context/AuthContext';
+import { useBranding } from './context/BrandingContext';
 import {
   usePermission,
   usePrimaryOrganizationId,
@@ -42,6 +43,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { pathname } = useLocation();
   const { user, loading } = useAuth();
+  const { branding } = useBranding();
   const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
   const { hasPermission: canViewAllBookings } = usePermission(
     primaryOrgId,
@@ -77,10 +79,20 @@ export default function App() {
     <div className="min-h-screen flex flex-col">
       {/* simple header for dev; hidden on kiosk routes */}
       {showHeader && (
-        <header className="px-4 py-3 border-b border-slate-700/60 bg-slate-950/70 backdrop-blur">
+        <header className="px-4 py-3 glass-header">
           <nav className="flex items-center gap-4 text-sm text-slate-200">
-            <Link to="/" className="font-semibold tracking-wide">
-              Facility OS
+            <Link
+              to="/"
+              className="flex items-center gap-2 font-semibold tracking-wide"
+            >
+              {branding?.logo_url && (
+                <img
+                  src={branding.logo_url}
+                  alt="Organization logo"
+                  className="h-6 w-6 object-contain"
+                />
+              )}
+              <span>Facility OS</span>
             </Link>
             <Link to="/live-view" className="hover:text-white">
               Session View

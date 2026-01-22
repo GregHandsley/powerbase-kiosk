@@ -742,6 +742,59 @@ export function useBookingEditor(
         }
       }
 
+      // Log activity: booking updated
+      if (user?.id && booking?.bookingId) {
+        // Fetch booking data to get organization_id and site_id
+        const { data: bookingData } = await supabase
+          .from('bookings')
+          .select('organization_id, site_id, title, status')
+          .eq('id', booking.bookingId)
+          .single();
+
+        if (bookingData?.organization_id && bookingData?.site_id) {
+          // Get old and new values for the update
+          const oldValue: Record<string, unknown> = {};
+          const newValue: Record<string, unknown> = {};
+
+          if (hasTimeChanges) {
+            oldValue.start = originalStartTime;
+            oldValue.end = originalEndTime;
+            newValue.start = startTime;
+            newValue.end = endTime;
+          }
+
+          if (hasCapacityChanges) {
+            oldValue.capacity = booking.capacity || 1;
+            newValue.capacity = capacity;
+          }
+
+          if (
+            Object.keys(oldValue).length > 0 ||
+            Object.keys(newValue).length > 0
+          ) {
+            const { ActivityLogger } =
+              await import('../../../lib/activityLogger');
+            ActivityLogger.booking
+              .updated(
+                bookingData.organization_id,
+                bookingData.site_id,
+                user.id,
+                booking.bookingId,
+                oldValue,
+                newValue,
+                {
+                  title: bookingData.title,
+                  status: bookingData.status,
+                }
+              )
+              .catch((err) => {
+                // Fail-open: don't break booking update if logging fails
+                console.error('Failed to log booking update activity:', err);
+              });
+          }
+        }
+      }
+
       await queryClient.invalidateQueries({
         queryKey: ['snapshot'],
         exact: false,
@@ -855,6 +908,39 @@ export function useBookingEditor(
 
         if (bookingError) {
           throw new Error(bookingError.message);
+        }
+
+        // Log activity: booking cancellation (pending)
+        if (user?.id) {
+          const { data: bookingFullData } = await supabase
+            .from('bookings')
+            .select('organization_id, site_id, title, created_by')
+            .eq('id', booking.bookingId)
+            .single();
+
+          if (bookingFullData?.organization_id && bookingFullData?.site_id) {
+            const { ActivityLogger } =
+              await import('../../../lib/activityLogger');
+            ActivityLogger.booking
+              .cancellationRequested(
+                bookingFullData.organization_id,
+                bookingFullData.site_id,
+                user.id,
+                booking.bookingId,
+                {
+                  title: bookingFullData.title,
+                  cancel_mode: cancelMode,
+                  instances_cancelled: instancesToCancel.length,
+                  total_instances: seriesInstances.length,
+                }
+              )
+              .catch((err) => {
+                console.error(
+                  'Failed to log booking cancellation request activity:',
+                  err
+                );
+              });
+          }
         }
       }
 
@@ -1290,6 +1376,42 @@ export function useBookingEditor(
 
       if (instancesError) {
         throw new Error(instancesError.message);
+      }
+
+      // Log activity: booking extended
+      if (user?.id) {
+        const { data: bookingFullData } = await supabase
+          .from('bookings')
+          .select('organization_id, site_id, title')
+          .eq('id', booking.bookingId)
+          .single();
+
+        if (bookingFullData?.organization_id && bookingFullData?.site_id) {
+          const { ActivityLogger } =
+            await import('../../../lib/activityLogger');
+          ActivityLogger.booking
+            .updated(
+              bookingFullData.organization_id,
+              bookingFullData.site_id,
+              user.id,
+              booking.bookingId,
+              {
+                instances_count: seriesInstances.length,
+              },
+              {
+                instances_count: seriesInstances.length + extendWeeks,
+              },
+              {
+                title: bookingFullData.title,
+                action: 'extended',
+                weeks_added: extendWeeks,
+                description: `Extended booking by ${extendWeeks} week${extendWeeks > 1 ? 's' : ''}`,
+              }
+            )
+            .catch((err) => {
+              console.error('Failed to log booking extension activity:', err);
+            });
+        }
       }
 
       await queryClient.invalidateQueries({

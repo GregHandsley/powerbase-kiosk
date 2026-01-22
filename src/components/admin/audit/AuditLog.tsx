@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import {
   useAuditLogs,
@@ -7,6 +7,8 @@ import {
 } from '../../../hooks/useAuditLogs';
 import { usePrimaryOrganizationId } from '../../../hooks/usePermissions';
 import { supabase } from '../../../lib/supabaseClient';
+import { getUserNamesByIds } from '../../../utils/emailRecipients';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../../../config/env';
 
 // Known event types for the dropdown
 const EVENT_TYPES = [
@@ -81,7 +83,11 @@ function formatEntityType(entityType: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function AuditLog() {
+type Props = {
+  setExportHandler?: (handler: (() => void) | null) => void;
+};
+
+export function AuditLog({ setExportHandler }: Props) {
   const { organizationId } = usePrimaryOrganizationId();
   const { canRead, isLoading: canReadLoading } =
     useCanReadAudit(organizationId);
@@ -173,23 +179,42 @@ export function AuditLog() {
     if (!userId) return 'System';
     if (userCache.has(userId)) return userCache.get(userId)!;
 
-    // Fetch user profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name, id, is_deleted')
-      .eq('id', userId)
-      .maybeSingle();
+    try {
+      // Use getUserNamesByIds which uses a database function that bypasses RLS
+      const nameMap = await getUserNamesByIds([userId]);
+      const fullName = nameMap.get(userId);
 
-    // If profile not found or user is deleted, show "Deleted User"
-    if (!profile || profile.is_deleted) {
-      const displayName = 'Deleted User';
+      if (fullName && fullName.trim() !== '') {
+        const displayName = fullName;
+        setUserCache((prev) => new Map(prev).set(userId, displayName));
+        return displayName;
+      }
+
+      // If no name found, check if user is deleted by querying profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_deleted')
+        .eq('id', userId)
+        .maybeSingle();
+
+      // If user is explicitly marked as deleted, show "Deleted User"
+      if (profile?.is_deleted) {
+        const displayName = 'Deleted User';
+        setUserCache((prev) => new Map(prev).set(userId, displayName));
+        return displayName;
+      }
+
+      // Fallback to user ID if no name found
+      const displayName = userId.substring(0, 8) + '...';
+      setUserCache((prev) => new Map(prev).set(userId, displayName));
+      return displayName;
+    } catch (error) {
+      console.error('Error fetching user display name:', error);
+      // Fallback to user ID on error
+      const displayName = userId.substring(0, 8) + '...';
       setUserCache((prev) => new Map(prev).set(userId, displayName));
       return displayName;
     }
-
-    const displayName = profile.full_name || userId.substring(0, 8) + '...';
-    setUserCache((prev) => new Map(prev).set(userId, displayName));
-    return displayName;
   };
 
   const toggleRow = (rowId: string) => {
@@ -287,6 +312,94 @@ export function AuditLog() {
     setUserSearchResults([]);
   };
 
+  const handleExportCsv = useCallback(async () => {
+    if (!organizationId) return;
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      // Build query parameters matching current filters
+      const params = new URLSearchParams({
+        organizationId: organizationId.toString(),
+      });
+
+      if (eventType) {
+        params.append('eventType', eventType);
+      }
+      if (actorUserId) {
+        params.append('actorUserId', actorUserId);
+      }
+      if (dateFrom) {
+        params.append('dateFrom', dateFrom);
+      }
+      if (dateTo) {
+        params.append('dateTo', dateTo);
+      }
+
+      // Call Edge Function
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/export-audit-logs-csv?${params.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: SUPABASE_ANON_KEY,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({
+          error: 'Failed to export audit logs',
+        }));
+        throw new Error(error.error || 'Failed to export audit logs');
+      }
+
+      // Get the CSV content
+      const csv = await response.text();
+
+      // Create blob and download
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'audit-logs.csv';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Failed to export audit logs. Please try again.'
+      );
+    }
+  }, [organizationId, eventType, actorUserId, dateFrom, dateTo]);
+
+  useEffect(() => {
+    setExportHandler?.(() => handleExportCsv);
+    return () => setExportHandler?.(null);
+  }, [handleExportCsv, setExportHandler]);
+
   // Permission check
   if (canReadLoading) {
     return (
@@ -308,14 +421,6 @@ export function AuditLog() {
 
   return (
     <div className="flex flex-col h-full space-y-4 min-h-0 overflow-hidden">
-      {/* Header */}
-      <div className="flex-shrink-0">
-        <h2 className="text-2xl font-semibold text-slate-100">Audit Log</h2>
-        <p className="text-slate-400 text-sm mt-1">
-          Privileged actions and governance changes
-        </p>
-      </div>
-
       {/* Filters */}
       <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 flex-shrink-0">
         <div className="flex flex-wrap items-end gap-4">
@@ -538,6 +643,156 @@ function AuditLogRow({
   const relativeTime = formatDistanceToNow(createdAt, { addSuffix: true });
   const exactTime = format(createdAt, 'PPpp');
 
+  // Helper to safely format dates
+  const formatDate = (dateValue: unknown): string => {
+    if (!dateValue) return 'N/A';
+    try {
+      const date = new Date(dateValue as string);
+      if (isNaN(date.getTime())) {
+        return String(dateValue);
+      }
+      return format(date, 'PPpp');
+    } catch {
+      return String(dateValue);
+    }
+  };
+
+  // Format friendly details from metadata and values
+  const eventDetails = useMemo(() => {
+    const details: Array<{ label: string; value: string }> = [];
+    const metadata = row.metadata || {};
+
+    // Invitation events
+    if (row.event_type.startsWith('invitation.')) {
+      if (metadata.email) {
+        details.push({
+          label: 'Email',
+          value: metadata.email as string,
+        });
+      }
+      if (metadata.role) {
+        details.push({
+          label: 'Role',
+          value: String(metadata.role)
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase()),
+        });
+      }
+      if (metadata.expires_at) {
+        details.push({
+          label: 'Expires',
+          value: formatDate(metadata.expires_at),
+        });
+      }
+      if (row.event_type === 'invitation.accepted' && metadata.accepted_at) {
+        details.push({
+          label: 'Accepted At',
+          value: formatDate(metadata.accepted_at),
+        });
+      }
+      if (row.event_type === 'invitation.revoked' && metadata.revoked_at) {
+        details.push({
+          label: 'Revoked At',
+          value: formatDate(metadata.revoked_at),
+        });
+      }
+      if (metadata.site_names && Array.isArray(metadata.site_names)) {
+        details.push({
+          label: 'Sites',
+          value: (metadata.site_names as string[]).join(', '),
+        });
+      }
+    }
+
+    // Role update events
+    if (row.event_type === 'role.updated') {
+      if (row.old_value && row.new_value) {
+        const oldRole = (row.old_value as Record<string, unknown>).role;
+        const newRole = (row.new_value as Record<string, unknown>).role;
+        if (oldRole && newRole) {
+          details.push({
+            label: 'Role Change',
+            value: `${String(oldRole).replace(/_/g, ' ')} → ${String(
+              newRole
+            ).replace(/_/g, ' ')}`,
+          });
+        }
+      }
+      if (metadata.user_email) {
+        details.push({
+          label: 'User',
+          value: metadata.user_email as string,
+        });
+      }
+    }
+
+    // Permission events
+    if (row.event_type.startsWith('permission.')) {
+      if (metadata.permission_key) {
+        details.push({
+          label: 'Permission',
+          value: String(metadata.permission_key)
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase()),
+        });
+      }
+      if (metadata.permission_name) {
+        details.push({
+          label: 'Permission Name',
+          value: metadata.permission_name as string,
+        });
+      }
+      if (metadata.user_email) {
+        details.push({
+          label: 'User',
+          value: metadata.user_email as string,
+        });
+      }
+    }
+
+    // Site membership events
+    if (row.event_type.startsWith('site_membership.')) {
+      if (metadata.site_name) {
+        details.push({
+          label: 'Site',
+          value: metadata.site_name as string,
+        });
+      }
+      if (metadata.user_email) {
+        details.push({
+          label: 'User',
+          value: metadata.user_email as string,
+        });
+      }
+    }
+
+    // Settings update events
+    if (row.event_type === 'settings.updated') {
+      if (metadata.setting_type) {
+        details.push({
+          label: 'Setting Type',
+          value: String(metadata.setting_type)
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase()),
+        });
+      }
+      if (metadata.organization_name) {
+        details.push({
+          label: 'Organization',
+          value: metadata.organization_name as string,
+        });
+      }
+      if (metadata.site_name) {
+        details.push({
+          label: 'Site',
+          value: metadata.site_name as string,
+        });
+      }
+    }
+
+    return details;
+  }, [row]);
+
   // Compute diff for settings changes
   const settingsDiff = useMemo(() => {
     if (
@@ -550,17 +805,64 @@ function AuditLogRow({
 
     const old = row.old_value as Record<string, unknown>;
     const new_ = row.new_value as Record<string, unknown>;
-    const diff: Record<string, { old: unknown; new_: unknown }> = {};
+    const diff: Array<{ field: string; old: string; new_: string }> = [];
 
-    // Find changed keys
+    // Find changed keys and format them nicely
     const allKeys = new Set([...Object.keys(old), ...Object.keys(new_)]);
     for (const key of allKeys) {
       if (JSON.stringify(old[key]) !== JSON.stringify(new_[key])) {
-        diff[key] = { old: old[key], new_: new_[key] };
+        const oldVal = old[key];
+        const newVal = new_[key];
+
+        // Format values based on type
+        let oldStr = String(oldVal);
+        let newStr = String(newVal);
+
+        if (oldVal instanceof Object || newVal instanceof Object) {
+          oldStr = JSON.stringify(oldVal, null, 2);
+          newStr = JSON.stringify(newVal, null, 2);
+        } else if (typeof oldVal === 'boolean' || typeof newVal === 'boolean') {
+          oldStr = oldVal ? 'Yes' : 'No';
+          newStr = newVal ? 'Yes' : 'No';
+        }
+
+        diff.push({
+          field: key
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase()),
+          old: oldStr,
+          new_: newStr,
+        });
       }
     }
 
-    return diff;
+    return diff.length > 0 ? diff : null;
+  }, [row]);
+
+  // Compute diff for role changes
+  const roleDiff = useMemo(() => {
+    if (row.event_type !== 'role.updated' || !row.old_value || !row.new_value) {
+      return null;
+    }
+
+    const old = row.old_value as Record<string, unknown>;
+    const new_ = row.new_value as Record<string, unknown>;
+    const changes: Array<{ field: string; old: string; new_: string }> = [];
+
+    const allKeys = new Set([...Object.keys(old), ...Object.keys(new_)]);
+    for (const key of allKeys) {
+      if (JSON.stringify(old[key]) !== JSON.stringify(new_[key])) {
+        changes.push({
+          field: key
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase()),
+          old: String(old[key] || 'N/A'),
+          new_: String(new_[key] || 'N/A'),
+        });
+      }
+    }
+
+    return changes.length > 0 ? changes : null;
   }, [row]);
 
   return (
@@ -593,68 +895,134 @@ function AuditLogRow({
         <tr>
           <td colSpan={5} className="px-4 py-4 bg-slate-800/50">
             <div className="space-y-4">
-              {/* Settings Diff */}
-              {settingsDiff && Object.keys(settingsDiff).length > 0 && (
+              {/* Event Details - Friendly Format */}
+              {eventDetails.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-slate-200 mb-2">
-                    Changed Settings:
+                  <h4 className="text-sm font-medium text-slate-200 mb-3">
+                    Event Information
                   </h4>
-                  <div className="bg-slate-900/50 rounded p-3 space-y-2">
-                    {Object.entries(settingsDiff).map(
-                      ([key, { old, new_ }]) => (
-                        <div key={key} className="text-sm">
-                          <span className="font-mono text-slate-300">
-                            {key}:
-                          </span>
-                          <div className="ml-4 mt-1">
-                            <div className="text-red-400">
-                              - {JSON.stringify(old, null, 2)}
-                            </div>
-                            <div className="text-green-400">
-                              + {JSON.stringify(new_, null, 2)}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    )}
+                  <div className="bg-slate-900/50 rounded-lg border border-slate-700/50 p-4 space-y-3">
+                    {eventDetails.map((detail, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <span className="text-slate-400 text-sm font-medium min-w-[120px]">
+                          {detail.label}:
+                        </span>
+                        <span className="text-slate-200 text-sm flex-1">
+                          {detail.value}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Old Value */}
-              {row.old_value && (
+              {/* Settings Changes - Friendly Format */}
+              {settingsDiff && settingsDiff.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-slate-200 mb-2">
-                    Old Value:
+                  <h4 className="text-sm font-medium text-slate-200 mb-3">
+                    Settings Changes
                   </h4>
-                  <pre className="bg-slate-900/50 rounded p-3 text-xs text-slate-300 overflow-x-auto">
-                    {JSON.stringify(row.old_value, null, 2)}
-                  </pre>
+                  <div className="bg-slate-900/50 rounded-lg border border-slate-700/50 p-4 space-y-3">
+                    {settingsDiff.map((change, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <div className="text-slate-300 text-sm font-medium">
+                          {change.field}
+                        </div>
+                        <div className="ml-4 space-y-1">
+                          <div className="text-red-400 text-sm flex items-center gap-2">
+                            <span className="text-xs">−</span>
+                            <span className="whitespace-pre-wrap break-words">
+                              {change.old}
+                            </span>
+                          </div>
+                          <div className="text-green-400 text-sm flex items-center gap-2">
+                            <span className="text-xs">+</span>
+                            <span className="whitespace-pre-wrap break-words">
+                              {change.new_}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* New Value */}
-              {row.new_value && (
+              {/* Role Changes - Friendly Format */}
+              {roleDiff && roleDiff.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-slate-200 mb-2">
-                    New Value:
+                  <h4 className="text-sm font-medium text-slate-200 mb-3">
+                    Role Changes
                   </h4>
-                  <pre className="bg-slate-900/50 rounded p-3 text-xs text-slate-300 overflow-x-auto">
-                    {JSON.stringify(row.new_value, null, 2)}
-                  </pre>
+                  <div className="bg-slate-900/50 rounded-lg border border-slate-700/50 p-4 space-y-3">
+                    {roleDiff.map((change, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <div className="text-slate-300 text-sm font-medium">
+                          {change.field}
+                        </div>
+                        <div className="ml-4 space-y-1">
+                          <div className="text-red-400 text-sm flex items-center gap-2">
+                            <span className="text-xs">−</span>
+                            <span>{change.old}</span>
+                          </div>
+                          <div className="text-green-400 text-sm flex items-center gap-2">
+                            <span className="text-xs">+</span>
+                            <span>{change.new_}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Metadata */}
-              {row.metadata && Object.keys(row.metadata).length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-200 mb-2">
-                    Metadata:
-                  </h4>
-                  <pre className="bg-slate-900/50 rounded p-3 text-xs text-slate-300 overflow-x-auto">
-                    {JSON.stringify(row.metadata, null, 2)}
-                  </pre>
-                </div>
+              {/* Technical Details - Collapsible */}
+              {(row.old_value ||
+                row.new_value ||
+                (row.metadata &&
+                  Object.keys(row.metadata).length > eventDetails.length)) && (
+                <details className="group">
+                  <summary className="text-sm font-medium text-slate-400 hover:text-slate-300 cursor-pointer list-none">
+                    <span className="flex items-center gap-2">
+                      <span>Technical Details</span>
+                      <span className="text-xs">▼</span>
+                    </span>
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    {row.old_value && (
+                      <div>
+                        <h5 className="text-xs font-medium text-slate-400 mb-1">
+                          Old Value:
+                        </h5>
+                        <pre className="bg-slate-900/50 rounded p-2 text-xs text-slate-400 overflow-x-auto">
+                          {JSON.stringify(row.old_value, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                    {row.new_value && (
+                      <div>
+                        <h5 className="text-xs font-medium text-slate-400 mb-1">
+                          New Value:
+                        </h5>
+                        <pre className="bg-slate-900/50 rounded p-2 text-xs text-slate-400 overflow-x-auto">
+                          {JSON.stringify(row.new_value, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                    {row.metadata &&
+                      Object.keys(row.metadata).length >
+                        eventDetails.length && (
+                        <div>
+                          <h5 className="text-xs font-medium text-slate-400 mb-1">
+                            Full Metadata:
+                          </h5>
+                          <pre className="bg-slate-900/50 rounded p-2 text-xs text-slate-400 overflow-x-auto">
+                            {JSON.stringify(row.metadata, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                  </div>
+                </details>
               )}
             </div>
           </td>

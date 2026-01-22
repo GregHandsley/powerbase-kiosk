@@ -204,7 +204,7 @@ export function AcceptInvite() {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-xl text-center">
+        <div className="w-full max-w-md glass-panel rounded-2xl p-6 text-center">
           <div className="mb-4">
             <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
@@ -236,7 +236,7 @@ export function AcceptInvite() {
   if (!invitation || !invitation.is_valid) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-        <div className="w-full max-w-md bg-slate-900 border border-red-700/50 rounded-xl p-6 shadow-xl">
+        <div className="w-full max-w-md glass-panel rounded-2xl p-6">
           <div className="mb-4">
             <h1 className="text-2xl font-semibold mb-2 text-slate-100">
               Invalid Invitation
@@ -262,7 +262,7 @@ export function AcceptInvite() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-xl space-y-4">
+      <div className="w-full max-w-md glass-panel rounded-2xl p-6 space-y-4">
         <div>
           <h1 className="text-2xl font-semibold mb-2 text-slate-100">
             Accept Invitation

@@ -42,7 +42,7 @@ export function WeekNavigationHeader({
         </button>
         <button
           onClick={onGoToToday}
-          className="px-3 py-2 rounded-md border border-slate-600 bg-slate-950 hover:bg-slate-800 text-slate-300 text-sm transition-colors"
+          className="px-3 py-2 rounded-md border border-indigo-500/40 bg-indigo-600/80 hover:bg-indigo-600 text-white text-sm transition-colors"
         >
           Today
         </button>
@@ -81,7 +81,7 @@ export function WeekNavigationHeader({
               'px-3 py-1.5 text-xs font-medium transition',
               selectedSide === 'Power'
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-800'
+                : 'text-slate-300 hover:bg-indigo-500/10'
             )}
           >
             Power
@@ -93,7 +93,7 @@ export function WeekNavigationHeader({
               'px-3 py-1.5 text-xs font-medium transition',
               selectedSide === 'Base'
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-800'
+                : 'text-slate-300 hover:bg-indigo-500/10'
             )}
           >
             Base

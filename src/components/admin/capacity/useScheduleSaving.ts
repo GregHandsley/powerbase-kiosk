@@ -23,6 +23,16 @@ export function useScheduleSaving(sideId: number | null) {
   ) => {
     if (!sideId) return;
 
+    const { data: sideRow, error: sideError } = await supabase
+      .from('sides')
+      .select('site_id')
+      .eq('id', sideId)
+      .maybeSingle();
+
+    if (sideError || !sideRow?.site_id) {
+      throw new Error('Failed to resolve site for schedule');
+    }
+
     const dayOfWeek = getDay(selectedDate);
     const startDate = format(selectedDate, 'yyyy-MM-dd');
 
@@ -53,6 +63,7 @@ export function useScheduleSaving(sideId: number | null) {
 
     const schedulesToCreate: Array<{
       side_id: number;
+      site_id: number;
       day_of_week: number;
       start_time: string;
       end_time: string;
@@ -73,6 +84,7 @@ export function useScheduleSaving(sideId: number | null) {
     if (effectiveRecurrenceType === 'single') {
       schedulesToCreate.push({
         side_id: sideId,
+        site_id: sideRow.site_id as number,
         day_of_week: dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,
@@ -86,6 +98,7 @@ export function useScheduleSaving(sideId: number | null) {
       for (let day = 1; day <= 5; day++) {
         schedulesToCreate.push({
           side_id: sideId,
+          site_id: sideRow.site_id as number,
           day_of_week: day,
           start_time: data.startTime,
           end_time: data.endTime,
@@ -100,6 +113,7 @@ export function useScheduleSaving(sideId: number | null) {
       schedulesToCreate.push(
         {
           side_id: sideId,
+          site_id: sideRow.site_id as number,
           day_of_week: 6,
           start_time: data.startTime,
           end_time: data.endTime,
@@ -111,6 +125,7 @@ export function useScheduleSaving(sideId: number | null) {
         },
         {
           side_id: sideId,
+          site_id: sideRow.site_id as number,
           day_of_week: 0,
           start_time: data.startTime,
           end_time: data.endTime,
@@ -124,6 +139,7 @@ export function useScheduleSaving(sideId: number | null) {
     } else if (effectiveRecurrenceType === 'weekly') {
       schedulesToCreate.push({
         side_id: sideId,
+        site_id: sideRow.site_id as number,
         day_of_week: dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,
@@ -136,6 +152,7 @@ export function useScheduleSaving(sideId: number | null) {
     } else if (effectiveRecurrenceType === 'all_future') {
       schedulesToCreate.push({
         side_id: sideId,
+        site_id: sideRow.site_id as number,
         day_of_week: dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,

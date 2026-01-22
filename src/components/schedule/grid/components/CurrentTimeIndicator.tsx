@@ -23,14 +23,15 @@ export function CurrentTimeIndicator({ position, isToday, numRacks }: Props) {
     >
       <div className="flex items-center w-full">
         {/* Time label on the left - sticky */}
-        <div className="sticky left-0 z-30 bg-indigo-600 text-white text-xs font-mono px-2 py-0.5 rounded-r border-r-2 border-indigo-400 shadow-lg flex-shrink-0">
+        <div className="sticky left-0 z-30 bg-indigo-600 text-white text-xs font-mono px-2 py-0.5 rounded-r border-r-2 border-indigo-300 shadow-lg flex-shrink-0">
           {format(new Date(), 'HH:mm')}
         </div>
         {/* Line across all racks - spans the full remaining width */}
         <div
-          className="h-0.5 bg-indigo-500 shadow-[0_0_4px_rgba(99,102,241,0.8)] flex-1"
+          className="h-0.5 bg-indigo-500 flex-1"
           style={{
             minWidth: numRacks ? `${numRacks * 120}px` : undefined,
+            boxShadow: '0 0 8px rgba(var(--brand-primary-rgb), 0.6)',
           }}
         />
       </div>

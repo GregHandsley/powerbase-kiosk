@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Clock } from '../components/Clock';
 import { useAuth } from '../context/AuthContext';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { CapacityManagement } from '../components/admin/CapacityManagement';
 import { PeriodTypeCapacityManagement } from '../components/admin/PeriodTypeCapacityManagement';
 import { NotificationSettings } from '../components/admin/notification-settings/NotificationSettings';
+import { BrandingSettings } from '../components/admin/branding/BrandingSettings';
 import { InvitationManagement } from '../components/admin/invitations/InvitationManagement';
 import { AuditLog } from '../components/admin/audit/AuditLog';
-import { AppVersion } from '../components/shared/AppVersion';
+import { ActivityLog } from '../components/admin/activity/ActivityLog';
+import { Clock } from '../components/Clock';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../hooks/usePermissions';
 
 export function Admin() {
   const { user, profile, role, loading, signOut, signIn } = useAuth();
@@ -17,11 +22,66 @@ export function Admin() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showCreateInvitationForm, setShowCreateInvitationForm] =
+    useState(false);
+  const [exportHandler, setExportHandler] = useState<(() => void) | null>(null);
+  const [hasUnsavedNotificationChanges, setHasUnsavedNotificationChanges] =
+    useState(false);
   const location = useLocation();
 
   // Determine which view to show based on URL search params
   const view =
     new URLSearchParams(location.search).get('view') || 'capacity-schedule';
+  const viewLabelMap: Record<
+    string,
+    { crumb: string; title: string; subtitle: string }
+  > = {
+    'capacity-schedule': {
+      crumb: 'Capacity Schedule',
+      title: 'Capacity Schedule',
+      subtitle: 'Manage capacity schedules by time and day.',
+    },
+    'period-capacity': {
+      crumb: 'Period Capacity',
+      title: 'Period Capacity',
+      subtitle: 'Set defaults and overrides for period capacity.',
+    },
+    'notification-settings': {
+      crumb: 'Notification Settings',
+      title: 'Notification Settings',
+      subtitle: 'Configure alerts, reminders, and notification windows.',
+    },
+    branding: {
+      crumb: 'Branding',
+      title: 'Branding',
+      subtitle: 'Customize colors and logo for your organization.',
+    },
+    invitations: {
+      crumb: 'Invitations',
+      title: 'Invitation Management',
+      subtitle: 'Create and manage user invitations.',
+    },
+    audit: {
+      crumb: 'Audit Log',
+      title: 'Audit Log',
+      subtitle: 'Review system changes and admin actions.',
+    },
+    activity: {
+      crumb: 'Activity Log',
+      title: 'Activity Log',
+      subtitle: 'Track booking and operational activity.',
+    },
+  };
+  const viewMeta = viewLabelMap[view] ?? {
+    crumb: 'Admin',
+    title: 'Admin',
+    subtitle: 'Manage system settings and organization tools.',
+  };
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canCreateInvitations } = usePermission(
+    primaryOrgId,
+    'invitations.create'
+  );
 
   const showSpinner = (
     <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center">
@@ -34,7 +94,7 @@ export function Admin() {
   if (!user) {
     return (
       <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center p-4">
-        <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-xl space-y-3">
+        <div className="w-full max-w-sm glass-panel rounded-2xl p-6 space-y-3">
           <div>
             <h1 className="text-lg font-semibold mb-1 text-slate-100">
               Admin Login
@@ -131,39 +191,73 @@ export function Admin() {
       <AdminSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
+        roleLabel={role ?? 'unknown'}
+        displayName={displayName}
+        onSignOut={signOut}
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-slate-700/60 bg-slate-950/70 shrink-0">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-100">
-              Admin Dashboard
-            </h1>
-            <p className="text-slate-300 text-sm mt-1">
-              Signed in as{' '}
-              <span className="font-mono">{user.email ?? 'unknown'}</span> (
-              {role}) – {displayName}
-            </p>
+      <div className="flex-1 flex flex-col overflow-hidden border-l border-white/5 bg-slate-950/40">
+        <div className="px-8 py-6 border-b border-white/5">
+          <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+            Admin <span className="mx-1">→</span> {viewMeta.crumb}
           </div>
-          <div className="flex items-center gap-4">
-            <AppVersion />
-            <Clock />
-            <button
-              onClick={signOut}
-              className="text-xs text-slate-300 hover:text-white underline"
-            >
-              Sign out
-            </button>
+          <div className="mt-4 flex items-start justify-between gap-6">
+            <div>
+              <h1 className="text-xl font-semibold text-slate-100">
+                {viewMeta.title}
+              </h1>
+              <p className="text-sm text-slate-300 mt-1">{viewMeta.subtitle}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {view === 'notification-settings' &&
+                hasUnsavedNotificationChanges && (
+                  <div className="text-xs text-yellow-400 bg-yellow-900/20 px-3 py-1.5 rounded border border-yellow-700">
+                    Unsaved changes
+                  </div>
+                )}
+              {(view === 'audit' || view === 'activity') && exportHandler && (
+                <button
+                  onClick={exportHandler}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-md transition-colors"
+                >
+                  Export CSV
+                </button>
+              )}
+              {view === 'invitations' && canCreateInvitations && (
+                <button
+                  onClick={() =>
+                    setShowCreateInvitationForm(!showCreateInvitationForm)
+                  }
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-md transition-colors"
+                >
+                  {showCreateInvitationForm ? 'Cancel' : '+ Create Invitation'}
+                </button>
+              )}
+            </div>
           </div>
-        </header>
-
-        <main className="flex-1 overflow-hidden p-6">
+        </div>
+        <main
+          className={`flex-1 px-8 py-6 ${view === 'branding' ? 'overflow-y-auto' : 'overflow-hidden'}`}
+        >
           {view === 'capacity-schedule' && <CapacityManagement />}
           {view === 'period-capacity' && <PeriodTypeCapacityManagement />}
-          {view === 'notification-settings' && <NotificationSettings />}
-          {view === 'invitations' && <InvitationManagement />}
-          {view === 'audit' && <AuditLog />}
+          {view === 'notification-settings' && (
+            <NotificationSettings
+              onUnsavedChangesChange={setHasUnsavedNotificationChanges}
+            />
+          )}
+          {view === 'branding' && <BrandingSettings />}
+          {view === 'invitations' && (
+            <InvitationManagement
+              showCreateForm={showCreateInvitationForm}
+              setShowCreateForm={setShowCreateInvitationForm}
+            />
+          )}
+          {view === 'audit' && <AuditLog setExportHandler={setExportHandler} />}
+          {view === 'activity' && (
+            <ActivityLog setExportHandler={setExportHandler} />
+          )}
         </main>
       </div>
     </div>

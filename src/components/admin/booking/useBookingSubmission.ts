@@ -451,6 +451,20 @@ export function useBookingSubmission(
         );
       }
 
+      // Log activity: booking created
+      if (userId && organizationId && siteId) {
+        const { ActivityLogger } = await import('../../../lib/activityLogger');
+        ActivityLogger.booking
+          .created(organizationId, siteId, userId, booking.id, {
+            title: booking.title,
+            last_minute_change: booking.last_minute_change || false,
+          })
+          .catch((err) => {
+            // Fail-open: don't break booking creation if logging fails
+            console.error('Failed to log booking creation activity:', err);
+          });
+      }
+
       // Invalidate queries to refresh the floorplan and live view
       await queryClient.invalidateQueries({
         queryKey: ['booking-instances-for-time'],

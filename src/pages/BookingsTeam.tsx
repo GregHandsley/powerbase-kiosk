@@ -218,6 +218,35 @@ export function BookingsTeam() {
         throw new Error(error.message);
       }
 
+      // Log activity: booking approved (processed)
+      if (user?.id && booking.organization_id) {
+        // Fetch site_id from booking
+        const { data: bookingData } = await supabase
+          .from('bookings')
+          .select('site_id')
+          .eq('id', booking.id)
+          .single();
+
+        if (bookingData?.site_id) {
+          const { ActivityLogger } = await import('../lib/activityLogger');
+          ActivityLogger.booking
+            .approved(
+              booking.organization_id,
+              bookingData.site_id,
+              user.id,
+              booking.id,
+              booking.created_by,
+              {
+                title: booking.title,
+              }
+            )
+            .catch((err) => {
+              // Fail-open: don't break booking processing if logging fails
+              console.error('Failed to log booking approval activity:', err);
+            });
+        }
+      }
+
       // Delete tasks related to this booking since it's now processed/resolved
       await deleteTasksForBooking(booking.id);
 
@@ -253,6 +282,37 @@ export function BookingsTeam() {
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      // Log activity: booking cancelled
+      if (user?.id && booking.organization_id) {
+        // Fetch site_id from booking
+        const { data: bookingData } = await supabase
+          .from('bookings')
+          .select('site_id')
+          .eq('id', booking.id)
+          .single();
+
+        if (bookingData?.site_id) {
+          const { ActivityLogger } = await import('../lib/activityLogger');
+          ActivityLogger.booking
+            .cancellationConfirmed(
+              booking.organization_id,
+              bookingData.site_id,
+              user.id,
+              booking.id,
+              {
+                title: booking.title,
+              }
+            )
+            .catch((err) => {
+              // Fail-open: don't break booking cancellation if logging fails
+              console.error(
+                'Failed to log booking cancellation confirmation activity:',
+                err
+              );
+            });
+        }
       }
 
       // Delete tasks related to this booking since cancellation is confirmed
@@ -353,6 +413,41 @@ export function BookingsTeam() {
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      // Log activity: bulk booking approvals
+      if (user?.id && bookingsToProcess.length > 0) {
+        const { ActivityLogger } = await import('../lib/activityLogger');
+        await Promise.all(
+          bookingsToProcess.map(async (booking) => {
+            const { data: bookingData } = await supabase
+              .from('bookings')
+              .select('site_id')
+              .eq('id', booking.id)
+              .single();
+
+            if (bookingData?.site_id) {
+              return ActivityLogger.booking
+                .approved(
+                  booking.organization_id,
+                  bookingData.site_id,
+                  user.id,
+                  booking.id,
+                  booking.created_by,
+                  {
+                    title: booking.title,
+                    bulk_operation: true,
+                  }
+                )
+                .catch((err) => {
+                  console.error(
+                    `Failed to log bulk booking approval for booking ${booking.id}:`,
+                    err
+                  );
+                });
+            }
+          })
+        );
       }
 
       // Delete tasks for all processed bookings

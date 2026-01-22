@@ -22,7 +22,7 @@ export function KioskPower() {
   return (
     <KioskFrame title="Power" slotLabel={slotLabel}>
       <AspectRatio ratio={ratio}>
-        <div className="w-full h-full bg-slate-900/70 border border-slate-800 rounded-xl p-2 md:p-3">
+        <div className="w-full h-full glass-panel rounded-xl p-2 md:p-3">
           {error && (
             <div className="w-full h-full flex items-center justify-center text-xs text-red-400">
               Error loading snapshot: {error}

@@ -76,7 +76,7 @@ export function ScheduleGrid({
   return (
     <div
       ref={gridRef}
-      className="flex-1 bg-slate-900 border border-slate-700 rounded-lg overflow-hidden flex flex-col"
+      className="flex-1 glass-panel rounded-lg overflow-hidden flex flex-col shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}

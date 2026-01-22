@@ -13,6 +13,7 @@ import * as Sentry from '@sentry/react';
 import App from './App';
 import './styles/index.css';
 import { AuthProvider } from './context/AuthContext';
+import { BrandingProvider } from './context/BrandingContext';
 import { initSentry, captureQueryError } from './lib/sentry';
 import { getOrganisation } from './config';
 
@@ -139,32 +140,34 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <AuthProvider>
-              <div className="app-shell">
-                <App />
-                <Toaster
-                  position="top-right"
-                  toastOptions={{
-                    duration: 4000,
-                    style: {
-                      background: '#1e293b',
-                      color: '#e2e8f0',
-                      border: '1px solid #334155',
-                    },
-                    success: {
-                      iconTheme: {
-                        primary: '#10b981',
-                        secondary: '#e2e8f0',
+              <BrandingProvider>
+                <div className="app-shell">
+                  <App />
+                  <Toaster
+                    position="top-right"
+                    toastOptions={{
+                      duration: 4000,
+                      style: {
+                        background: '#1e293b',
+                        color: '#e2e8f0',
+                        border: '1px solid #334155',
                       },
-                    },
-                    error: {
-                      iconTheme: {
-                        primary: '#ef4444',
-                        secondary: '#e2e8f0',
+                      success: {
+                        iconTheme: {
+                          primary: '#10b981',
+                          secondary: '#e2e8f0',
+                        },
                       },
-                    },
-                  }}
-                />
-              </div>
+                      error: {
+                        iconTheme: {
+                          primary: '#ef4444',
+                          secondary: '#e2e8f0',
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </BrandingProvider>
             </AuthProvider>
           </BrowserRouter>
         </QueryClientProvider>

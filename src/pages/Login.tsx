@@ -1,13 +1,52 @@
 // src/pages/Login.tsx
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useBranding } from '../context/BrandingContext';
 
 export function Login() {
   const { signIn, loading } = useAuth();
+  const { branding } = useBranding();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
+  const ambientRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const container = ambientRef.current;
+    if (!container) return;
+
+    let animationFrame: number | null = null;
+
+    const handleMove = (event: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+      animationFrame = requestAnimationFrame(() => {
+        container.style.setProperty('--glow-x', `${x.toFixed(2)}%`);
+        container.style.setProperty('--glow-y', `${y.toFixed(2)}%`);
+      });
+    };
+
+    const handleLeave = () => {
+      container.style.setProperty('--glow-x', '50%');
+      container.style.setProperty('--glow-y', '50%');
+    };
+
+    container.addEventListener('mousemove', handleMove);
+    container.addEventListener('mouseleave', handleLeave);
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+      container.removeEventListener('mousemove', handleMove);
+      container.removeEventListener('mouseleave', handleLeave);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,9 +68,19 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-      <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-xl space-y-4">
+    <div
+      ref={ambientRef}
+      className="min-h-screen flex items-center justify-center bg-slate-950 p-4 login-ambient"
+    >
+      <div className="w-full max-w-sm glass-panel rounded-2xl p-6 space-y-4 relative z-10">
         <div>
+          {branding?.logo_url && (
+            <img
+              src={branding.logo_url}
+              alt="Organization logo"
+              className="h-12 w-auto max-w-[200px] object-contain mb-4"
+            />
+          )}
           <h1 className="text-2xl font-semibold mb-2 text-slate-100">
             Powerbase Kiosk
           </h1>

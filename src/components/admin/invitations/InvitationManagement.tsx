@@ -110,7 +110,15 @@ function InvitationActions({
   );
 }
 
-export function InvitationManagement() {
+type Props = {
+  showCreateForm?: boolean;
+  setShowCreateForm?: (value: boolean) => void;
+};
+
+export function InvitationManagement({
+  showCreateForm: showCreateFormProp,
+  setShowCreateForm: setShowCreateFormProp,
+}: Props) {
   const {
     invitations,
     isLoading,
@@ -124,7 +132,11 @@ export function InvitationManagement() {
 
   const { organizations, isLoading: orgsLoading } = useOrganizations();
 
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [internalShowCreateForm, setInternalShowCreateForm] = useState(false);
+  const isExternallyControlled =
+    showCreateFormProp !== undefined && !!setShowCreateFormProp;
+  const showCreateForm = showCreateFormProp ?? internalShowCreateForm;
+  const setShowCreateForm = setShowCreateFormProp ?? setInternalShowCreateForm;
   const [formEmail, setFormEmail] = useState('');
   const [formOrganizationId, setFormOrganizationId] = useState<number | ''>('');
   const [formRole, setFormRole] = useState<OrgRole>('snc_coach');
@@ -264,25 +276,17 @@ export function InvitationManagement() {
 
   return (
     <div className="h-full flex flex-col space-y-6 overflow-y-auto min-h-0">
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-100">
-            Invitation Management
-          </h2>
-          <p className="text-slate-400 text-sm mt-1">
-            Create and manage user invitations
-          </p>
-        </div>
-        {(canCreate || canCreatePrimary) && (
+      {/* Actions */}
+      {!isExternallyControlled && (canCreate || canCreatePrimary) && (
+        <div className="flex justify-end shrink-0">
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-md transition-colors"
           >
             {showCreateForm ? 'Cancel' : '+ Create Invitation'}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Token Display Modal */}
       {createdToken && (

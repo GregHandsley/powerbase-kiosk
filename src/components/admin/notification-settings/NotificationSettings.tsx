@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNotificationSettings } from '../../../hooks/useNotificationSettings';
 import { NotificationWindowSection } from './NotificationWindowSection';
 import { HardRestrictionSection } from './HardRestrictionSection';
@@ -7,10 +7,18 @@ import { ReminderScheduleSection } from './ReminderScheduleSection';
 import { EmailServiceConfigSection } from './EmailServiceConfigSection';
 import toast from 'react-hot-toast';
 
-export function NotificationSettings() {
+type Props = {
+  onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void;
+};
+
+export function NotificationSettings({ onUnsavedChangesChange }: Props) {
   const { settings, isLoading, updateSettings, isUpdating } =
     useNotificationSettings();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  useEffect(() => {
+    onUnsavedChangesChange?.(hasUnsavedChanges);
+    return () => onUnsavedChangesChange?.(false);
+  }, [hasUnsavedChanges, onUnsavedChangesChange]);
 
   if (isLoading) {
     return (
@@ -43,24 +51,6 @@ export function NotificationSettings() {
 
   return (
     <div className="h-full flex flex-col space-y-6 overflow-y-auto min-h-0">
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-100">
-            Notification & Email Settings
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">
-            Configure notification windows, email recipients, and reminder
-            schedules
-          </p>
-        </div>
-        {hasUnsavedChanges && (
-          <div className="text-xs text-yellow-400 bg-yellow-900/20 px-3 py-1.5 rounded border border-yellow-700">
-            Unsaved changes
-          </div>
-        )}
-      </div>
-
       {/* Settings Sections */}
       <div className="space-y-6 pb-6">
         <NotificationWindowSection
