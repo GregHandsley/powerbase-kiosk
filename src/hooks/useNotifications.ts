@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
+import { sendEmail } from '../services/email/emailService';
+import { getUserEmailsByIds } from '../utils/emailRecipients';
 import { useAuth } from '../context/AuthContext';
 
 export type NotificationType =
@@ -9,7 +11,8 @@ export type NotificationType =
   | 'booking:processed'
   | 'booking:edited'
   | 'booking:cancelled'
-  | 'system:update';
+  | 'system:update'
+  | 'feedback:response';
 
 export interface Notification {
   id: number;
@@ -21,6 +24,92 @@ export interface Notification {
   read_at: string | null;
   created_at: string;
   metadata: Record<string, unknown> | null;
+}
+
+function formatNotificationType(type: NotificationType): string {
+  const typeMap: Record<NotificationType, string> = {
+    'booking:created': 'Booking Created',
+    'booking:processed': 'Booking Processed',
+    'booking:edited': 'Booking Edited',
+    'booking:cancelled': 'Booking Cancelled',
+    last_minute_change: 'Last Minute Change',
+    'system:update': 'System Update',
+    'feedback:response': 'Feedback Response',
+  };
+  return typeMap[type] || type;
+}
+
+function buildNotificationEmailHtml(input: CreateNotificationInput): string {
+  const appUrl = window.location.origin;
+  const linkUrl = input.link ? `${appUrl}${input.link}` : null;
+  const safeMessage = input.message
+    ? `<p style="margin: 12px 0; color: #d1d5db;">${input.message}</p>`
+    : '';
+  const linkHtml = linkUrl
+    ? `<p style="margin: 16px 0;"><a href="${linkUrl}" style="color: #7c8cff; text-decoration: none;">View in app</a></p>`
+    : '';
+
+  return `
+    <div style="background:#0f172a; padding:24px; font-family: Arial, sans-serif; color:#e2e8f0;">
+      <div style="max-width:600px; margin:0 auto; background:#111827; border:1px solid #1f2937; border-radius:12px; padding:24px;">
+        <h2 style="margin:0 0 12px 0; color:#f8fafc;">${input.title}</h2>
+        ${safeMessage}
+        ${linkHtml}
+        <p style="margin:24px 0 0; font-size:12px; color:#94a3b8;">
+          You can manage notification preferences in your Profile settings.
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+async function sendNotificationEmailIfAllowed(
+  userId: string,
+  input: CreateNotificationInput
+): Promise<void> {
+  try {
+    const { data: shouldSendEmail, error: prefError } = await supabase.rpc(
+      'should_send_notification',
+      {
+        p_user_id: userId,
+        p_type: input.type,
+        p_channel: 'email',
+      }
+    );
+
+    if (prefError) {
+      console.warn('Error checking email notification preferences:', prefError);
+      return;
+    }
+
+    if (shouldSendEmail !== true) {
+      return;
+    }
+
+    const emailMap = await getUserEmailsByIds([userId]);
+    const toEmail = emailMap.get(userId);
+    if (!toEmail) {
+      console.warn('No email found for user, skipping notification email', {
+        userId,
+        type: input.type,
+      });
+      return;
+    }
+
+    const subject = `${formatNotificationType(input.type)}: ${input.title}`;
+    const html = buildNotificationEmailHtml(input);
+    const result = await sendEmail({
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (!result.success) {
+      console.error('Failed to send notification email:', result.error);
+    }
+  } catch (error) {
+    console.error('Unexpected error sending notification email:', error);
+  }
 }
 
 export interface CreateNotificationInput {
@@ -46,9 +135,11 @@ export function useNotifications() {
       if (!user?.id) return [];
 
       const { data, error } = await supabase
-        .from('notifications')
+        .from('tasks')
         .select('*')
         .eq('user_id', user.id)
+        .is('read_at', null) // Only show unread notifications
+        .or('metadata->>channel.is.null,metadata->>channel.neq.task')
         .order('created_at', { ascending: false })
         .limit(50); // Limit to most recent 50
 
@@ -74,7 +165,7 @@ export function useNotifications() {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'notifications',
+          table: 'tasks',
           filter: `user_id=eq.${user.id}`,
         },
         () => {
@@ -89,7 +180,7 @@ export function useNotifications() {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'notifications',
+          table: 'tasks',
           filter: `user_id=eq.${user.id}`,
         },
         () => {
@@ -104,7 +195,7 @@ export function useNotifications() {
         {
           event: 'DELETE',
           schema: 'public',
-          table: 'notifications',
+          table: 'tasks',
           filter: `user_id=eq.${user.id}`,
         },
         () => {
@@ -130,7 +221,7 @@ export function useNotifications() {
       if (!user?.id) return;
 
       const { error } = await supabase
-        .from('notifications')
+        .from('tasks')
         .update({ read_at: new Date().toISOString() })
         .eq('id', notificationId)
         .eq('user_id', user.id);
@@ -148,7 +239,7 @@ export function useNotifications() {
       if (!user?.id) return;
 
       const { error } = await supabase
-        .from('notifications')
+        .from('tasks')
         .update({ read_at: new Date().toISOString() })
         .eq('user_id', user.id)
         .is('read_at', null);
@@ -168,7 +259,7 @@ export function useNotifications() {
       }
 
       const { data, error } = await supabase
-        .from('notifications')
+        .from('tasks')
         .delete()
         .eq('id', notificationId)
         .eq('user_id', user.id)
@@ -214,6 +305,7 @@ export function useNotifications() {
 
 /**
  * Service function to create a notification
+ * This respects user notification preferences (checks if in-app notifications are enabled)
  * This can be called from anywhere in the app
  */
 export async function createNotification(
@@ -221,8 +313,30 @@ export async function createNotification(
 ): Promise<Notification | null> {
   const { userId, type, title, message, link, metadata } = input;
 
+  // Check user's notification preferences using the database function
+  const { data: shouldSend, error: prefError } = await supabase.rpc(
+    'should_send_notification',
+    {
+      p_user_id: userId,
+      p_type: type,
+      p_channel: 'in_app',
+    }
+  );
+
+  // If preference check fails, log but continue (fail-open for reliability)
+  if (prefError) {
+    console.warn('Error checking notification preferences:', prefError);
+    // Continue with notification creation (fail-open)
+  } else if (shouldSend === false) {
+    // User has disabled in-app notifications for this type
+    console.log(
+      `Skipping in-app notification for user ${userId}, type ${type} (preference disabled)`
+    );
+    return null;
+  }
+
   const { data, error } = await supabase
-    .from('notifications')
+    .from('tasks')
     .insert({
       user_id: userId,
       type,
@@ -239,11 +353,15 @@ export async function createNotification(
     return null;
   }
 
+  // Send email notification if allowed by user preferences
+  void sendNotificationEmailIfAllowed(userId, input);
+
   return data as Notification;
 }
 
 /**
  * Create notifications for multiple users (e.g., bookings team, facility manager)
+ * Respects each user's notification preferences
  */
 export async function createNotificationsForUsers(
   userIds: string[],
@@ -251,7 +369,39 @@ export async function createNotificationsForUsers(
 ): Promise<Notification[]> {
   if (userIds.length === 0) return [];
 
-  const notifications = userIds.map((userId) => ({
+  // Check preferences for each user and filter out those who have disabled notifications
+  const usersToNotify: string[] = [];
+  for (const userId of userIds) {
+    const { data: shouldSend, error: prefError } = await supabase.rpc(
+      'should_send_notification',
+      {
+        p_user_id: userId,
+        p_type: input.type,
+        p_channel: 'in_app',
+      }
+    );
+
+    // Fail-open: if preference check fails, include the user
+    if (prefError) {
+      console.warn(
+        `Error checking notification preferences for user ${userId}:`,
+        prefError
+      );
+      usersToNotify.push(userId);
+    } else if (shouldSend === true) {
+      usersToNotify.push(userId);
+    } else {
+      console.log(
+        `Skipping notification for user ${userId}, type ${input.type} (preference disabled)`
+      );
+    }
+  }
+
+  if (usersToNotify.length === 0) {
+    return [];
+  }
+
+  const notifications = usersToNotify.map((userId) => ({
     user_id: userId,
     type: input.type,
     title: input.title,
@@ -261,7 +411,7 @@ export async function createNotificationsForUsers(
   }));
 
   const { data, error } = await supabase
-    .from('notifications')
+    .from('tasks')
     .insert(notifications)
     .select();
 
@@ -269,6 +419,13 @@ export async function createNotificationsForUsers(
     console.error('Error creating notifications:', error);
     return [];
   }
+
+  // Send email notifications for users who have email enabled (and digest disabled)
+  void Promise.all(
+    usersToNotify.map((userId) =>
+      sendNotificationEmailIfAllowed(userId, { ...input, userId })
+    )
+  );
 
   return (data ?? []) as Notification[];
 }
@@ -314,7 +471,7 @@ export async function deleteNotificationsForBooking(
     // Types that should be cleared: booking:created, booking:edited, last_minute_change
     // Note: booking_id in metadata is stored as a number, so we extract it as text and compare
     const { error } = await supabase
-      .from('notifications')
+      .from('tasks')
       .delete()
       .eq('metadata->>booking_id', bookingId.toString())
       .in('type', ['booking:created', 'booking:edited', 'last_minute_change']);

@@ -9,6 +9,7 @@ import { getRoleDisplayName } from '../types/auth';
 import { formatDateBritishShort } from '../components/shared/dateUtils';
 import { format, parseISO } from 'date-fns';
 import { ConfirmationDialog } from '../components/shared/ConfirmationDialog';
+import { NotificationPreferences } from '../components/shared/NotificationPreferences';
 import type { OrgRole } from '../types/auth';
 import type { Organization } from '../hooks/useOrganizations';
 import type { Site } from '../hooks/useSites';
@@ -771,6 +772,11 @@ export function Profile() {
               </button>
             </div>
           )}
+        </div>
+
+        {/* Notification Preferences Section */}
+        <div className="mb-6">
+          <NotificationPreferences />
         </div>
 
         {/* Site Memberships Section */}

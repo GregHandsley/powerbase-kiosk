@@ -250,6 +250,29 @@ export function BookingsTeam() {
       // Delete tasks related to this booking since it's now processed/resolved
       await deleteTasksForBooking(booking.id);
 
+      // Create notification for the user who created the booking
+      if (booking.created_by) {
+        try {
+          const { createNotification } =
+            await import('../hooks/useNotifications');
+          await createNotification({
+            userId: booking.created_by,
+            type: 'booking:processed',
+            title: 'Booking Processed',
+            message: `Your booking "${booking.title}" has been processed by the bookings team.`,
+            link: `/my-bookings?booking=${booking.id}`,
+            metadata: {
+              booking_id: booking.id,
+              booking_title: booking.title,
+              processed_by: user.id,
+            },
+          });
+        } catch (notifError) {
+          // Fail-open: don't break booking processing if notification fails
+          console.error('Failed to create notification:', notifError);
+        }
+      }
+
       // Invalidate queries
       await queryClient.invalidateQueries({ queryKey: ['bookings-team'] });
       await queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
@@ -317,6 +340,32 @@ export function BookingsTeam() {
 
       // Delete tasks related to this booking since cancellation is confirmed
       await deleteTasksForBooking(booking.id);
+
+      // Notify the booking creator that the cancellation was confirmed
+      if (booking.created_by) {
+        try {
+          const { createNotification } =
+            await import('../hooks/useNotifications');
+          await createNotification({
+            userId: booking.created_by,
+            type: 'booking:cancelled',
+            title: 'Booking Cancelled',
+            message: `Your booking "${booking.title}" has been cancelled.`,
+            link: `/my-bookings?booking=${booking.id}`,
+            metadata: {
+              booking_id: booking.id,
+              booking_title: booking.title,
+              cancelled_by: user.id,
+            },
+          });
+        } catch (notifError) {
+          // Fail-open: don't break cancellation if notification fails
+          console.error(
+            'Failed to create cancellation notification:',
+            notifError
+          );
+        }
+      }
 
       // Invalidate queries to refresh all views
       await queryClient.invalidateQueries({ queryKey: ['bookings-team'] });

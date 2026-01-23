@@ -14,6 +14,7 @@ import { Admin } from './pages/Admin';
 import { Profile } from './pages/Profile';
 import { KioskErrorScreen } from './components/KioskErrorScreen';
 import { TaskBell } from './components/tasks/TaskBell';
+import { NotificationBell } from './components/notifications/NotificationBell';
 import { useAuth } from './context/AuthContext';
 import { useBranding } from './context/BrandingContext';
 import {
@@ -79,7 +80,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col">
       {/* simple header for dev; hidden on kiosk routes */}
       {showHeader && (
-        <header className="px-4 py-3 glass-header">
+        <header className="relative z-[70] px-4 py-3 glass-header">
           <nav className="flex items-center gap-4 text-sm text-slate-200">
             <Link
               to="/"
@@ -109,6 +110,7 @@ export default function App() {
               </Link>
             )}
             <div className="ml-auto flex items-center gap-4">
+              {user && <NotificationBell />}
               {user && <TaskBell />}
               <Link to="/profile" className="hover:text-white">
                 Profile

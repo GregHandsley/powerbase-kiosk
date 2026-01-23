@@ -1,6 +1,11 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
+import {
+  createNotification,
+  createNotificationsForUsers,
+} from './useNotifications';
+import type { NotificationType } from './useNotifications';
 import { useAuth } from '../context/AuthContext';
 
 export type TaskType =
@@ -158,6 +163,7 @@ export function useTasks() {
         .from('tasks')
         .select('*')
         .eq('user_id', user.id)
+        .eq('metadata->>channel', 'task')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -348,57 +354,44 @@ export function useTasks() {
 /**
  * Service function to create a task
  * This can be called from anywhere in the app
+ * Respects notification preferences and sends email if enabled
  */
 export async function createTask(input: CreateTaskInput): Promise<Task | null> {
-  const { userId, type, title, message, link, metadata } = input;
+  const notification = await createNotification({
+    userId: input.userId,
+    type: input.type as NotificationType,
+    title: input.title,
+    message: input.message,
+    link: input.link,
+    metadata: {
+      ...(input.metadata || {}),
+      channel: 'task',
+    },
+  });
 
-  const { data, error } = await supabase
-    .from('tasks')
-    .insert({
-      user_id: userId,
-      type,
-      title,
-      message: message || null,
-      link: link || null,
-      metadata: metadata || null,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error creating task:', error);
-    return null;
-  }
-
-  return data as Task;
+  return notification as Task | null;
 }
 
 /**
  * Create tasks for multiple users (e.g., bookings team, facility manager)
+ * Respects notification preferences and sends email if enabled
  */
 export async function createTasksForUsers(
   userIds: string[],
   input: Omit<CreateTaskInput, 'userId'>
 ): Promise<Task[]> {
-  if (userIds.length === 0) return [];
-
-  const tasks = userIds.map((userId) => ({
-    user_id: userId,
-    type: input.type,
+  const notifications = await createNotificationsForUsers(userIds, {
+    type: input.type as NotificationType,
     title: input.title,
-    message: input.message || null,
-    link: input.link || null,
-    metadata: input.metadata || null,
-  }));
+    message: input.message,
+    link: input.link,
+    metadata: {
+      ...(input.metadata || {}),
+      channel: 'task',
+    },
+  });
 
-  const { data, error } = await supabase.from('tasks').insert(tasks).select();
-
-  if (error) {
-    console.error('Error creating tasks:', error);
-    return [];
-  }
-
-  return (data ?? []) as Task[];
+  return notifications as Task[];
 }
 
 /**

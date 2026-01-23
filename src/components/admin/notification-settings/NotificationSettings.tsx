@@ -11,6 +11,17 @@ type Props = {
   onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void;
 };
 
+/**
+ * System Notification Settings Component
+ *
+ * ADMIN/SUPER ADMIN ONLY - Controls system-wide notification behavior:
+ * - When notification windows are active
+ * - Hard restriction hours
+ * - Reminder email schedules
+ * - Who receives last-minute alerts
+ *
+ * This is NOT for individual user preferences (see NotificationPreferences component).
+ */
 export function NotificationSettings({ onUnsavedChangesChange }: Props) {
   const { settings, isLoading, updateSettings, isUpdating } =
     useNotificationSettings();

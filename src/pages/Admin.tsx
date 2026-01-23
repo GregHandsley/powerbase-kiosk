@@ -48,8 +48,9 @@ export function Admin() {
     },
     'notification-settings': {
       crumb: 'Notification Settings',
-      title: 'Notification Settings',
-      subtitle: 'Configure alerts, reminders, and notification windows.',
+      title: 'System Notification Settings',
+      subtitle:
+        'Admin: Configure system-wide notification behavior, windows, and reminder schedules.',
     },
     branding: {
       crumb: 'Branding',

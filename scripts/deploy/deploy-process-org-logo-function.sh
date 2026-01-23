@@ -27,5 +27,5 @@ echo "   Dashboard: https://app.supabase.com/project/qyzlqvfdmxvestditilq/functi
 echo ""
 echo "📋 Next steps:"
 echo "   1. Apply the branding migration: migrations/add_organization_branding.sql"
-echo "   2. Set up the org-logos storage bucket: setup-org-logos-storage.sql"
+echo "   2. Set up the org-logos storage bucket: scripts/setup/setup-org-logos-storage.sql"
 echo "   3. The branding feature will be available in Admin → Branding"

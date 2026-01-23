@@ -61,32 +61,31 @@ export function useDeleteBooking(onOverridesRefetch: () => void) {
 
       // If no instances remain, delete the booking
       if (!remainingInstances || remainingInstances.length === 0) {
-        // Log activity before deleting
-        if (user?.id) {
-          const { data: bookingData } = await supabase
-            .from('bookings')
-            .select('organization_id, site_id, title')
-            .eq('id', bookingId)
-            .single();
+        // Fetch booking data before deleting (needed for activity logging and notifications)
+        const { data: bookingData } = await supabase
+          .from('bookings')
+          .select('organization_id, site_id, title, created_by')
+          .eq('id', bookingId)
+          .single();
 
-          if (bookingData?.organization_id && bookingData?.site_id) {
-            const { ActivityLogger } =
-              await import('../../../lib/activityLogger');
-            ActivityLogger.booking
-              .deleted(
-                bookingData.organization_id,
-                bookingData.site_id,
-                user.id,
-                bookingId,
-                {
-                  title: bookingData.title,
-                  reason: 'all_instances_deleted',
-                }
-              )
-              .catch((err) => {
-                console.error('Failed to log booking deletion activity:', err);
-              });
-          }
+        // Log activity before deleting
+        if (user?.id && bookingData?.organization_id && bookingData?.site_id) {
+          const { ActivityLogger } =
+            await import('../../../lib/activityLogger');
+          ActivityLogger.booking
+            .deleted(
+              bookingData.organization_id,
+              bookingData.site_id,
+              user.id,
+              bookingId,
+              {
+                title: bookingData.title,
+                reason: 'all_instances_deleted',
+              }
+            )
+            .catch((err) => {
+              console.error('Failed to log booking deletion activity:', err);
+            });
         }
 
         const { error: bookingError } = await supabase
@@ -100,12 +99,38 @@ export function useDeleteBooking(onOverridesRefetch: () => void) {
             bookingError
           );
         }
+
+        // Notify the booking creator that the booking was deleted
+        if (bookingData?.created_by) {
+          try {
+            const { createNotification } =
+              await import('../../../hooks/useNotifications');
+            await createNotification({
+              userId: bookingData.created_by,
+              type: 'booking:cancelled',
+              title: 'Booking Deleted',
+              message: `Your booking "${bookingData.title || 'Untitled'}" was deleted.`,
+              link: `/my-bookings`,
+              metadata: {
+                booking_id: bookingId,
+                booking_title: bookingData.title || null,
+                deleted_by: user?.id || null,
+              },
+            });
+          } catch (notifError) {
+            // Fail-open: don't break deletion if notification fails
+            console.error(
+              'Failed to create deletion notification:',
+              notifError
+            );
+          }
+        }
       } else {
         // Log activity for partial instance deletion
         if (user?.id) {
           const { data: bookingData } = await supabase
             .from('bookings')
-            .select('organization_id, site_id, title')
+            .select('organization_id, site_id, title, created_by')
             .eq('id', bookingId)
             .single();
 
@@ -171,7 +196,7 @@ export function useDeleteBooking(onOverridesRefetch: () => void) {
       // Fetch booking data before deletion for activity logging
       const { data: bookingData } = await supabase
         .from('bookings')
-        .select('organization_id, site_id, title')
+        .select('organization_id, site_id, title, created_by')
         .eq('id', bookingId)
         .single();
 
@@ -212,6 +237,29 @@ export function useDeleteBooking(onOverridesRefetch: () => void) {
 
       if (bookingError) {
         throw new Error(bookingError.message);
+      }
+
+      // Notify the booking creator that the booking was deleted
+      if (bookingData?.created_by) {
+        try {
+          const { createNotification } =
+            await import('../../../hooks/useNotifications');
+          await createNotification({
+            userId: bookingData.created_by,
+            type: 'booking:cancelled',
+            title: 'Booking Deleted',
+            message: `Your booking "${bookingData.title || 'Untitled'}" was deleted.`,
+            link: `/my-bookings`,
+            metadata: {
+              booking_id: bookingId,
+              booking_title: bookingData.title || null,
+              deleted_by: user?.id || null,
+            },
+          });
+        } catch (notifError) {
+          // Fail-open: don't break deletion if notification fails
+          console.error('Failed to create deletion notification:', notifError);
+        }
       }
 
       // Invalidate queries to refresh data
