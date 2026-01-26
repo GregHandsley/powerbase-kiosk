@@ -1,14 +1,21 @@
 import type { SideSnapshot, ActiveInstance } from '../../../types/snapshot';
 import { FloorShell } from './FloorShell';
 import { RackSlot, type RackLayoutSlot } from '../shared/RackSlot';
+import type { RackAppearance } from '../shared/theme';
 
 type Props = {
   snapshot: SideSnapshot | null;
   layout?: unknown;
+  appearance?: RackAppearance;
+  highlightedRacks?: Set<number>;
 };
 
 // Base floor SVG with booking-aware rack rendering.
-export function BaseFloorplan({ snapshot }: Props) {
+export function BaseFloorplan({
+  snapshot,
+  appearance = 'default',
+  highlightedRacks,
+}: Props) {
   const viewBoxWidth = 160;
   const viewBoxHeight = 90;
   const floorMargin = 3;
@@ -100,15 +107,25 @@ export function BaseFloorplan({ snapshot }: Props) {
         cutoutHeight={cutoutHeight}
       />
 
-      {racks.map((rack) => (
-        <RackSlot
-          key={rack.number}
-          slot={rack}
-          currentInst={currentByRack.get(rack.number) ?? null}
-          nextUse={nextUseByRack[String(rack.number)] ?? null}
-          snapshotDate={snapshotDate}
-        />
-      ))}
+      {racks.map((rack) => {
+        const isHighlighted = highlightedRacks?.has(rack.number) ?? false;
+        const isDimmed =
+          highlightedRacks && highlightedRacks.size > 0
+            ? !isHighlighted
+            : false;
+        return (
+          <RackSlot
+            key={rack.number}
+            slot={rack}
+            currentInst={currentByRack.get(rack.number) ?? null}
+            nextUse={nextUseByRack[String(rack.number)] ?? null}
+            snapshotDate={snapshotDate}
+            appearance={appearance}
+            isHighlighted={isHighlighted}
+            isDimmed={isDimmed}
+          />
+        );
+      })}
     </svg>
   );
 }

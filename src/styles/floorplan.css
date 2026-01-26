@@ -203,3 +203,54 @@
   fill: var(--fp-walls);
   filter: drop-shadow(var(--fp-shadow-strong));
 }
+
+/* -----------------------------------------
+   Kiosk-specific overrides (calm system UI)
+----------------------------------------- */
+
+.kiosk-floorplan .fp-bg-outer {
+  fill: #0a0f1a;
+}
+
+.kiosk-floorplan .fp-bg-path {
+  fill: #0f172a;
+  stroke: none;
+  filter: drop-shadow(0 8px 18px rgba(2, 6, 23, 0.4));
+}
+
+.kiosk-floorplan .fp-area,
+.kiosk-floorplan .fp-banner,
+.kiosk-floorplan .fp-track {
+  fill: transparent;
+  stroke: none;
+  filter: none;
+  rx: 0;
+  ry: 0;
+}
+
+.kiosk-floorplan .fp-area-label,
+.kiosk-floorplan .fp-area-label-small,
+.kiosk-floorplan .fp-banner-text,
+.kiosk-floorplan .fp-track-text {
+  fill: #94a3b8;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+}
+
+.kiosk-floorplan .fp-banner-text {
+  font-size: 1.6px;
+}
+
+.kiosk-floorplan .fp-vertical-text {
+  fill: #64748b;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+}
+
+.kiosk-floorplan .fp-stairs-main {
+  fill: #1f2937;
+}
+
+.kiosk-floorplan .fp-stairs-step {
+  fill: #334155;
+}

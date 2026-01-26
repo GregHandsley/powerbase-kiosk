@@ -1,4 +1,4 @@
-# Powerbase Kiosk - Project Roadmap & Planning
+<!-- # Powerbase Kiosk - Project Roadmap & Planning
 
 ## Overview
 
@@ -513,6 +513,8 @@ Ensure policies include proper WITH CHECK for inserts/updates (not just USING)
 
 ✅ Outcome: True site-level isolation is live.
 
+
+
 👤 Layer 5: User Profile & Compliance
 2.4.1 Profile basics
 
@@ -538,7 +540,7 @@ Soft delete account
 
 Anonymize PII
 
-Preserve bookings + audit history
+Preserve bookings + audit history -->
 
 📜 Layer 6: Audit & Governance
 2.5.1 Audit log (minimal)
@@ -565,9 +567,343 @@ Filter by user/action
 
 Optional export + retention
 
+<!-- ✅ Cursor build steps — Layer 6: Audit & Governance (extended incl. 2.5.2)
+Step 0 — Confirm admin access rule (single source of truth)
+
+Identify the existing rule/function that determines: “user is admin/owner of org”
+
+If it doesn’t exist, create:
+
+DB function public.is_org_admin(p_org_id uuid) returns boolean
+
+OR a server-side helper requireOrgAdmin(orgId)
+
+Use this consistently for:
+
+audit log reads (RLS and API)
+
+audit UI page access -->
+
+<!-- 2.5.1 Audit log (minimal)
+Step 1 — Create audit_log table + indexes (migration)
+
+Create migration to add public.audit_log with:
+
+id uuid primary key default gen_random_uuid()
+
+created_at timestamptz not null default now()
+
+organization_id uuid not null references organizations(id) on delete cascade
+
+site_id uuid null references sites(id) on delete set null
+
+event_type text not null
+
+entity_type text not null
+
+entity_id uuid null
+
+actor_user_id uuid null references auth.users(id) on delete set null
+
+subject_user_id uuid null references auth.users(id) on delete set null
+
+old_value jsonb null
+
+new_value jsonb null
+
+metadata jsonb not null default '{}'::jsonb
+
+Indexes:
+
+(organization_id, created_at desc)
+
+(organization_id, event_type, created_at desc)
+
+(organization_id, actor_user_id, created_at desc)
+
+optional: (site_id, created_at desc) if you filter by site frequently -->
+
+<!-- Step 2 — RLS policies for audit_log (read admin-only, append-only)
+
+Enable RLS on public.audit_log
+
+Policies:
+
+SELECT: allow if public.is_org_admin(organization_id) is true
+
+INSERT: deny to anon/authenticated clients (service role only)
+
+UPDATE/DELETE: no policies (effectively blocked) -->
+
+<!-- Step 3 — Create DB function: public.log_audit_event(...)
+
+Create a SQL function to insert a row:
+
+Signature:
+
+log_audit_event(p_organization_id, p_site_id, p_event_type, p_entity_type, p_entity_id, p_actor_user_id, p_subject_user_id, p_old_value, p_new_value, p_metadata)
+
+Behavior:
+
+Insert to audit_log
+
+Coalesce metadata to {} when null
+
+Set created_at = now()
+
+Safety:
+
+App must treat this as “best effort” (fail-open) -->
+
+<!-- Step 4 — Add backend helper wrapper logAuditEvent
+
+Add a server-side helper (single place):
+
+Calls DB log_audit_event
+
+try/catch so core operations never fail due to audit
+
+Normalises event naming and ensures metadata is JSON-safe -->
+
+<!-- Step 5 — Integrate audit logging into existing operations
+
+For each mutation, call logAuditEvent AFTER success:
+
+Invitations
+
+created → invitation.created
+
+accepted → invitation.accepted
+
+revoked → invitation.revoked
+
+deleted → invitation.deleted
+
+Org membership role changes
+
+membership.role.changed with:
+
+subject_user_id
+
+old_value/new_value only for { role }
+
+Role permissions
+
+added → role_permission.added
+
+removed → role_permission.removed
+
+metadata: { role_id, permission_key }
+
+Site membership
+
+added → site_membership.added
+
+removed → site_membership.removed
+
+Settings
+
+org.settings.updated / site.settings.updated
+
+Store only changed keys (diff), not full settings blobs -->
+
+<!-- 2.5.2 Admin audit UI (required in this version)
+Step 6 — Build an audit log read API (server-only)
+
+Create endpoint or server function getAuditLogs:
+
+Input
+
+organizationId (required)
+
+Optional filters:
+
+actorUserId
+
+eventType
+
+dateFrom
+
+dateTo
+
+siteId
+
+search (simple string match on metadata or entity_id)
+
+Pagination:
+
+limit (default 50)
+
+cursor-based pagination preferred:
+
+cursorCreatedAt, cursorId (stable ordering)
+
+Output
+
+rows
+
+nextCursor (or null)
+
+Authorization
+
+Enforce org admin/owner:
+
+server-side guard (requireOrgAdmin(orgId))
+
+Query audit_log scoped to org_id only
+
+Implementation details
+
+Sort: created_at desc, id desc
+
+Where clauses for provided filters
+
+Return minimal shape needed for UI -->
+
+<!-- Step 7 — Admin UI page: “Audit” -->
+
+<!-- Create an admin-only route, e.g.:
+
+/org/[orgId]/admin/audit
+
+UI requirements
+
+Page guards:
+
+If not org admin, redirect or show “Not authorised”
+
+Page layout:
+
+Header: “Audit Log”
+
+Subtext: “Privileged actions and governance changes”
+
+Filters UI
+
+Event type dropdown (populated from a known list)
+
+Actor user selector (searchable dropdown if you have users list; otherwise text input of user id/email)
+
+Date range (from/to)
+
+Site selector (if org has sites)
+
+“Apply” + “Clear filters”
+
+Audit table columns
+
+Time (relative + tooltip exact timestamp)
+
+Event (event_type)
+
+Actor (display name/email if available)
+
+Subject (optional)
+
+Entity (entity_type + short entity_id)
+
+Site (optional)
+
+Row details drawer / expand
+
+Show:
+
+old_value (pretty JSON)
+
+new_value (pretty JSON)
+
+metadata (pretty JSON)
+
+For settings changes: render key-level diff (only changed keys)
+
+Pagination
+
+“Load more” button using cursor
+
+Keep filters applied when paginating
+
+Step 8 — Export (CSV) endpoint + UI button
+
+Add server endpoint:
+
+exportAuditLogsCsv(organizationId, filters...)
+
+Behavior
+
+Same auth checks as read API
+
+Same filters
+
+Hard cap export size (e.g., 10k rows) to prevent abuse
+
+Stream CSV or generate file response
+
+CSV columns:
+
+created_at, event_type, actor_user_id, subject_user_id, entity_type, entity_id, site_id, old_value, new_value, metadata
+
+In UI:
+
+“Export CSV” button exports current filtered view
+
+Step 9 — Retention policy (MVP implementation)
+
+Policy
+
+Add config:
+
+default retention = 90 days
+
+optionally per-org override stored in organizations.settings.auditRetentionDays
+
+Deletion job
+Implement one of these (pick what you already use):
+
+Option A (Supabase scheduled cron / edge function):
+
+Daily job deletes audit_log rows older than retention for each org
+
+Option B (DB scheduled job if available):
+
+A scheduled SQL function runs nightly
+
+Minimum viable
+
+Start with a global retention (90 days)
+
+Later: upgrade to per-org override
+
+Step 10 — Tests + validation
+
+Add tests:
+
+Org admin can fetch audit logs for their org
+
+Non-admin cannot fetch audit logs
+
+Export endpoint blocks non-admin
+
+Filters work:
+
+event type filter
+
+actor filter
+
+date range
+
+“Role change” logs old/new role correctly
+
+Performance checks:
+
+Ensure main query uses (organization_id, created_at desc) index
+
+Ensure export uses streaming or capped query
+
+
 🔔 Layer 7: Nice-to-Haves (Only When Ready)
 
 Org branding (logo, colours)
+
 
 Notification preferences
 
@@ -622,6 +958,11 @@ Feature flags per org
 
 ---
 
+
+
+
+
+
 ### 3.2 Feedback System
 
 **Core Requirements:**
@@ -652,6 +993,149 @@ Feature flags per org
 - Slack notification with context (user, page, etc.)
 - Thank you message after submission
 
+
+
+🏃 Sprint Plan — Phase 3.2: Feedback System (Slack-Only, Minimal)
+🎯 Sprint Goal
+
+Enable users to submit quick feedback that is delivered directly to Slack with enough context for immediate action — no database, no admin UI, no workflow overhead.
+
+🟢 Sprint 1 — Core Feedback Loop (MVP)
+
+Outcome:
+A user can submit feedback from the app and it appears in Slack with context.
+
+Tasks
+
+Create Slack webhook
+
+Create an incoming webhook in Slack
+
+Store webhook URL securely (env variable)
+
+Create backend endpoint
+
+POST /feedback
+
+Validate:
+
+category (enum)
+
+message (required, max length)
+
+Extract context automatically:
+
+user id / name (if logged in)
+
+org / site (if applicable)
+
+page URL
+
+environment
+
+Send formatted message to Slack
+
+Return success response
+
+Build feedback modal
+
+Fields:
+
+Category (select)
+
+Message (textarea)
+
+Simple submit button
+
+Disable submit while sending
+
+Add subtle trigger
+
+“Send feedback” button in header or footer
+
+Low visual weight (icon or text link)
+
+Success UX
+
+Toast or inline message:
+
+“Thanks — we’ve got it 👍”
+
+Auto-close modal
+
+
+
+
+
+
+
+
+
+
+🟡 Sprint 2 — Polish & Guardrails
+
+Outcome:
+Feedback is safe, spam-resistant, and readable in Slack.
+
+Tasks
+
+Improve Slack message formatting
+
+Clear title: [Bug], [Feature], etc.
+
+Structured layout:
+
+Category
+
+User
+
+Org / site
+
+Page
+
+Message
+
+Rate limiting
+
+Limit submissions per user/IP (e.g. 5 per hour)
+
+Return friendly error message if exceeded
+
+Validation hardening
+
+Trim message input
+
+Reject empty or whitespace-only submissions
+
+Enforce max length
+
+Anonymous handling
+
+If no user session:
+
+Label as “Anonymous”
+
+Still include page + environment
+
+🔵 Sprint 3 — Optional Context Enhancements (Only if Easy)
+
+Outcome:
+More useful context in Slack without increasing UI complexity.
+
+Optional Tasks (pick only what’s trivial)
+
+Add environment tag (Prod / Staging)
+
+Add browser / device info (user agent summary)
+
+Include timestamp in Slack message
+
+Masked email or user identifier (if useful)
+
+❌ No screenshots
+❌ No database
+❌ No status tracking
+
 ---
 
 ### 3.3 System Updates/Announcements
@@ -677,6 +1161,48 @@ Feature flags per org
 - Rich text support (markdown?)
 - Scheduled announcements
 - Expiration handling
+
+
+Sprints (copy/paste)
+🟢 Sprint 1 — DB + basic modal
+
+Create announcements table (id, title, message, published_at, active)
+
+Add profiles.announcements_last_seen_at
+
+Create endpoint GET /announcements/new:
+
+if last_seen_at is null → return latest X announcements (or just latest 1)
+
+else return announcements where published_at > last_seen_at
+
+Create endpoint POST /announcements/ack:
+
+set announcements_last_seen_at = now()
+
+Add login modal:
+
+show only if API returns new announcements
+
+“Got it” button calls ack
+
+🟡 Sprint 2 — Admin publishing (minimal)
+
+Simple admin-only page or script to create announcement:
+
+title + message
+
+publish (sets published_at)
+
+toggle active (optional)
+
+🔵 Sprint 3 — Polish (optional)
+
+Allow basic formatting (markdown-lite)
+
+Add “Do not show again” isn’t needed (ack covers it)
+
+Add expiry if you want (expires_at) -->
 
 ---
 

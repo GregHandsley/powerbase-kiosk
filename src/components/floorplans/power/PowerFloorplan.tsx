@@ -4,14 +4,25 @@ import type {
   NextUseInfo,
 } from '../../../types/snapshot';
 import { RackSlot, type RackLayoutSlot } from '../shared/RackSlot';
+import {
+  platformPaletteByAppearance,
+  rackFontFamilyByAppearance,
+  type RackAppearance,
+} from '../shared/theme';
 import '../../../styles/floorplan.css';
 
 type Props = {
   snapshot?: SideSnapshot | null;
+  appearance?: RackAppearance;
+  highlightedRacks?: Set<number>;
 };
 
 // Static SVG floor layout for Powerbase – L-shaped version with large racks.
-export function PowerbaseFloorSvg({ snapshot }: Props) {
+export function PowerbaseFloorSvg({
+  snapshot,
+  appearance = 'default',
+  highlightedRacks,
+}: Props) {
   const viewBoxWidth = 160;
   const viewBoxHeight = 90;
   const floorMargin = 3;
@@ -48,15 +59,27 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
     });
   });
 
-  const renderRackSlot = (slot: RackLayoutSlot) => (
-    <RackSlot
-      key={`rack-${slot.number}`}
-      slot={slot}
-      currentInst={currentByRack.get(slot.number) ?? null}
-      nextUse={nextUseByRack[String(slot.number)] ?? null}
-      snapshotDate={snapshotDate}
-    />
-  );
+  const renderRackSlot = (slot: RackLayoutSlot) => {
+    const isHighlighted = highlightedRacks?.has(slot.number) ?? false;
+    const isDimmed =
+      highlightedRacks && highlightedRacks.size > 0 ? !isHighlighted : false;
+    return (
+      <RackSlot
+        key={`rack-${slot.number}`}
+        slot={slot}
+        currentInst={currentByRack.get(slot.number) ?? null}
+        nextUse={nextUseByRack[String(slot.number)] ?? null}
+        snapshotDate={snapshotDate}
+        appearance={appearance}
+        isHighlighted={isHighlighted}
+        isDimmed={isDimmed}
+      />
+    );
+  };
+
+  const platformPalette = platformPaletteByAppearance[appearance];
+  const platformShadowId = `platform-shadow-${appearance}`;
+  const showPlatformShadow = appearance === 'kiosk';
 
   return (
     <svg
@@ -65,6 +88,24 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
       height="100%"
       preserveAspectRatio="xMidYMid meet"
     >
+      {showPlatformShadow && (
+        <defs>
+          <filter
+            id={platformShadowId}
+            x="-20%"
+            y="-20%"
+            width="140%"
+            height="160%"
+          >
+            <feDropShadow
+              dx="0"
+              dy="1.1"
+              stdDeviation="1"
+              floodColor="rgba(2, 6, 23, 0.4)"
+            />
+          </filter>
+        </defs>
+      )}
       {/* outer background */}
       <rect
         className="fp-bg-outer"
@@ -264,17 +305,20 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
                 y={y}
                 width={rackWidth}
                 height={rackHeight}
-                fill="#7c3aed"
-                stroke="#6b21a8"
-                strokeWidth={0.8}
+                fill={platformPalette.fill}
+                stroke="none"
+                filter={
+                  showPlatformShadow ? `url(#${platformShadowId})` : undefined
+                }
               />
               <text
                 x={x + rackWidth / 2}
                 y={y + rackHeight / 2 - 1.7}
                 textAnchor="middle"
                 fontSize={2.4}
-                fill="#ffffff"
-                fontFamily="system-ui, sans-serif"
+                fill={platformPalette.text}
+                fontFamily={rackFontFamilyByAppearance[appearance]}
+                fontWeight={appearance === 'kiosk' ? 600 : 700}
               >
                 PLATFORM
               </text>
@@ -283,8 +327,9 @@ export function PowerbaseFloorSvg({ snapshot }: Props) {
                 y={y + rackHeight / 2 + 2.4}
                 textAnchor="middle"
                 fontSize={2.8}
-                fill="#ffffff"
-                fontFamily="system-ui, sans-serif"
+                fill={platformPalette.text}
+                fontFamily={rackFontFamilyByAppearance[appearance]}
+                fontWeight={appearance === 'kiosk' ? 600 : 700}
               >
                 {platformNo}
               </text>

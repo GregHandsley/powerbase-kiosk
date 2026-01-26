@@ -20,9 +20,9 @@ export function KioskBase() {
       : null;
 
   return (
-    <KioskFrame title="Base" slotLabel={slotLabel}>
+    <KioskFrame title="Base" slotLabel={slotLabel} sideKey="Base">
       <AspectRatio ratio={ratio}>
-        <div className="w-full h-full glass-panel rounded-xl md:p-3">
+        <div className="w-full h-full kiosk-floorplan">
           {error && (
             <div className="w-full h-full flex items-center justify-center text-xs text-red-400">
               Error loading snapshot: {error}
@@ -35,7 +35,7 @@ export function KioskBase() {
                   Loading snapshot...
                 </div>
               ) : (
-                <BaseFloorplan snapshot={snapshot} />
+                <BaseFloorplan snapshot={snapshot} appearance="kiosk" />
               )}
             </div>
           )}

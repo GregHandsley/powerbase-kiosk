@@ -23,6 +23,8 @@ type Props = {
   nextUse: NextUseInfo | null;
   snapshotDate: Date;
   appearance?: RackAppearance;
+  isHighlighted?: boolean;
+  isDimmed?: boolean;
 };
 
 function formatTime(iso: string | null | undefined): string | null {
@@ -49,22 +51,38 @@ function wrapText(value: string, maxCharsPerLine: number, maxLines: number) {
   const words = value.split(/\s+/);
   const lines: string[] = [];
   let current = '';
+  let truncated = false;
 
   for (const word of words) {
     const isLastLine = lines.length === maxLines - 1;
     const tentative = current.length === 0 ? word : `${current} ${word}`;
-    if (tentative.length <= maxCharsPerLine || isLastLine) {
+    if (tentative.length <= maxCharsPerLine) {
       current = tentative;
-    } else {
-      if (current.length > 0) {
-        lines.push(current);
-      }
-      current = word;
+      continue;
     }
+
+    if (isLastLine) {
+      truncated = true;
+      break;
+    }
+
+    if (current.length > 0) {
+      lines.push(current);
+    }
+    current = word;
   }
 
   if (current && lines.length < maxLines) {
     lines.push(current);
+  }
+
+  if (truncated) {
+    const lastIndex = Math.min(lines.length, maxLines) - 1;
+    if (lastIndex >= 0) {
+      const maxLen = Math.max(1, maxCharsPerLine - 3);
+      const base = lines[lastIndex].slice(0, maxLen).trimEnd();
+      lines[lastIndex] = `${base}...`;
+    }
   }
 
   return lines.slice(0, maxLines);
@@ -85,6 +103,8 @@ export function RackSlot({
   nextUse,
   snapshotDate,
   appearance = 'default',
+  isHighlighted = false,
+  isDimmed = false,
 }: Props) {
   const resolvedAppearance = appearance ?? 'default';
   const rackPadding = rackPaddingByAppearance[resolvedAppearance];
@@ -168,10 +188,10 @@ export function RackSlot({
   const titleLines = wrapText(
     statusLine1,
     isStatusBoard ? 14 : 16,
-    isStatusBoard ? 1 : 2
+    isStatusBoard ? 3 : 2
   );
   const status2Lines = statusLine2
-    ? wrapText(statusLine2, isStatusBoard ? 16 : 18, 2)
+    ? wrapText(statusLine2, isStatusBoard ? 16 : 18, isStatusBoard ? 1 : 2)
     : [];
   const status3Lines =
     !isStatusBoard && statusLine3 ? wrapText(statusLine3, 18, 3) : [];
@@ -189,15 +209,15 @@ export function RackSlot({
 
   const typography = isStatusBoard
     ? {
-        labelSize: 1.2,
-        labelWeight: '600',
+        labelSize: isHighlighted ? 1.35 : 1.1,
+        labelWeight: isHighlighted ? '700' : '600',
         labelLetterSpacing: 0.12,
         labelGap: 0.5,
-        titleSize: 1.8,
-        titleWeight: '600',
+        titleSize: 1.55,
+        titleWeight: '500',
         titleWeightAvailable: '600',
         titleGap: 0.55,
-        metaSize: 1.05,
+        metaSize: 1.0,
         metaWeight: '500',
         metaGap: 0.45,
         metaAccentSize: 0.95,
@@ -239,10 +259,14 @@ export function RackSlot({
         };
 
   // Top: Rack label (small, muted)
+  const labelColor = isHighlighted
+    ? (palette.primaryStrong ?? palette.primary)
+    : palette.muted;
+
   content.push({
     text: isStatusBoard ? `Platform ${slot.number}` : `Rack ${slot.number}`,
     size: typography.labelSize,
-    color: palette.muted,
+    color: labelColor,
     weight: typography.labelWeight,
     letterSpacing: typography.labelLetterSpacing,
     gapAfter: typography.labelGap,
@@ -323,6 +347,23 @@ export function RackSlot({
   const showKioskShadow = isKiosk && isOccupied;
   const showDefaultGradient = resolvedAppearance === 'default';
 
+  const fillOpacity = isDimmed ? 0.55 : 1;
+  const textOpacity = isDimmed ? 0.55 : 1;
+  const showHighlight = isHighlighted && !isDimmed;
+  const highlightOpacity = showHighlight ? 1 : 0;
+  const highlightStroke = palette.accent;
+  const highlightStrokeWidth = isStatusBoard ? 0.85 : 1;
+  const highlightCornerRadius = Math.max(1, rackCornerRadius);
+  const highlightGlowId = `rack-highlight-${slot.number}`;
+  const baseStyle =
+    isHighlighted || isDimmed
+      ? { transition: 'opacity 300ms ease' }
+      : undefined;
+  const highlightStyle = {
+    opacity: highlightOpacity,
+    transition: 'opacity 300ms ease, stroke 300ms ease',
+  };
+
   return (
     <g key={slot.number}>
       <defs>
@@ -348,6 +389,30 @@ export function RackSlot({
             />
           </filter>
         )}
+        {showHighlight && (
+          <filter
+            id={highlightGlowId}
+            x="-25%"
+            y="-25%"
+            width="150%"
+            height="150%"
+          >
+            <feDropShadow
+              dx="0"
+              dy="0"
+              stdDeviation="0.45"
+              floodColor={highlightStroke}
+              floodOpacity="0.28"
+            />
+            <feDropShadow
+              dx="0"
+              dy="0"
+              stdDeviation="1.2"
+              floodColor={highlightStroke}
+              floodOpacity="0.16"
+            />
+          </filter>
+        )}
       </defs>
 
       <clipPath id={clipId}>
@@ -365,6 +430,23 @@ export function RackSlot({
         stroke={showDefaultGradient ? palette.stroke : 'none'}
         strokeWidth={showDefaultGradient ? rackStrokeWidth : 0}
         filter={showKioskShadow ? `url(#${shadowId})` : undefined}
+        opacity={fillOpacity}
+        style={baseStyle}
+      />
+      <rect
+        x={slot.x + 0.2}
+        y={slot.y + 0.2}
+        width={slot.width - 0.4}
+        height={slot.height - 0.4}
+        rx={highlightCornerRadius}
+        ry={highlightCornerRadius}
+        fill="none"
+        stroke={highlightStroke}
+        strokeWidth={highlightStrokeWidth}
+        strokeLinejoin="round"
+        filter={showHighlight ? `url(#${highlightGlowId})` : undefined}
+        pointerEvents="none"
+        style={highlightStyle}
       />
       {showDefaultGradient && (
         <rect
@@ -392,6 +474,7 @@ export function RackSlot({
             fontFamily={line.family ?? rackFontFamily}
             fontWeight={line.weight}
             letterSpacing={line.letterSpacing}
+            opacity={textOpacity}
           >
             {line.text}
           </text>

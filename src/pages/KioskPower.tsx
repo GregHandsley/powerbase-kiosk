@@ -20,9 +20,9 @@ export function KioskPower() {
       : null;
 
   return (
-    <KioskFrame title="Power" slotLabel={slotLabel}>
+    <KioskFrame title="Power" slotLabel={slotLabel} sideKey="Power">
       <AspectRatio ratio={ratio}>
-        <div className="w-full h-full glass-panel rounded-xl p-2 md:p-3">
+        <div className="w-full h-full kiosk-floorplan">
           {error && (
             <div className="w-full h-full flex items-center justify-center text-xs text-red-400">
               Error loading snapshot: {error}
@@ -35,7 +35,7 @@ export function KioskPower() {
                   Loading snapshot...
                 </div>
               ) : (
-                <PowerbaseFloorSvg snapshot={snapshot} />
+                <PowerbaseFloorSvg snapshot={snapshot} appearance="kiosk" />
               )}
             </div>
           )}

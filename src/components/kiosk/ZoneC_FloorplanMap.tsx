@@ -6,6 +6,7 @@ import type { SideKey } from '../../nodes/data/sidesNodes';
 type Props = {
   sideKey: SideKey;
   snapshot: SideSnapshot | null;
+  visiblePlatformIds: number[];
   isLoading?: boolean;
   error?: string | null;
 };
@@ -37,6 +38,7 @@ type Props = {
 export function FloorplanMap({
   sideKey,
   snapshot,
+  visiblePlatformIds,
   isLoading = false,
   error = null,
 }: Props) {
@@ -61,11 +63,16 @@ export function FloorplanMap({
   // Render appropriate floorplan based on side
   const FloorplanComponent =
     sideKey === 'Base' ? BaseFloorplan : PowerbaseFloorSvg;
+  const highlightedRacks = new Set(visiblePlatformIds);
 
   return (
     <div className="h-full w-full">
       <div className="h-full w-full kiosk-floorplan">
-        <FloorplanComponent snapshot={snapshot} appearance="status-board" />
+        <FloorplanComponent
+          snapshot={snapshot}
+          appearance="status-board"
+          highlightedRacks={highlightedRacks}
+        />
       </div>
     </div>
   );

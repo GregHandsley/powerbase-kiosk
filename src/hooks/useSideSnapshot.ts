@@ -28,7 +28,7 @@ export function useSideSnapshot(
 
       return computeSnapshotFromInstances(data ?? [], effectiveAtIso);
     },
-    refetchInterval: 20_000, // 20s auto-refresh
+    refetchInterval: 900_000, // 15 minutes (bookings are on 15-min intervals)
   });
 
   return {

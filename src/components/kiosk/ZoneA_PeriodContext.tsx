@@ -39,9 +39,7 @@ export function PeriodPanel({
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <div className="text-xs text-slate-500 uppercase tracking-[0.2em]">
-          Current Period
-        </div>
+        <div className="kiosk-kicker">Current Period</div>
         <div className="text-slate-400 text-lg">Loading...</div>
       </div>
     );
@@ -50,9 +48,7 @@ export function PeriodPanel({
   if (!periodType) {
     return (
       <div className="space-y-3">
-        <div className="text-xs text-slate-500 uppercase tracking-[0.2em]">
-          Current Period
-        </div>
+        <div className="kiosk-kicker">Current Period</div>
         <div className="text-slate-400 text-lg">No period data</div>
       </div>
     );
@@ -68,23 +64,23 @@ export function PeriodPanel({
     : null;
 
   return (
-    <div className="space-y-4">
-      <div className="text-xs text-slate-500 uppercase tracking-[0.2em]">
-        Current Period
+    <div className="space-y-5">
+      <div className="kiosk-kicker">Current Period</div>
+
+      <div className="text-[clamp(36px,4.6vh,64px)] font-semibold tracking-tight text-slate-100">
+        {periodType}
       </div>
 
-      <div className="text-5xl font-semibold text-slate-100">{periodType}</div>
-
       {timeRange && (
-        <div className="text-2xl text-slate-300 font-mono">{timeRange}</div>
+        <div className="text-[clamp(20px,2.8vh,36px)] text-slate-300 font-mono tracking-[0.08em]">
+          {timeRange}
+        </div>
       )}
 
       {nextPeriodType && nextPeriodTime && (
-        <div className="pt-2">
-          <div className="text-xs text-slate-500 uppercase tracking-[0.2em] mb-1">
-            Next Period
-          </div>
-          <div className="text-lg text-slate-400">
+        <div className="pt-3">
+          <div className="kiosk-kicker mb-2">Next Period</div>
+          <div className="text-[clamp(14px,1.9vh,22px)] text-slate-400">
             {nextPeriodType} from {nextPeriodTime}
           </div>
         </div>

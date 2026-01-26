@@ -16,9 +16,9 @@ type Props = {
   platforms: PlatformBooking[];
   currentCycleIndex: number;
   totalCycles: number;
-  rotationSeconds: number;
-  nowTimeIso: string;
   isFading: boolean;
+  rowsPerPage: number;
+  cycleLabel?: string | null;
   isLoading?: boolean;
 };
 
@@ -46,17 +46,15 @@ export function PlatformStatusBoard({
   platforms,
   currentCycleIndex,
   totalCycles,
-  rotationSeconds,
-  nowTimeIso,
   isFading,
+  rowsPerPage,
+  cycleLabel = null,
   isLoading = false,
 }: Props) {
   if (isLoading) {
     return (
       <div className="h-full flex flex-col">
-        <div className="text-xs text-slate-500 uppercase tracking-[0.2em] mb-4">
-          Platform Status
-        </div>
+        <div className="kiosk-kicker mb-4">Platform Status</div>
         <div className="text-slate-400 text-lg">Loading platforms...</div>
       </div>
     );
@@ -65,40 +63,46 @@ export function PlatformStatusBoard({
   if (platforms.length === 0) {
     return (
       <div className="h-full flex flex-col">
-        <div className="text-xs text-slate-500 uppercase tracking-[0.2em] mb-4">
-          Platform Status
-        </div>
+        <div className="kiosk-kicker mb-4">Platform Status</div>
         <div className="text-slate-400 text-lg">No platform data</div>
       </div>
     );
   }
 
+  const paddedPlatforms =
+    platforms.length < rowsPerPage
+      ? [
+          ...platforms,
+          ...Array.from({ length: rowsPerPage - platforms.length }, () => null),
+        ]
+      : platforms;
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="mb-4">
-        <div className="text-xs text-slate-500 uppercase tracking-[0.2em] mb-1">
-          Platform Status
-        </div>
-        {totalCycles > 1 && (
-          <div className="text-sm text-slate-400">
-            Showing {currentCycleIndex + 1} of {totalCycles} · Details rotate
-            every {rotationSeconds}s
+      <div className="mb-5">
+        <div className="kiosk-kicker mb-2">Platform Status</div>
+        {cycleLabel ? (
+          <div className="text-[clamp(12px,1.6vh,18px)] text-slate-400">
+            {cycleLabel}
           </div>
-        )}
+        ) : totalCycles > 1 ? (
+          <div className="text-[clamp(12px,1.6vh,18px)] text-slate-400">
+            Showing {currentCycleIndex + 1} of {totalCycles}
+          </div>
+        ) : null}
       </div>
 
       {/* Status list */}
       <div
-        className={`flex-1 flex flex-col justify-start transition-opacity duration-300 ${
+        className={`flex-1 flex flex-col justify-between min-h-0 kiosk-fade ${
           isFading ? 'opacity-0' : 'opacity-100'
         }`}
       >
-        {platforms.map((platform) => (
+        {paddedPlatforms.map((platform, index) => (
           <PlatformStatusRow
-            key={platform.platformNumber}
+            key={platform ? platform.platformNumber : `empty-${index}`}
             platform={platform}
-            nowTimeIso={nowTimeIso}
           />
         ))}
       </div>
@@ -106,13 +110,11 @@ export function PlatformStatusBoard({
   );
 }
 
-function PlatformStatusRow({
-  platform,
-  nowTimeIso,
-}: {
-  platform: PlatformBooking;
-  nowTimeIso: string;
-}) {
+function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
+  if (!platform) {
+    return <div className="flex-1 min-h-0 kiosk-status-divider" />;
+  }
+
   const nowUntil = platform.nowBooking
     ? format(new Date(platform.nowBooking.until), 'HH:mm')
     : platform.nextBooking
@@ -121,45 +123,50 @@ function PlatformStatusRow({
 
   const nextFrom = platform.nextBooking
     ? format(new Date(platform.nextBooking.from), 'HH:mm')
-    : format(new Date(nowTimeIso), 'HH:mm');
+    : null;
 
-  const nextTitle = platform.nextBooking
-    ? platform.nextBooking.title
-    : 'Open access';
+  const nextTitle = platform.nextBooking ? platform.nextBooking.title : null;
 
   return (
-    <div className="grid grid-cols-[160px_1fr_1fr] gap-6 py-4 border-b border-slate-800 last:border-b-0">
+    <div className="flex-1 min-h-0 grid grid-cols-[150px_1fr_1fr] gap-6 py-3 kiosk-status-divider items-center">
       <div>
-        <div className="text-xs text-slate-500 uppercase tracking-[0.2em]">
-          Platform
-        </div>
-        <div className="text-5xl font-semibold text-slate-100">
+        <div className="kiosk-kicker">Platform</div>
+        <div className="text-[clamp(30px,4.2vh,60px)] font-semibold tracking-tight text-slate-100 leading-none">
           {platform.platformNumber}
         </div>
       </div>
 
       <div>
-        <div className="text-xs text-slate-500 uppercase tracking-[0.2em] mb-1">
-          Now
-        </div>
-        <div className="text-2xl font-semibold text-slate-100">
+        <div className="kiosk-kicker mb-1">Now</div>
+        <div className="text-[clamp(16px,2.2vh,30px)] font-semibold text-slate-100 leading-tight">
           {platform.nowBooking ? (
-            platform.nowBooking.title
+            <span className="text-slate-200">Booked</span>
           ) : (
-            <span className="text-emerald-400">Available</span>
+            <span className="text-emerald-300">Available</span>
           )}
         </div>
-        <div className="text-lg text-slate-400 font-mono">
+        <div className="text-[clamp(14px,1.8vh,24px)] text-slate-300 font-mono tracking-[0.08em]">
           {nowUntil ? `until ${nowUntil}` : 'until close'}
         </div>
+        {platform.nowBooking && (
+          <div className="text-[clamp(12px,1.5vh,20px)] text-slate-500 leading-tight line-clamp-2">
+            {platform.nowBooking.title}
+          </div>
+        )}
       </div>
 
       <div>
-        <div className="text-xs text-slate-500 uppercase tracking-[0.2em] mb-1">
-          Next
-        </div>
-        <div className="text-xl font-medium text-slate-200">{nextTitle}</div>
-        <div className="text-lg text-slate-400 font-mono">from {nextFrom}</div>
+        {nextTitle && <div className="kiosk-kicker mb-1">Next</div>}
+        {nextTitle && (
+          <div className="text-[clamp(13px,1.9vh,26px)] font-medium text-slate-300 leading-tight line-clamp-2">
+            {nextTitle}
+          </div>
+        )}
+        {nextFrom && (
+          <div className="text-[clamp(12px,1.6vh,22px)] text-slate-400 font-mono tracking-[0.08em]">
+            from {nextFrom}
+          </div>
+        )}
       </div>
     </div>
   );

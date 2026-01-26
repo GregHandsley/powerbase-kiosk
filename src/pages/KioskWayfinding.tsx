@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { KioskLayout } from '../components/kiosk/KioskLayout';
 import { PeriodPanel } from '../components/kiosk/ZoneA_PeriodContext';
@@ -7,6 +7,13 @@ import { FloorplanMap } from '../components/kiosk/ZoneC_FloorplanMap';
 import { useSideSnapshot } from '../hooks/useSideSnapshot';
 import { useInstancesRealtime } from '../hooks/useInstancesRealtime';
 import type { SideKey } from '../nodes/data/sidesNodes';
+import { useLiveViewCapacity } from '../components/schedule/hooks/useLiveViewCapacity';
+import {
+  doesScheduleApply,
+  parseExcludedDates,
+  type ScheduleData,
+} from '../components/admin/capacity/scheduleUtils';
+import { format, getDay } from 'date-fns';
 
 // Placeholder data types - will be replaced with real data fetching
 type PeriodType =
@@ -28,9 +35,31 @@ type PlatformBooking = {
   } | null;
 };
 
-const PLATFORMS_PER_CYCLE = 4;
-const CYCLE_DURATION_MS = 6000; // 6 seconds per cycle
+const POWER_PLATFORM_PAGES: number[][] = [
+  [1, 2, 3, 4, 5],
+  [6, 7, 8],
+  [9, 10, 11, 12, 13],
+  [14, 15, 16, 17, 18],
+];
+
+const BASE_PLATFORM_PAGES: number[][] = [
+  [1, 2, 3, 4, 5, 6],
+  [7, 8, 9, 10, 11, 12],
+  [13, 14, 15, 16, 17, 18],
+  [19, 20, 21, 22, 23, 24],
+];
+
+const BASE_QUADRANT_LABELS = [
+  'Quadrant A',
+  'Quadrant B',
+  'Quadrant C',
+  'Quadrant D',
+];
+
+const PLATFORMS_PER_CYCLE = 6;
+const CYCLE_DURATION_MS = 10000; // 10 seconds per cycle
 const FADE_DURATION_MS = 300;
+const TIME_REFRESH_MS = 60_000;
 
 /**
  * Main kiosk wayfinding page.
@@ -49,29 +78,37 @@ export function KioskWayfinding() {
   const { snapshot, error, isLoading } = useSideSnapshot(sideKey);
   useInstancesRealtime();
 
-  // Placeholder period data - will be replaced with real data fetching
-  const [currentPeriod, setCurrentPeriod] = useState<{
-    type: PeriodType;
-    start: string;
-    end: string;
-  } | null>(null);
-  const [nextPeriod, setNextPeriod] = useState<{
-    type: PeriodType;
-    start: string;
-  } | null>(null);
+  const [nowTime, setNowTime] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setNowTime(new Date()), TIME_REFRESH_MS);
+    return () => clearInterval(interval);
+  }, []);
 
-  // Transform snapshot data into platform bookings
-  const allPlatforms = transformSnapshotToPlatforms(snapshot);
+  const dateStr = format(nowTime, 'yyyy-MM-dd');
+  const timeStr = format(nowTime, 'HH:mm');
+  const dayOfWeek = getDay(nowTime);
+  const liveViewSide = sideKey === 'Power' ? 'power' : 'base';
+  const { applicableSchedule, capacitySchedules, schedulesLoading } =
+    useLiveViewCapacity({
+      side: liveViewSide,
+      date: dateStr,
+      time: timeStr,
+    });
 
   // Cycling logic for Zone B
   const [currentCycleIndex, setCurrentCycleIndex] = useState(0);
   const [isFading, setIsFading] = useState(false);
-  const totalCycles = Math.ceil(allPlatforms.length / PLATFORMS_PER_CYCLE);
-  const visiblePlatforms = allPlatforms.slice(
-    currentCycleIndex * PLATFORMS_PER_CYCLE,
-    (currentCycleIndex + 1) * PLATFORMS_PER_CYCLE
-  );
 
+  // Transform snapshot data into platform bookings
+  const platformPages = getPlatformPages(sideKey);
+  const totalCycles = platformPages.length;
+  const currentPageNumbers = platformPages[currentCycleIndex] ?? [];
+  const visiblePlatformIds = isFading ? [] : currentPageNumbers;
+  const visiblePlatforms = mapPlatformsForPage(snapshot, currentPageNumbers);
+  const quadrantLabel =
+    sideKey === 'Base'
+      ? (BASE_QUADRANT_LABELS[currentCycleIndex] ?? null)
+      : null;
   // Cycle through platforms
   useEffect(() => {
     if (totalCycles <= 1) return;
@@ -87,20 +124,40 @@ export function KioskWayfinding() {
     return () => clearInterval(interval);
   }, [totalCycles]);
 
-  // TODO: Fetch real period data
-  useEffect(() => {
-    // Placeholder: set mock period data
-    const now = new Date();
-    setCurrentPeriod({
-      type: 'Performance',
-      start: new Date(now.getTime() - 30 * 60 * 1000).toISOString(), // 30 min ago
-      end: new Date(now.getTime() + 30 * 60 * 1000).toISOString(), // 30 min from now
-    });
-    setNextPeriod({
-      type: 'General User',
-      start: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
-    });
-  }, []);
+  const currentPeriod = useMemo(() => {
+    if (!applicableSchedule) return null;
+    return {
+      type: applicableSchedule.period_type as PeriodType,
+      start: buildIsoDateTime(dateStr, applicableSchedule.start_time),
+      end: buildIsoDateTime(dateStr, applicableSchedule.end_time),
+    };
+  }, [applicableSchedule, dateStr]);
+
+  const nextPeriod = useMemo(() => {
+    if (!capacitySchedules.length) return null;
+    const candidates = capacitySchedules
+      .map((schedule) => ({
+        ...schedule,
+        excluded_dates: parseExcludedDates(schedule.excluded_dates),
+      }))
+      .filter((schedule) => {
+        if (!isTimeAfter(schedule.start_time, timeStr)) return false;
+        return doesScheduleApply(
+          schedule as ScheduleData,
+          dayOfWeek,
+          dateStr,
+          schedule.start_time
+        );
+      })
+      .sort((a, b) => compareTimes(a.start_time, b.start_time));
+
+    const nextSchedule = candidates[0];
+    if (!nextSchedule) return null;
+    return {
+      type: nextSchedule.period_type as PeriodType,
+      start: buildIsoDateTime(dateStr, nextSchedule.start_time),
+    };
+  }, [capacitySchedules, dateStr, dayOfWeek, timeStr]);
 
   return (
     <KioskLayout
@@ -111,7 +168,7 @@ export function KioskWayfinding() {
           periodEnd={currentPeriod?.end ?? null}
           nextPeriodType={nextPeriod?.type ?? null}
           nextPeriodStart={nextPeriod?.start ?? null}
-          isLoading={isLoading}
+          isLoading={isLoading || schedulesLoading}
         />
       }
       zoneB={
@@ -119,9 +176,9 @@ export function KioskWayfinding() {
           platforms={visiblePlatforms}
           currentCycleIndex={currentCycleIndex}
           totalCycles={totalCycles}
-          rotationSeconds={Math.round(CYCLE_DURATION_MS / 1000)}
-          nowTimeIso={snapshot?.at ?? new Date().toISOString()}
           isFading={isFading}
+          rowsPerPage={PLATFORMS_PER_CYCLE}
+          cycleLabel={quadrantLabel}
           isLoading={isLoading}
         />
       }
@@ -129,6 +186,7 @@ export function KioskWayfinding() {
         <FloorplanMap
           sideKey={sideKey}
           snapshot={snapshot}
+          visiblePlatformIds={visiblePlatformIds}
           isLoading={isLoading}
           error={error}
         />
@@ -143,56 +201,83 @@ export function KioskWayfinding() {
  * This is a placeholder implementation that needs to be replaced with
  * proper data transformation logic based on the actual snapshot structure.
  */
-function transformSnapshotToPlatforms(
-  snapshot: ReturnType<typeof useSideSnapshot>['snapshot']
-): PlatformBooking[] {
-  if (!snapshot) {
-    return [];
+function getPlatformPages(sideKey: SideKey): number[][] {
+  if (sideKey === 'Power') {
+    return POWER_PLATFORM_PAGES;
   }
 
-  // Extract all unique platform numbers from current instances
-  const platformNumbers = new Set<number>();
+  if (sideKey === 'Base') {
+    return BASE_PLATFORM_PAGES;
+  }
+  return [];
+}
 
+function mapPlatformsForPage(
+  snapshot: ReturnType<typeof useSideSnapshot>['snapshot'],
+  platformNumbers: number[]
+): PlatformBooking[] {
+  if (!snapshot) {
+    return platformNumbers.map((platformNumber) => ({
+      platformNumber,
+      nowBooking: null,
+      nextBooking: null,
+    }));
+  }
+
+  const currentByRack = new Map<
+    number,
+    (typeof snapshot.currentInstances)[number]
+  >();
   snapshot.currentInstances.forEach((inst) => {
-    inst.racks.forEach((rack) => platformNumbers.add(rack));
+    inst.racks.forEach((rack) => currentByRack.set(rack, inst));
   });
 
-  // Also get platforms from next bookings
-  Object.keys(snapshot.nextUseByRack).forEach((rackStr) => {
-    const rackNum = parseInt(rackStr, 10);
-    if (!isNaN(rackNum)) {
-      platformNumbers.add(rackNum);
-    }
+  return platformNumbers.map((platformNumber) => {
+    const currentInst = currentByRack.get(platformNumber) ?? null;
+    const nextUse = snapshot.nextUseByRack[platformNumber.toString()] ?? null;
+
+    return {
+      platformNumber,
+      nowBooking: currentInst
+        ? {
+            title: currentInst.title,
+            until: currentInst.end,
+          }
+        : null,
+      nextBooking: nextUse
+        ? {
+            title: nextUse.title,
+            from: nextUse.start,
+          }
+        : null,
+    };
   });
+}
 
-  // Build platform bookings
-  const platforms: PlatformBooking[] = Array.from(platformNumbers)
-    .sort((a, b) => a - b)
-    .map((platformNum) => {
-      // Find current booking for this platform
-      const currentInst = snapshot.currentInstances.find((inst) =>
-        inst.racks.includes(platformNum)
-      );
+function buildIsoDateTime(dateStr: string, timeStr: string): string {
+  const [hourPart, minutePart] = timeStr.split(':');
+  const date = new Date(`${dateStr}T00:00:00`);
+  const hour = Number(hourPart || 0);
+  const minute = Number(minutePart || 0);
+  date.setHours(hour, minute, 0, 0);
+  return date.toISOString();
+}
 
-      // Find next booking for this platform
-      const nextUse = snapshot.nextUseByRack[platformNum.toString()] ?? null;
+function normalizeTime(timeStr: string): string {
+  const parts = timeStr.split(':');
+  const hour = parts[0]?.padStart(2, '0') ?? '00';
+  const minute = parts[1]?.padStart(2, '0') ?? '00';
+  return `${hour}:${minute}`;
+}
 
-      return {
-        platformNumber: platformNum,
-        nowBooking: currentInst
-          ? {
-              title: currentInst.title,
-              until: currentInst.end,
-            }
-          : null,
-        nextBooking: nextUse
-          ? {
-              title: nextUse.title,
-              from: nextUse.start,
-            }
-          : null,
-      };
-    });
+function compareTimes(a: string, b: string): number {
+  const t1 = normalizeTime(a);
+  const t2 = normalizeTime(b);
+  if (t1 < t2) return -1;
+  if (t1 > t2) return 1;
+  return 0;
+}
 
-  return platforms;
+function isTimeAfter(candidate: string, current: string): boolean {
+  return compareTimes(candidate, current) > 0;
 }
