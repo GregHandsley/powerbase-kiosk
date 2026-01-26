@@ -5,6 +5,7 @@ import { Login } from './pages/Login';
 import { AcceptInvite } from './pages/AcceptInvite';
 import { KioskPower } from './pages/KioskPower';
 import { KioskBase } from './pages/KioskBase';
+import { KioskWayfinding } from './pages/KioskWayfinding';
 import { LiveView } from './pages/LiveView';
 import { Schedule } from './pages/Schedule';
 import { Bookings } from './pages/Bookings';
@@ -187,6 +188,14 @@ export default function App() {
                   <KioskBase />
                 </ErrorBoundary>
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kiosk/wayfinding"
+            element={
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskWayfinding />
+              </ErrorBoundary>
             }
           />
           <Route

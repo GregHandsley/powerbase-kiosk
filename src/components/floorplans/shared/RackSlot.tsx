@@ -1,11 +1,12 @@
 import type { ActiveInstance, NextUseInfo } from '../../../types/snapshot';
 import {
-  rackCornerRadius,
-  rackFontFamily,
-  rackMonoFamily,
-  rackPadding,
-  rackPalette,
-  rackStrokeWidth,
+  rackCornerRadiusByAppearance,
+  rackFontFamilyByAppearance,
+  rackMonoFamilyByAppearance,
+  rackPaddingByAppearance,
+  rackPaletteByAppearance,
+  rackStrokeWidthByAppearance,
+  type RackAppearance,
 } from './theme';
 
 export type RackLayoutSlot = {
@@ -21,6 +22,7 @@ type Props = {
   currentInst: ActiveInstance | null;
   nextUse: NextUseInfo | null;
   snapshotDate: Date;
+  appearance?: RackAppearance;
 };
 
 function formatTime(iso: string | null | undefined): string | null {
@@ -77,7 +79,22 @@ function isSameDay(a: Date | null, b: Date | null) {
   );
 }
 
-export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
+export function RackSlot({
+  slot,
+  currentInst,
+  nextUse,
+  snapshotDate,
+  appearance = 'default',
+}: Props) {
+  const resolvedAppearance = appearance ?? 'default';
+  const rackPadding = rackPaddingByAppearance[resolvedAppearance];
+  const rackCornerRadius = rackCornerRadiusByAppearance[resolvedAppearance];
+  const rackStrokeWidth = rackStrokeWidthByAppearance[resolvedAppearance];
+  const rackFontFamily = rackFontFamilyByAppearance[resolvedAppearance];
+  const rackMonoFamily = rackMonoFamilyByAppearance[resolvedAppearance];
+  const isKiosk = resolvedAppearance === 'kiosk';
+  const isStatusBoard = resolvedAppearance === 'status-board';
+
   const innerX = slot.x + rackPadding;
   const innerY = slot.y + rackPadding;
   const innerWidth = slot.width - rackPadding * 2;
@@ -93,13 +110,25 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
   const currentEndDate = currentInst?.end ? new Date(currentInst.end) : null;
   const isOccupied = Boolean(currentInst);
 
-  const palette = isOccupied ? rackPalette.occupied : rackPalette.free;
+  const palette = isOccupied
+    ? rackPaletteByAppearance[resolvedAppearance].occupied
+    : rackPaletteByAppearance[resolvedAppearance].free;
 
   let statusLine1: string;
   let statusLine2: string | null = null;
   let statusLine3: string | null = null;
 
-  if (!currentInst) {
+  if (isStatusBoard) {
+    if (!currentInst) {
+      statusLine1 = 'Available';
+      const availableUntil = nextUseToday ? formatTime(nextUseStartIso) : null;
+      statusLine2 = availableUntil ? `until ${availableUntil}` : 'until close';
+    } else {
+      statusLine1 = currentInst.title;
+      const endTime = formatTime(currentInst.end);
+      statusLine2 = endTime ? `until ${endTime}` : null;
+    }
+  } else if (!currentInst) {
     statusLine1 = 'Available';
     const nextLabelTime = formatTime(nextUseStartIso);
     statusLine2 =
@@ -136,9 +165,16 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     }
   }
 
-  const titleLines = wrapText(statusLine1, 16, 2);
-  const status2Lines = statusLine2 ? wrapText(statusLine2, 18, 3) : [];
-  const status3Lines = statusLine3 ? wrapText(statusLine3, 18, 3) : [];
+  const titleLines = wrapText(
+    statusLine1,
+    isStatusBoard ? 14 : 16,
+    isStatusBoard ? 1 : 2
+  );
+  const status2Lines = statusLine2
+    ? wrapText(statusLine2, isStatusBoard ? 16 : 18, 2)
+    : [];
+  const status3Lines =
+    !isStatusBoard && statusLine3 ? wrapText(statusLine3, 18, 3) : [];
 
   // Build content with strict hierarchy
   const content: {
@@ -151,26 +187,79 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
     gapAfter: number;
   }[] = [];
 
+  const typography = isStatusBoard
+    ? {
+        labelSize: 1.2,
+        labelWeight: '600',
+        labelLetterSpacing: 0.12,
+        labelGap: 0.5,
+        titleSize: 1.8,
+        titleWeight: '600',
+        titleWeightAvailable: '600',
+        titleGap: 0.55,
+        metaSize: 1.05,
+        metaWeight: '500',
+        metaGap: 0.45,
+        metaAccentSize: 0.95,
+        metaAccentWeight: '500',
+        metaAccentGap: 0.4,
+      }
+    : isKiosk
+      ? {
+          labelSize: 1.1,
+          labelWeight: '500',
+          labelLetterSpacing: 0.18,
+          labelGap: 0.6,
+          titleSize: 1.9,
+          titleWeight: '600',
+          titleWeightAvailable: '500',
+          titleGap: 0.7,
+          metaSize: 1.0,
+          metaWeight: '500',
+          metaGap: 0.5,
+          metaAccentSize: 0.95,
+          metaAccentWeight: '500',
+          metaAccentGap: 0.45,
+        }
+      : {
+          labelSize: 1.25,
+          labelWeight: '700',
+          labelLetterSpacing: 0.25,
+          labelGap: 0.5,
+          titleSize: 2.1,
+          titleWeight: '800',
+          titleWeightAvailable: '900',
+          titleGap: 0.55,
+          metaSize: 1.15,
+          metaWeight: '600',
+          metaGap: 0.36,
+          metaAccentSize: 1.05,
+          metaAccentWeight: '600',
+          metaAccentGap: 0.32,
+        };
+
   // Top: Rack label (small, muted)
   content.push({
-    text: `Rack ${slot.number}`,
-    size: 1.25,
+    text: isStatusBoard ? `Platform ${slot.number}` : `Rack ${slot.number}`,
+    size: typography.labelSize,
     color: palette.muted,
-    weight: '700',
-    letterSpacing: 0.25,
-    gapAfter: 0.5,
+    weight: typography.labelWeight,
+    letterSpacing: typography.labelLetterSpacing,
+    gapAfter: typography.labelGap,
   });
 
   // Middle: dominant line (squad or OPEN)
   for (let i = 0; i < titleLines.length; i++) {
     content.push({
       text: titleLines[i],
-      size: 2.1,
+      size: typography.titleSize,
       color: !currentInst
         ? (palette.primaryStrong ?? palette.primary)
         : palette.primary,
-      weight: !currentInst ? '900' : '800',
-      gapAfter: 0.55,
+      weight: !currentInst
+        ? typography.titleWeightAvailable
+        : typography.titleWeight,
+      gapAfter: typography.titleGap,
     });
   }
 
@@ -178,22 +267,22 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
   for (let i = 0; i < status2Lines.length; i++) {
     content.push({
       text: status2Lines[i],
-      size: 1.15,
+      size: typography.metaSize,
       color: palette.secondary,
       family: rackMonoFamily,
-      weight: '600',
-      gapAfter: 0.36,
+      weight: typography.metaWeight,
+      gapAfter: typography.metaGap,
     });
   }
 
   for (let i = 0; i < status3Lines.length; i++) {
     content.push({
       text: status3Lines[i],
-      size: 1.05,
+      size: typography.metaAccentSize,
       color: palette.accent,
       family: rackMonoFamily,
-      weight: '600',
-      gapAfter: 0.32,
+      weight: typography.metaAccentWeight,
+      gapAfter: typography.metaAccentGap,
     });
   }
 
@@ -230,18 +319,35 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
 
   const gradientId = `rack-grad-${slot.number}-${isOccupied ? 'occ' : 'free'}`;
   const shadeId = `rack-shade-${slot.number}`;
+  const shadowId = `rack-shadow-${slot.number}`;
+  const showKioskShadow = isKiosk && isOccupied;
+  const showDefaultGradient = resolvedAppearance === 'default';
 
   return (
     <g key={slot.number}>
       <defs>
-        <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={palette.fillTop} />
-          <stop offset="100%" stopColor={palette.fillBottom} />
-        </linearGradient>
-        <linearGradient id={shadeId} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="70%" stopColor="rgba(0,0,0,0)" />
-          <stop offset="100%" stopColor="rgba(0,0,0,0.12)" />
-        </linearGradient>
+        {showDefaultGradient && (
+          <>
+            <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor={palette.fillTop} />
+              <stop offset="100%" stopColor={palette.fillBottom} />
+            </linearGradient>
+            <linearGradient id={shadeId} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="70%" stopColor="rgba(0,0,0,0)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.12)" />
+            </linearGradient>
+          </>
+        )}
+        {showKioskShadow && (
+          <filter id={shadowId} x="-20%" y="-20%" width="140%" height="160%">
+            <feDropShadow
+              dx="0"
+              dy="1.2"
+              stdDeviation="1.2"
+              floodColor="rgba(2, 6, 23, 0.45)"
+            />
+          </filter>
+        )}
       </defs>
 
       <clipPath id={clipId}>
@@ -255,22 +361,24 @@ export function RackSlot({ slot, currentInst, nextUse, snapshotDate }: Props) {
         height={slot.height}
         rx={rackCornerRadius}
         ry={rackCornerRadius}
-        fill={`url(#${gradientId})`}
-        stroke={palette.stroke}
-        strokeWidth={rackStrokeWidth}
+        fill={showDefaultGradient ? `url(#${gradientId})` : palette.fill}
+        stroke={showDefaultGradient ? palette.stroke : 'none'}
+        strokeWidth={showDefaultGradient ? rackStrokeWidth : 0}
+        filter={showKioskShadow ? `url(#${shadowId})` : undefined}
       />
-      {/* subtle bottom shade for depth */}
-      <rect
-        x={slot.x}
-        y={slot.y}
-        width={slot.width}
-        height={slot.height}
-        rx={rackCornerRadius}
-        ry={rackCornerRadius}
-        fill={`url(#${shadeId})`}
-        stroke="none"
-        pointerEvents="none"
-      />
+      {showDefaultGradient && (
+        <rect
+          x={slot.x}
+          y={slot.y}
+          width={slot.width}
+          height={slot.height}
+          rx={rackCornerRadius}
+          ry={rackCornerRadius}
+          fill={`url(#${shadeId})`}
+          stroke="none"
+          pointerEvents="none"
+        />
+      )}
 
       <g clipPath={`url(#${clipId})`}>
         {lines.map((line, idx) => (
