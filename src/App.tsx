@@ -15,6 +15,7 @@ import { Profile } from './pages/Profile';
 import { KioskErrorScreen } from './components/KioskErrorScreen';
 import { TaskBell } from './components/tasks/TaskBell';
 import { NotificationBell } from './components/notifications/NotificationBell';
+import { FeedbackButton } from './components/shared/FeedbackButton';
 import { useAuth } from './context/AuthContext';
 import { useBranding } from './context/BrandingContext';
 import {
@@ -213,6 +214,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      {showHeader && <FeedbackButton />}
     </div>
   );
 }
