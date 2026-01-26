@@ -16,7 +16,10 @@ import { KioskErrorScreen } from './components/KioskErrorScreen';
 import { TaskBell } from './components/tasks/TaskBell';
 import { NotificationBell } from './components/notifications/NotificationBell';
 import { FeedbackButton } from './components/shared/FeedbackButton';
+import { AnnouncementModal } from './components/shared/AnnouncementModal';
 import { useAuth } from './context/AuthContext';
+import { useAnnouncements } from './hooks/useAnnouncements';
+import { useState, useEffect } from 'react';
 import { useBranding } from './context/BrandingContext';
 import {
   usePermission,
@@ -51,6 +54,38 @@ export default function App() {
     primaryOrgId,
     'bookings.view_all'
   );
+  const {
+    announcements,
+    hasNewAnnouncements,
+    acknowledge,
+    isAcknowledging,
+    isLoading: isLoadingAnnouncements,
+  } = useAnnouncements();
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+
+  // Show announcement modal when there are new announcements and user is logged in
+  useEffect(() => {
+    if (
+      !loading &&
+      !isLoadingAnnouncements &&
+      user &&
+      hasNewAnnouncements &&
+      !showAnnouncementModal
+    ) {
+      console.log('Showing announcement modal', {
+        announcements,
+        hasNewAnnouncements,
+      });
+      setShowAnnouncementModal(true);
+    }
+  }, [
+    loading,
+    isLoadingAnnouncements,
+    user,
+    hasNewAnnouncements,
+    showAnnouncementModal,
+    announcements,
+  ]);
 
   const showHeader =
     !pathname.startsWith('/kiosk') &&
@@ -215,6 +250,13 @@ export default function App() {
         </Routes>
       </main>
       {showHeader && <FeedbackButton />}
+      <AnnouncementModal
+        isOpen={showAnnouncementModal}
+        onClose={() => setShowAnnouncementModal(false)}
+        announcements={announcements}
+        onAcknowledge={acknowledge}
+        isAcknowledging={isAcknowledging}
+      />
     </div>
   );
 }

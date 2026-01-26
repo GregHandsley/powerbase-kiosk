@@ -50,6 +50,11 @@ export function AdminSidebar({
       path: '/admin?view=activity',
       label: 'Activity Log',
     },
+    {
+      path: '/admin?view=announcements',
+      label: 'Announcements',
+      requiresSuperAdmin: true,
+    },
   ].filter((item) => (item.requiresSuperAdmin ? isSuperAdmin : true));
 
   return (

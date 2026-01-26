@@ -9,6 +9,7 @@ import { BrandingSettings } from '../components/admin/branding/BrandingSettings'
 import { InvitationManagement } from '../components/admin/invitations/InvitationManagement';
 import { AuditLog } from '../components/admin/audit/AuditLog';
 import { ActivityLog } from '../components/admin/activity/ActivityLog';
+import { AnnouncementManagement } from '../components/admin/announcements/AnnouncementManagement';
 import { Clock } from '../components/Clock';
 import {
   usePermission,
@@ -71,6 +72,12 @@ export function Admin() {
       crumb: 'Activity Log',
       title: 'Activity Log',
       subtitle: 'Track booking and operational activity.',
+    },
+    announcements: {
+      crumb: 'Announcements',
+      title: 'System Announcements',
+      subtitle:
+        'Create and manage system-wide announcements shown to users on login.',
     },
   };
   const viewMeta = viewLabelMap[view] ?? {
@@ -259,6 +266,7 @@ export function Admin() {
           {view === 'activity' && (
             <ActivityLog setExportHandler={setExportHandler} />
           )}
+          {view === 'announcements' && <AnnouncementManagement />}
         </main>
       </div>
     </div>
