@@ -93,12 +93,36 @@ export default function App() {
     !pathname.startsWith('/login') &&
     !pathname.startsWith('/accept-invite');
 
-  // Show only login and accept-invite pages if not authenticated
+  // Show only public kiosk + auth pages if not authenticated
   if (!loading && !user) {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/accept-invite" element={<AcceptInvite />} />
+        <Route
+          path="/kiosk/power"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskPower />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/kiosk/base"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskBase />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/kiosk/wayfinding"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskWayfinding />
+            </ErrorBoundary>
+          }
+        />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -173,21 +197,17 @@ export default function App() {
           <Route
             path="/kiosk/power"
             element={
-              <ProtectedRoute>
-                <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-                  <KioskPower />
-                </ErrorBoundary>
-              </ProtectedRoute>
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskPower />
+              </ErrorBoundary>
             }
           />
           <Route
             path="/kiosk/base"
             element={
-              <ProtectedRoute>
-                <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-                  <KioskBase />
-                </ErrorBoundary>
-              </ProtectedRoute>
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskBase />
+              </ErrorBoundary>
             }
           />
           <Route
