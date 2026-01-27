@@ -13,10 +13,9 @@ type PlatformBooking = {
 };
 
 type Props = {
-  platforms: PlatformBooking[];
+  platformPages: PlatformBooking[][];
   currentCycleIndex: number;
   totalCycles: number;
-  isFading: boolean;
   rowsPerPage: number;
   cycleLabel?: string | null;
   isLoading?: boolean;
@@ -43,39 +42,30 @@ type Props = {
  * Always show BOTH NOW and NEXT
  */
 export function PlatformStatusBoard({
-  platforms,
+  platformPages,
   currentCycleIndex,
   totalCycles,
-  isFading,
   rowsPerPage,
   cycleLabel = null,
   isLoading = false,
 }: Props) {
   if (isLoading) {
     return (
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col kiosk-surface rounded-2xl p-4">
         <div className="kiosk-kicker mb-4">Platform Status</div>
         <div className="text-slate-400 text-lg">Loading platforms...</div>
       </div>
     );
   }
 
-  if (platforms.length === 0) {
+  if (platformPages.length === 0) {
     return (
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col kiosk-surface rounded-2xl p-4">
         <div className="kiosk-kicker mb-4">Platform Status</div>
         <div className="text-slate-400 text-lg">No platform data</div>
       </div>
     );
   }
-
-  const paddedPlatforms =
-    platforms.length < rowsPerPage
-      ? [
-          ...platforms,
-          ...Array.from({ length: rowsPerPage - platforms.length }, () => null),
-        ]
-      : platforms;
 
   return (
     <div className="h-full flex flex-col">
@@ -94,25 +84,68 @@ export function PlatformStatusBoard({
       </div>
 
       {/* Status list */}
-      <div
-        className={`flex-1 flex flex-col justify-between min-h-0 kiosk-fade ${
-          isFading ? 'opacity-0' : 'opacity-100'
-        }`}
-      >
-        {paddedPlatforms.map((platform, index) => (
-          <PlatformStatusRow
-            key={platform ? platform.platformNumber : `empty-${index}`}
-            platform={platform}
-          />
-        ))}
+      <div className="flex-1 min-h-0 relative kiosk-status-list rounded-2xl">
+        <QuadrantPages
+          platformPages={platformPages}
+          activeIndex={currentCycleIndex}
+          rowsPerPage={rowsPerPage}
+        />
       </div>
+    </div>
+  );
+}
+
+function QuadrantPages({
+  platformPages,
+  activeIndex,
+  rowsPerPage,
+}: {
+  platformPages: PlatformBooking[][];
+  activeIndex: number;
+  rowsPerPage: number;
+}) {
+  return (
+    <div className="absolute inset-0">
+      {platformPages.map((platforms, pageIndex) => {
+        const paddedPlatforms =
+          platforms.length < rowsPerPage
+            ? [
+                ...platforms,
+                ...Array.from(
+                  { length: rowsPerPage - platforms.length },
+                  () => null
+                ),
+              ]
+            : platforms;
+        const isActive = pageIndex === activeIndex;
+
+        return (
+          <div
+            key={`quadrant-page-${pageIndex}`}
+            className="absolute inset-0 flex flex-col justify-between min-h-0 kiosk-quadrant-page transition-opacity duration-300"
+            style={{
+              opacity: isActive ? 1 : 0,
+              pointerEvents: isActive ? 'auto' : 'none',
+            }}
+          >
+            {paddedPlatforms.map((platform, index) => (
+              <PlatformStatusRow
+                key={platform ? platform.platformNumber : `empty-${index}`}
+                platform={platform}
+              />
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
   if (!platform) {
-    return <div className="flex-1 min-h-0 kiosk-status-divider" />;
+    return (
+      <div className="flex-1 min-h-0 kiosk-status-divider kiosk-status-row" />
+    );
   }
 
   const nowUntil = platform.nowBooking
@@ -128,7 +161,7 @@ function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
   const nextTitle = platform.nextBooking ? platform.nextBooking.title : null;
 
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-[150px_1fr_1fr] gap-6 py-3 kiosk-status-divider items-center">
+    <div className="flex-1 min-h-0 grid grid-cols-[150px_1fr_1fr] gap-6 py-3 kiosk-status-divider kiosk-status-row items-center">
       <div>
         <div className="kiosk-kicker">Platform</div>
         <div className="text-[clamp(30px,4.2vh,60px)] font-semibold tracking-tight text-slate-100 leading-none">

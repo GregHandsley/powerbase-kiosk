@@ -180,6 +180,22 @@ body {
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
+.kiosk-status-list {
+  background-color: #0a0f1a;
+  padding: 0.5rem;
+}
+
+.kiosk-quadrant-page {
+  background-color: #0a0f1a;
+  border-radius: 1rem;
+}
+
+.kiosk-status-row {
+  background-color: #0a0f1a;
+  padding: 0 1rem;
+  border-radius: 0.75rem;
+}
+
 .kiosk-surface {
   background-color: #0a0f1a;
 }

@@ -59,7 +59,6 @@ const BASE_QUADRANT_LABELS = [
 const PLATFORMS_PER_CYCLE = 6;
 const EMPTY_PLATFORM_IDS: number[] = [];
 const CYCLE_DURATION_MS = 10000; // 10 seconds per cycle
-const FADE_DURATION_MS = 300;
 const TIME_REFRESH_MS = 60_000;
 
 /**
@@ -98,7 +97,6 @@ export function KioskWayfinding() {
 
   // Cycling logic for Zone B
   const [currentCycleIndex, setCurrentCycleIndex] = useState(() => 0);
-  const [isFading, setIsFading] = useState(() => false);
 
   // Transform snapshot data into platform bookings
   const platformPages = useMemo(() => getPlatformPages(sideKey), [sideKey]);
@@ -108,9 +106,9 @@ export function KioskWayfinding() {
     [platformPages, currentCycleIndex]
   );
   const visiblePlatformIds = currentPageNumbers;
-  const visiblePlatforms = useMemo(
-    () => mapPlatformsForPage(snapshot, currentPageNumbers),
-    [snapshot, currentPageNumbers]
+  const platformPageData = useMemo(
+    () => platformPages.map((page) => mapPlatformsForPage(snapshot, page)),
+    [snapshot, platformPages]
   );
   const quadrantLabel =
     sideKey === 'Base'
@@ -121,11 +119,7 @@ export function KioskWayfinding() {
     if (totalCycles <= 1) return;
 
     const interval = setInterval(() => {
-      setIsFading(true);
-      setTimeout(() => {
-        setCurrentCycleIndex((prev) => (prev + 1) % totalCycles);
-        setIsFading(false);
-      }, FADE_DURATION_MS);
+      setCurrentCycleIndex((prev) => (prev + 1) % totalCycles);
     }, CYCLE_DURATION_MS);
 
     return () => clearInterval(interval);
@@ -180,10 +174,9 @@ export function KioskWayfinding() {
       }
       zoneB={
         <PlatformStatusBoard
-          platforms={visiblePlatforms}
+          platformPages={platformPageData}
           currentCycleIndex={currentCycleIndex}
           totalCycles={totalCycles}
-          isFading={isFading}
           rowsPerPage={PLATFORMS_PER_CYCLE}
           cycleLabel={quadrantLabel}
           isLoading={isLoading}
