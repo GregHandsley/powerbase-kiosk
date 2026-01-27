@@ -107,10 +107,7 @@ export function KioskWayfinding() {
     () => platformPages[currentCycleIndex] ?? EMPTY_PLATFORM_IDS,
     [platformPages, currentCycleIndex]
   );
-  const visiblePlatformIds = useMemo(
-    () => (isFading ? EMPTY_PLATFORM_IDS : currentPageNumbers),
-    [isFading, currentPageNumbers]
-  );
+  const visiblePlatformIds = currentPageNumbers;
   const visiblePlatforms = useMemo(
     () => mapPlatformsForPage(snapshot, currentPageNumbers),
     [snapshot, currentPageNumbers]

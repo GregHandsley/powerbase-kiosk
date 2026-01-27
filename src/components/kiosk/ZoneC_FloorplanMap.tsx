@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { SideSnapshot } from '../../types/snapshot';
 import { BaseFloorplan } from '../floorplans/base/BaseFloorplan';
 import { PowerbaseFloorSvg } from '../floorplans/power/PowerFloorplan';
@@ -11,6 +11,17 @@ type Props = {
   isLoading?: boolean;
   error?: string | null;
 };
+
+const HIGHLIGHT_FADE_MS = 300;
+
+function arePlatformIdsEqual(a: number[], b: number[]) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
 
 /**
  * Zone C: Floorplan Map (Static)
@@ -36,7 +47,7 @@ type Props = {
  * - Do NOT show times other than "available until"
  * - Do NOT include any decision-critical information
  */
-export const FloorplanMap = memo(function FloorplanMap({
+const FloorplanMapComponent = function FloorplanMap({
   sideKey,
   snapshot,
   visiblePlatformIds,
@@ -45,7 +56,29 @@ export const FloorplanMap = memo(function FloorplanMap({
 }: Props) {
   const FloorplanComponent =
     sideKey === 'Base' ? BaseFloorplan : PowerbaseFloorSvg;
+  const lastVisibleRef = useRef(visiblePlatformIds);
+  const [previousPlatformIds, setPreviousPlatformIds] =
+    useState(visiblePlatformIds);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  useEffect(() => {
+    if (arePlatformIdsEqual(lastVisibleRef.current, visiblePlatformIds)) {
+      return;
+    }
+
+    setPreviousPlatformIds(lastVisibleRef.current);
+    lastVisibleRef.current = visiblePlatformIds;
+    setIsTransitioning(true);
+
+    const timeout = window.setTimeout(
+      () => setIsTransitioning(false),
+      HIGHLIGHT_FADE_MS
+    );
+    return () => window.clearTimeout(timeout);
+  }, [visiblePlatformIds]);
+
   const highlightedRacks = new Set(visiblePlatformIds);
+  const previousHighlightedRacks = new Set(previousPlatformIds);
 
   if (error) {
     return (
@@ -67,13 +100,30 @@ export const FloorplanMap = memo(function FloorplanMap({
 
   return (
     <div className="h-full w-full">
-      <div className="h-full w-full kiosk-floorplan">
-        <FloorplanComponent
-          snapshot={snapshot}
-          appearance="status-board"
-          highlightedRacks={highlightedRacks}
-        />
+      <div className="h-full w-full kiosk-floorplan relative">
+        <div
+          className="absolute inset-0 transition-opacity duration-300"
+          style={{ opacity: isTransitioning ? 0 : 1 }}
+        >
+          <FloorplanComponent
+            snapshot={snapshot}
+            appearance="status-board"
+            highlightedRacks={highlightedRacks}
+          />
+        </div>
+        <div
+          className="absolute inset-0 transition-opacity duration-300"
+          style={{ opacity: isTransitioning ? 1 : 0 }}
+        >
+          <FloorplanComponent
+            snapshot={snapshot}
+            appearance="status-board"
+            highlightedRacks={previousHighlightedRacks}
+          />
+        </div>
       </div>
     </div>
   );
-});
+};
+
+export const FloorplanMap = memo(FloorplanMapComponent);
