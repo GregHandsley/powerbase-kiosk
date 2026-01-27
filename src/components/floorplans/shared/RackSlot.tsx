@@ -263,11 +263,11 @@ export function RackSlot({
 
   // Top: Platform number - large, minimal, no badge
   const labelText = isStatusBoard ? String(slot.number) : `Rack ${slot.number}`;
-  // Platform number - subtle but clear
+  // Platform number - Apple-like clarity and contrast
   const labelColor = isStatusBoard
     ? isOccupied
-      ? 'rgba(255, 255, 255, 0.95)'
-      : 'rgba(255, 255, 255, 0.7)'
+      ? 'rgba(255, 255, 255, 0.98)' // Booked: Bright white for maximum contrast
+      : 'rgba(226, 232, 240, 0.85)' // Available: Light gray - much more visible
     : isOccupied
       ? isHighlighted
         ? '#ffffff'
@@ -285,14 +285,14 @@ export function RackSlot({
     gapAfter: typography.labelGap,
   });
 
-  // Middle: dominant line (squad or Available)
+  // Middle: dominant line (squad or Available) - Apple-like clarity
   for (let i = 0; i < titleLines.length; i++) {
-    // For status-board, subtle but clear colors
+    // For status-board, clear and purposeful colors
     const statusColor =
       isStatusBoard && !currentInst
-        ? 'rgba(96, 165, 250, 0.9)' // Subtle blue for "Available"
+        ? 'rgba(96, 165, 250, 0.95)' // Available: Vibrant blue - clear and visible
         : isStatusBoard && currentInst
-          ? 'rgba(255, 255, 255, 0.9)' // White for occupied
+          ? 'rgba(255, 255, 255, 0.98)' // Booked: Bright white for maximum contrast
           : !currentInst
             ? (palette.primaryStrong ?? palette.primary)
             : palette.primary;
@@ -419,18 +419,18 @@ export function RackSlot({
         )}
         {showStatusBoardPremium && (
           <>
-            {/* Liquid glass background gradient - more defined when dimmed */}
+            {/* Apple-like background gradient - clear distinction between booked and available */}
             <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
               <stop
                 offset="0%"
                 stopColor={
                   isOccupied
                     ? isDimmed
-                      ? 'rgba(30, 58, 138, 0.42)'
-                      : 'rgba(30, 58, 138, 0.35)'
+                      ? 'rgba(37, 99, 235, 0.55)' // Booked: More vibrant blue when dimmed
+                      : 'rgba(37, 99, 235, 0.48)' // Booked: Vibrant blue for clear visibility
                     : isDimmed
-                      ? 'rgba(15, 23, 42, 0.48)'
-                      : 'rgba(15, 23, 42, 0.4)'
+                      ? 'rgba(30, 41, 59, 0.65)' // Available: More visible dark slate when dimmed
+                      : 'rgba(30, 41, 59, 0.58)' // Available: Visible dark slate - much better contrast
                 }
               />
               <stop
@@ -438,11 +438,11 @@ export function RackSlot({
                 stopColor={
                   isOccupied
                     ? isDimmed
-                      ? 'rgba(30, 58, 138, 0.35)'
-                      : 'rgba(30, 58, 138, 0.28)'
+                      ? 'rgba(29, 78, 216, 0.48)'
+                      : 'rgba(29, 78, 216, 0.42)' // Booked: Rich blue gradient
                     : isDimmed
-                      ? 'rgba(15, 23, 42, 0.40)'
-                      : 'rgba(15, 23, 42, 0.32)'
+                      ? 'rgba(15, 23, 42, 0.55)'
+                      : 'rgba(15, 23, 42, 0.50)' // Available: Better visibility
                 }
               />
               <stop
@@ -450,30 +450,30 @@ export function RackSlot({
                 stopColor={
                   isOccupied
                     ? isDimmed
-                      ? 'rgba(30, 58, 138, 0.28)'
-                      : 'rgba(30, 58, 138, 0.22)'
+                      ? 'rgba(30, 64, 175, 0.42)'
+                      : 'rgba(30, 64, 175, 0.36)' // Booked: Deep blue bottom
                     : isDimmed
-                      ? 'rgba(15, 23, 42, 0.32)'
-                      : 'rgba(15, 23, 42, 0.25)'
+                      ? 'rgba(2, 6, 23, 0.48)'
+                      : 'rgba(2, 6, 23, 0.42)' // Available: Darker bottom for depth
                 }
               />
             </linearGradient>
-            {/* Liquid glass border - ultra subtle, almost invisible */}
+            {/* Apple-like border - clear and purposeful */}
             <linearGradient id={borderGradientId} x1="0" x2="0" y1="0" y2="1">
               <stop
                 offset="0%"
                 stopColor={
                   isOccupied
-                    ? 'rgba(96, 165, 250, 0.08)'
-                    : 'rgba(148, 163, 184, 0.06)'
+                    ? 'rgba(96, 165, 250, 0.25)' // Booked: Visible blue border
+                    : 'rgba(148, 163, 184, 0.20)' // Available: Visible gray border
                 }
               />
               <stop
                 offset="100%"
                 stopColor={
                   isOccupied
-                    ? 'rgba(59, 130, 246, 0.06)'
-                    : 'rgba(100, 116, 139, 0.04)'
+                    ? 'rgba(59, 130, 246, 0.18)'
+                    : 'rgba(100, 116, 139, 0.15)' // Available: Subtle but visible
                 }
               />
             </linearGradient>
@@ -482,14 +482,16 @@ export function RackSlot({
               <stop offset="0%" stopColor="rgba(255, 255, 255, 0.15)" />
               <stop offset="100%" stopColor="rgba(255, 255, 255, 0)" />
             </linearGradient>
-            {/* Depth shadow */}
+            {/* Apple-like depth shadow - purposeful and clear */}
             <filter id={shadowId} x="-50%" y="-50%" width="200%" height="200%">
               <feDropShadow
                 dx="0"
-                dy="2"
-                stdDeviation="2.5"
+                dy="2.5"
+                stdDeviation="3"
                 floodColor={
-                  isOccupied ? 'rgba(30, 64, 175, 0.3)' : 'rgba(2, 6, 23, 0.4)'
+                  isOccupied
+                    ? 'rgba(30, 64, 175, 0.4)' // Booked: Stronger blue shadow
+                    : 'rgba(2, 6, 23, 0.5)' // Available: Deeper shadow for visibility
                 }
                 floodOpacity="1"
               />
@@ -540,16 +542,34 @@ export function RackSlot({
             opacity={fillOpacity}
             style={baseStyle}
           />
-          {/* Subtle inner highlight for glass effect */}
+          {/* Apple-like inner highlight for depth */}
           <rect
             x={slot.x + 0.15}
             y={slot.y + 0.15}
             width={slot.width - 0.3}
-            height={slot.height * 0.4}
+            height={slot.height * 0.45}
             rx={rackCornerRadius * 0.8}
             ry={rackCornerRadius * 0.8}
             fill="url(#glassHighlight)"
-            opacity={fillOpacity * 0.08}
+            opacity={
+              isOccupied
+                ? fillOpacity * 0.12 // Booked: More visible highlight
+                : fillOpacity * 0.1 // Available: Subtle but visible
+            }
+            style={baseStyle}
+          />
+          {/* Border stroke for clear definition */}
+          <rect
+            x={slot.x}
+            y={slot.y}
+            width={slot.width}
+            height={slot.height}
+            rx={rackCornerRadius}
+            ry={rackCornerRadius}
+            fill="none"
+            stroke={`url(#${borderGradientId})`}
+            strokeWidth="0.5"
+            opacity={fillOpacity}
             style={baseStyle}
           />
         </>

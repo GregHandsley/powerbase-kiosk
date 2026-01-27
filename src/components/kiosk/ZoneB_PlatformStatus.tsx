@@ -70,7 +70,7 @@ export function PlatformStatusBoard({
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="mb-5">
+      <div className="mb-6">
         <div className="kiosk-kicker mb-2">Platform Status</div>
         {cycleLabel ? (
           <div className="text-[clamp(12px,1.6vh,18px)] text-slate-400">
@@ -84,7 +84,7 @@ export function PlatformStatusBoard({
       </div>
 
       {/* Status list */}
-      <div className="flex-1 min-h-0 relative kiosk-status-list rounded-2xl">
+      <div className="flex-1 min-h-0 relative overflow-hidden">
         <QuadrantPages
           platformPages={platformPages}
           activeIndex={currentCycleIndex}
@@ -122,7 +122,7 @@ function QuadrantPages({
         return (
           <div
             key={`quadrant-page-${pageIndex}`}
-            className="absolute inset-0 flex flex-col justify-between min-h-0 kiosk-quadrant-page"
+            className="absolute inset-0 flex flex-col gap-2 min-h-0 kiosk-quadrant-page overflow-hidden"
             style={{
               opacity: isActive ? 1 : 0,
               pointerEvents: isActive ? 'auto' : 'none',
@@ -143,9 +143,7 @@ function QuadrantPages({
 
 function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
   if (!platform) {
-    return (
-      <div className="flex-1 min-h-0 kiosk-status-divider kiosk-status-row" />
-    );
+    return <div className="flex-1 min-h-0" />;
   }
 
   const nowUntil = platform.nowBooking
@@ -161,45 +159,78 @@ function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
   const nextTitle = platform.nextBooking ? platform.nextBooking.title : null;
 
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-[150px_1fr_1fr] gap-6 py-3 kiosk-status-divider kiosk-status-row items-center">
-      <div>
-        <div className="kiosk-kicker">Platform</div>
-        <div className="text-[clamp(30px,4.2vh,60px)] font-semibold tracking-tight text-slate-100 leading-none">
+    <div className="kiosk-platform-card flex-1 min-h-0 max-h-full grid grid-cols-[160px_1fr_1fr] grid-rows-[auto_minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 px-2 py-1.5 overflow-hidden">
+      {/* Row 1: Labels - all inline */}
+      <div className="kiosk-kicker min-w-0">Platform</div>
+      <div className="kiosk-kicker min-w-0 pl-0">Now</div>
+      <div className="kiosk-kicker min-w-0 pl-0">{nextTitle ? 'Next' : ''}</div>
+
+      {/* Row 2: Main content - Platform number spans D and G, Booking name, Next booking */}
+      <div className="flex items-end justify-start min-w-0 overflow-hidden row-span-2">
+        <div
+          className="font-semibold tracking-tight text-slate-50 leading-none"
+          style={{
+            fontSize: 'clamp(56px, 8.5vh, 120px)',
+            lineHeight: '0.85',
+          }}
+        >
           {platform.platformNumber}
         </div>
       </div>
-
-      <div>
-        <div className="kiosk-kicker mb-1">Now</div>
-        <div className="text-[clamp(16px,2.2vh,30px)] font-semibold text-slate-100 leading-tight">
+      <div className="flex items-center justify-start min-w-0 overflow-hidden pl-0">
+        <div className="font-semibold text-slate-50 leading-tight min-w-0 w-full">
           {platform.nowBooking ? (
-            <span className="text-slate-200">Booked</span>
+            <span
+              className="text-slate-100 leading-snug break-words"
+              style={{
+                fontSize: 'clamp(12px, 1.8vh, 28px)',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+              }}
+            >
+              {platform.nowBooking.title}
+            </span>
           ) : (
-            <span className="text-emerald-300">Available</span>
+            <span className="text-emerald-400 truncate block text-[clamp(17px,2.4vh,32px)]">
+              Available
+            </span>
           )}
         </div>
-        <div className="text-[clamp(14px,1.8vh,24px)] text-slate-300 font-mono tracking-[0.08em]">
-          {nowUntil ? `until ${nowUntil}` : 'until close'}
-        </div>
-        {platform.nowBooking && (
-          <div className="text-[clamp(12px,1.5vh,20px)] text-slate-500 leading-tight line-clamp-2">
-            {platform.nowBooking.title}
+      </div>
+      <div className="flex items-center justify-start min-w-0 overflow-hidden pl-0">
+        {nextTitle && (
+          <div
+            className="font-medium text-slate-300 leading-snug min-w-0 w-full"
+            style={{
+              fontSize: 'clamp(11px, 1.6vh, 24px)',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+            }}
+          >
+            {nextTitle}
           </div>
         )}
       </div>
 
-      <div>
-        {nextTitle && <div className="kiosk-kicker mb-1">Next</div>}
-        {nextTitle && (
-          <div className="text-[clamp(13px,1.9vh,26px)] font-medium text-slate-300 leading-tight line-clamp-2">
-            {nextTitle}
-          </div>
-        )}
-        {nextFrom && (
-          <div className="text-[clamp(12px,1.6vh,22px)] text-slate-400 font-mono tracking-[0.08em]">
-            from {nextFrom}
-          </div>
-        )}
+      {/* Row 3: Time info - G is now part of platform number cell above */}
+      <div className="min-w-0"></div>
+      <div className="flex items-center justify-start min-w-0 overflow-hidden pl-0">
+        <div className="text-[clamp(13px,1.9vh,22px)] text-slate-400 font-mono tracking-[0.1em] min-w-0 whitespace-nowrap">
+          {nowUntil ? `until ${nowUntil}` : 'until close'}
+        </div>
+      </div>
+      <div className="flex items-center justify-start min-w-0 overflow-hidden pl-0">
+        <div className="text-[clamp(12px,1.7vh,20px)] text-slate-500 font-mono tracking-[0.1em] min-w-0 whitespace-nowrap">
+          {nextFrom ? `from ${nextFrom}` : ''}
+        </div>
       </div>
     </div>
   );

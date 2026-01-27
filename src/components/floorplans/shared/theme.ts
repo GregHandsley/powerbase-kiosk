@@ -105,28 +105,28 @@ export const rackPaletteByAppearance: Record<RackAppearance, RackPalette> = {
   },
   'status-board': {
     occupied: {
-      fill: '#1e293b', // Slightly lighter slate for better contrast
-      fillTop: '#1e293b',
-      fillBottom: '#0f172a',
-      stroke: 'rgba(59, 130, 246, 0.3)', // Subtle blue border for occupied
-      label: '#f1f5f9', // Bright white for platform number
-      primary: '#f8fafc', // White for occupied text
+      fill: '#2563eb', // Vibrant blue for booked platforms - clear distinction
+      fillTop: '#2563eb',
+      fillBottom: '#1e40af',
+      stroke: 'rgba(96, 165, 250, 0.4)', // More visible blue border for occupied
+      label: '#ffffff', // Pure white for platform number - maximum contrast
+      primary: '#ffffff', // Bright white for occupied text
       primaryStrong: '#ffffff', // Pure white for emphasis
-      muted: '#cbd5e1',
-      secondary: '#cbd5e1', // Light gray for time info
-      accent: '#60a5fa', // Blue accent
+      muted: '#e2e8f0',
+      secondary: '#e2e8f0', // Light gray for time info - better visibility
+      accent: '#93c5fd', // Bright blue accent
     },
     free: {
-      fill: '#0f172a', // Deep slate
-      fillTop: '#0f172a',
-      fillBottom: '#020617',
-      stroke: 'rgba(148, 163, 184, 0.25)', // Subtle gray border for free
-      label: '#94a3b8', // Muted for platform number
-      primary: '#e2e8f0', // Light gray for "Available"
-      primaryStrong: '#60a5fa', // Blue highlight for "Available"
-      muted: '#64748b',
-      secondary: '#94a3b8', // Muted gray for time info
-      accent: '#64748b',
+      fill: '#1e293b', // Visible dark slate - much better than before
+      fillTop: '#1e293b',
+      fillBottom: '#0f172a',
+      stroke: 'rgba(148, 163, 184, 0.3)', // More visible gray border for free
+      label: '#e2e8f0', // Light gray for platform number - much more visible
+      primary: '#cbd5e1', // Light gray for "Available" - better contrast
+      primaryStrong: '#60a5fa', // Vibrant blue highlight for "Available"
+      muted: '#94a3b8',
+      secondary: '#cbd5e1', // Lighter gray for time info - better readability
+      accent: '#94a3b8',
     },
   },
 };
