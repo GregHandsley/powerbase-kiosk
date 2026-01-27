@@ -12,8 +12,6 @@ type Props = {
   error?: string | null;
 };
 
-const HIGHLIGHT_FADE_MS = 300;
-
 function arePlatformIdsEqual(a: number[], b: number[]) {
   if (a === b) return true;
   if (a.length !== b.length) return false;
@@ -23,30 +21,6 @@ function arePlatformIdsEqual(a: number[], b: number[]) {
   return true;
 }
 
-/**
- * Zone C: Floorplan Map (Static)
- *
- * Purpose: Spatial confirmation only - helps users locate a platform AFTER they identify it
- *
- * Rules:
- * - Static (never cycles)
- * - Quiet, low contrast
- * - Never competes with Zone B
- *
- * Map must show:
- * - Simplified gym layout
- * - Clearly labelled platform numbers
- * - Optional occupancy indication (Occupied vs Available)
- *
- * If a platform is available, it MAY show:
- * - "Available · until HH:MM"
- *
- * Restrictions:
- * - Do NOT show NEXT bookings on the map
- * - Do NOT show NOW/NEXT labels on the map
- * - Do NOT show times other than "available until"
- * - Do NOT include any decision-critical information
- */
 const FloorplanMapComponent = function FloorplanMap({
   sideKey,
   snapshot,
@@ -59,7 +33,7 @@ const FloorplanMapComponent = function FloorplanMap({
   const lastVisibleRef = useRef(visiblePlatformIds);
   const [previousPlatformIds, setPreviousPlatformIds] =
     useState(visiblePlatformIds);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showPrevious, setShowPrevious] = useState(false);
 
   useEffect(() => {
     if (arePlatformIdsEqual(lastVisibleRef.current, visiblePlatformIds)) {
@@ -68,13 +42,12 @@ const FloorplanMapComponent = function FloorplanMap({
 
     setPreviousPlatformIds(lastVisibleRef.current);
     lastVisibleRef.current = visiblePlatformIds;
-    setIsTransitioning(true);
+    setShowPrevious(true);
 
-    const timeout = window.setTimeout(
-      () => setIsTransitioning(false),
-      HIGHLIGHT_FADE_MS
-    );
-    return () => window.clearTimeout(timeout);
+    const raf = window.requestAnimationFrame(() => {
+      setShowPrevious(false);
+    });
+    return () => window.cancelAnimationFrame(raf);
   }, [visiblePlatformIds]);
 
   const highlightedRacks = new Set(visiblePlatformIds);
@@ -101,10 +74,7 @@ const FloorplanMapComponent = function FloorplanMap({
   return (
     <div className="h-full w-full">
       <div className="h-full w-full kiosk-floorplan relative">
-        <div
-          className="absolute inset-0 transition-opacity duration-300"
-          style={{ opacity: isTransitioning ? 0 : 1 }}
-        >
+        <div className="absolute inset-0">
           <FloorplanComponent
             snapshot={snapshot}
             appearance="status-board"
@@ -113,7 +83,7 @@ const FloorplanMapComponent = function FloorplanMap({
         </div>
         <div
           className="absolute inset-0 transition-opacity duration-300"
-          style={{ opacity: isTransitioning ? 1 : 0 }}
+          style={{ opacity: showPrevious ? 1 : 0 }}
         >
           <FloorplanComponent
             snapshot={snapshot}
