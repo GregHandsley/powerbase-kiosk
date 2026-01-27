@@ -57,6 +57,7 @@ const BASE_QUADRANT_LABELS = [
 ];
 
 const PLATFORMS_PER_CYCLE = 6;
+const EMPTY_PLATFORM_IDS: number[] = [];
 const CYCLE_DURATION_MS = 10000; // 10 seconds per cycle
 const FADE_DURATION_MS = 300;
 const TIME_REFRESH_MS = 60_000;
@@ -96,15 +97,24 @@ export function KioskWayfinding() {
     });
 
   // Cycling logic for Zone B
-  const [currentCycleIndex, setCurrentCycleIndex] = useState(0);
-  const [isFading, setIsFading] = useState(false);
+  const [currentCycleIndex, setCurrentCycleIndex] = useState(() => 0);
+  const [isFading, setIsFading] = useState(() => false);
 
   // Transform snapshot data into platform bookings
-  const platformPages = getPlatformPages(sideKey);
+  const platformPages = useMemo(() => getPlatformPages(sideKey), [sideKey]);
   const totalCycles = platformPages.length;
-  const currentPageNumbers = platformPages[currentCycleIndex] ?? [];
-  const visiblePlatformIds = isFading ? [] : currentPageNumbers;
-  const visiblePlatforms = mapPlatformsForPage(snapshot, currentPageNumbers);
+  const currentPageNumbers = useMemo(
+    () => platformPages[currentCycleIndex] ?? EMPTY_PLATFORM_IDS,
+    [platformPages, currentCycleIndex]
+  );
+  const visiblePlatformIds = useMemo(
+    () => (isFading ? EMPTY_PLATFORM_IDS : currentPageNumbers),
+    [isFading, currentPageNumbers]
+  );
+  const visiblePlatforms = useMemo(
+    () => mapPlatformsForPage(snapshot, currentPageNumbers),
+    [snapshot, currentPageNumbers]
+  );
   const quadrantLabel =
     sideKey === 'Base'
       ? (BASE_QUADRANT_LABELS[currentCycleIndex] ?? null)

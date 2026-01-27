@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { SideSnapshot } from '../../types/snapshot';
 import { BaseFloorplan } from '../floorplans/base/BaseFloorplan';
 import { PowerbaseFloorSvg } from '../floorplans/power/PowerFloorplan';
@@ -35,13 +36,17 @@ type Props = {
  * - Do NOT show times other than "available until"
  * - Do NOT include any decision-critical information
  */
-export function FloorplanMap({
+export const FloorplanMap = memo(function FloorplanMap({
   sideKey,
   snapshot,
   visiblePlatformIds,
   isLoading = false,
   error = null,
 }: Props) {
+  const FloorplanComponent =
+    sideKey === 'Base' ? BaseFloorplan : PowerbaseFloorSvg;
+  const highlightedRacks = new Set(visiblePlatformIds);
+
   if (error) {
     return (
       <div className="h-full w-full flex items-center justify-center p-6">
@@ -60,11 +65,6 @@ export function FloorplanMap({
     );
   }
 
-  // Render appropriate floorplan based on side
-  const FloorplanComponent =
-    sideKey === 'Base' ? BaseFloorplan : PowerbaseFloorSvg;
-  const highlightedRacks = new Set(visiblePlatformIds);
-
   return (
     <div className="h-full w-full">
       <div className="h-full w-full kiosk-floorplan">
@@ -76,4 +76,4 @@ export function FloorplanMap({
       </div>
     </div>
   );
-}
+});

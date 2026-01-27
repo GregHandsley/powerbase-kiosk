@@ -354,14 +354,14 @@ export function RackSlot({
   const highlightStroke = palette.accent;
   const highlightStrokeWidth = isStatusBoard ? 0.85 : 1;
   const highlightCornerRadius = Math.max(1, rackCornerRadius);
-  const highlightGlowId = `rack-highlight-${slot.number}`;
+  const highlightHaloId = `rack-halo-${slot.number}`;
   const baseStyle =
     isHighlighted || isDimmed
       ? { transition: 'opacity 300ms ease' }
       : undefined;
   const highlightStyle = {
     opacity: highlightOpacity,
-    transition: 'opacity 300ms ease, stroke 300ms ease',
+    transition: 'opacity 300ms ease',
   };
 
   return (
@@ -390,28 +390,11 @@ export function RackSlot({
           </filter>
         )}
         {showHighlight && (
-          <filter
-            id={highlightGlowId}
-            x="-25%"
-            y="-25%"
-            width="150%"
-            height="150%"
-          >
-            <feDropShadow
-              dx="0"
-              dy="0"
-              stdDeviation="0.45"
-              floodColor={highlightStroke}
-              floodOpacity="0.28"
-            />
-            <feDropShadow
-              dx="0"
-              dy="0"
-              stdDeviation="1.2"
-              floodColor={highlightStroke}
-              floodOpacity="0.16"
-            />
-          </filter>
+          <radialGradient id={highlightHaloId} cx="50%" cy="50%" r="65%">
+            <stop offset="0%" stopColor={highlightStroke} stopOpacity="0.35" />
+            <stop offset="60%" stopColor={highlightStroke} stopOpacity="0.12" />
+            <stop offset="100%" stopColor={highlightStroke} stopOpacity="0" />
+          </radialGradient>
         )}
       </defs>
 
@@ -433,6 +416,19 @@ export function RackSlot({
         opacity={fillOpacity}
         style={baseStyle}
       />
+      {showHighlight && (
+        <rect
+          x={slot.x - 1}
+          y={slot.y - 1}
+          width={slot.width + 2}
+          height={slot.height + 2}
+          rx={highlightCornerRadius + 1}
+          ry={highlightCornerRadius + 1}
+          fill={`url(#${highlightHaloId})`}
+          pointerEvents="none"
+          style={highlightStyle}
+        />
+      )}
       <rect
         x={slot.x + 0.2}
         y={slot.y + 0.2}
@@ -444,7 +440,6 @@ export function RackSlot({
         stroke={highlightStroke}
         strokeWidth={highlightStrokeWidth}
         strokeLinejoin="round"
-        filter={showHighlight ? `url(#${highlightGlowId})` : undefined}
         pointerEvents="none"
         style={highlightStyle}
       />
