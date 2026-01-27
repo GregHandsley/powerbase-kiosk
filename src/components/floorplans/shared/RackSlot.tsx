@@ -389,13 +389,11 @@ export function RackSlot({
             />
           </filter>
         )}
-        {showHighlight && (
-          <radialGradient id={highlightHaloId} cx="50%" cy="50%" r="65%">
-            <stop offset="0%" stopColor={highlightStroke} stopOpacity="0.35" />
-            <stop offset="60%" stopColor={highlightStroke} stopOpacity="0.12" />
-            <stop offset="100%" stopColor={highlightStroke} stopOpacity="0" />
-          </radialGradient>
-        )}
+        <radialGradient id={highlightHaloId} cx="50%" cy="50%" r="65%">
+          <stop offset="0%" stopColor={highlightStroke} stopOpacity="0.35" />
+          <stop offset="60%" stopColor={highlightStroke} stopOpacity="0.12" />
+          <stop offset="100%" stopColor={highlightStroke} stopOpacity="0" />
+        </radialGradient>
       </defs>
 
       <clipPath id={clipId}>
@@ -416,19 +414,17 @@ export function RackSlot({
         opacity={fillOpacity}
         style={baseStyle}
       />
-      {showHighlight && (
-        <rect
-          x={slot.x - 1}
-          y={slot.y - 1}
-          width={slot.width + 2}
-          height={slot.height + 2}
-          rx={highlightCornerRadius + 1}
-          ry={highlightCornerRadius + 1}
-          fill={`url(#${highlightHaloId})`}
-          pointerEvents="none"
-          style={highlightStyle}
-        />
-      )}
+      <rect
+        x={slot.x - 1}
+        y={slot.y - 1}
+        width={slot.width + 2}
+        height={slot.height + 2}
+        rx={highlightCornerRadius + 1}
+        ry={highlightCornerRadius + 1}
+        fill={`url(#${highlightHaloId})`}
+        pointerEvents="none"
+        style={highlightStyle}
+      />
       <rect
         x={slot.x + 0.2}
         y={slot.y + 0.2}
