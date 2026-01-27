@@ -3,13 +3,13 @@ export type RackAppearance = 'default' | 'kiosk' | 'status-board';
 export const rackPaddingByAppearance: Record<RackAppearance, number> = {
   default: 0.8,
   kiosk: 0.6,
-  'status-board': 0.7,
+  'status-board': 0.6, // Better breathing room
 };
 
 export const rackCornerRadiusByAppearance: Record<RackAppearance, number> = {
   default: 3.2,
   kiosk: 0,
-  'status-board': 0,
+  'status-board': 2.0, // Softer, more Apple-like rounded corners
 };
 
 export const rackStrokeWidthByAppearance: Record<RackAppearance, number> = {
@@ -105,28 +105,28 @@ export const rackPaletteByAppearance: Record<RackAppearance, RackPalette> = {
   },
   'status-board': {
     occupied: {
-      fill: '#1f2937',
-      fillTop: '#1f2937',
-      fillBottom: '#1f2937',
-      stroke: 'none',
-      label: '#e2e8f0',
-      primary: '#f8fafc',
-      primaryStrong: '#f8fafc',
+      fill: '#1e293b', // Slightly lighter slate for better contrast
+      fillTop: '#1e293b',
+      fillBottom: '#0f172a',
+      stroke: 'rgba(59, 130, 246, 0.3)', // Subtle blue border for occupied
+      label: '#f1f5f9', // Bright white for platform number
+      primary: '#f8fafc', // White for occupied text
+      primaryStrong: '#ffffff', // Pure white for emphasis
       muted: '#cbd5e1',
-      secondary: '#94a3b8',
-      accent: '#cbd5e1',
+      secondary: '#cbd5e1', // Light gray for time info
+      accent: '#60a5fa', // Blue accent
     },
     free: {
-      fill: '#0f172a',
+      fill: '#0f172a', // Deep slate
       fillTop: '#0f172a',
-      fillBottom: '#0f172a',
-      stroke: 'none',
-      label: '#94a3b8',
-      primary: '#e2e8f0',
-      primaryStrong: '#e2e8f0',
+      fillBottom: '#020617',
+      stroke: 'rgba(148, 163, 184, 0.25)', // Subtle gray border for free
+      label: '#94a3b8', // Muted for platform number
+      primary: '#e2e8f0', // Light gray for "Available"
+      primaryStrong: '#60a5fa', // Blue highlight for "Available"
       muted: '#64748b',
-      secondary: '#94a3b8',
-      accent: '#94a3b8',
+      secondary: '#94a3b8', // Muted gray for time info
+      accent: '#64748b',
     },
   },
 };

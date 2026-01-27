@@ -122,7 +122,7 @@ function QuadrantPages({
         return (
           <div
             key={`quadrant-page-${pageIndex}`}
-            className="absolute inset-0 flex flex-col justify-between min-h-0 kiosk-quadrant-page transition-opacity duration-300"
+            className="absolute inset-0 flex flex-col justify-between min-h-0 kiosk-quadrant-page"
             style={{
               opacity: isActive ? 1 : 0,
               pointerEvents: isActive ? 'auto' : 'none',

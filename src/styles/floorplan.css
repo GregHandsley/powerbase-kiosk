@@ -221,18 +221,19 @@
 .kiosk-floorplan .fp-area,
 .kiosk-floorplan .fp-banner,
 .kiosk-floorplan .fp-track {
-  fill: transparent;
-  stroke: none;
-  filter: none;
-  rx: 0;
-  ry: 0;
+  fill: rgba(15, 23, 42, 0.25);
+  stroke: rgba(148, 163, 184, 0.2);
+  stroke-width: 0.4;
+  filter: drop-shadow(0 2px 4px rgba(2, 6, 23, 0.2));
+  rx: 2;
+  ry: 2;
 }
 
 .kiosk-floorplan .fp-area-label,
 .kiosk-floorplan .fp-area-label-small,
 .kiosk-floorplan .fp-banner-text,
 .kiosk-floorplan .fp-track-text {
-  fill: #94a3b8;
+  fill: rgba(148, 163, 184, 0.7);
   font-weight: 500;
   letter-spacing: 0.2em;
 }
@@ -248,9 +249,11 @@
 }
 
 .kiosk-floorplan .fp-stairs-main {
-  fill: #1f2937;
+  fill: rgba(31, 41, 55, 0.6);
+  stroke: rgba(148, 163, 184, 0.15);
+  stroke-width: 0.3;
 }
 
 .kiosk-floorplan .fp-stairs-step {
-  fill: #334155;
+  fill: rgba(51, 65, 85, 0.5);
 }

@@ -72,25 +72,23 @@ const FloorplanMapComponent = function FloorplanMap({
   }
 
   return (
-    <div className="h-full w-full">
-      <div className="h-full w-full kiosk-floorplan relative">
-        <div className="absolute inset-0">
-          <FloorplanComponent
-            snapshot={snapshot}
-            appearance="status-board"
-            highlightedRacks={highlightedRacks}
-          />
-        </div>
-        <div
-          className="absolute inset-0 transition-opacity duration-300"
-          style={{ opacity: showPrevious ? 1 : 0 }}
-        >
-          <FloorplanComponent
-            snapshot={snapshot}
-            appearance="status-board"
-            highlightedRacks={previousHighlightedRacks}
-          />
-        </div>
+    <div className="h-full w-full kiosk-floorplan relative">
+      <div className="absolute inset-0">
+        <FloorplanComponent
+          snapshot={snapshot}
+          appearance="status-board"
+          highlightedRacks={highlightedRacks}
+        />
+      </div>
+      <div
+        className="absolute inset-0 transition-opacity duration-300"
+        style={{ opacity: showPrevious ? 1 : 0 }}
+      >
+        <FloorplanComponent
+          snapshot={snapshot}
+          appearance="status-board"
+          highlightedRacks={previousHighlightedRacks}
+        />
       </div>
     </div>
   );

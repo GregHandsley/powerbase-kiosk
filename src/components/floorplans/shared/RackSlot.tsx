@@ -209,20 +209,23 @@ export function RackSlot({
 
   const typography = isStatusBoard
     ? {
-        labelSize: isHighlighted ? 1.35 : 1.1,
-        labelWeight: isHighlighted ? '700' : '600',
-        labelLetterSpacing: 0.12,
-        labelGap: 0.5,
-        titleSize: 1.55,
-        titleWeight: '500',
+        // Platform number - large, minimal, no badge needed
+        labelSize: 2.6,
+        labelWeight: '700',
+        labelLetterSpacing: -0.05,
+        labelGap: 0.4,
+        // Status/Title - prominent but not overwhelming
+        titleSize: 1.5,
+        titleWeight: '600',
         titleWeightAvailable: '600',
-        titleGap: 0.55,
+        titleGap: 0.35,
+        // Meta info - subtle but readable
         metaSize: 1.0,
-        metaWeight: '500',
-        metaGap: 0.45,
-        metaAccentSize: 0.95,
-        metaAccentWeight: '500',
-        metaAccentGap: 0.4,
+        metaWeight: '400',
+        metaGap: 0.3,
+        metaAccentSize: 0.9,
+        metaAccentWeight: '400',
+        metaAccentGap: 0.25,
       }
     : isKiosk
       ? {
@@ -258,13 +261,23 @@ export function RackSlot({
           metaAccentGap: 0.32,
         };
 
-  // Top: Rack label (small, muted)
-  const labelColor = isHighlighted
-    ? (palette.primaryStrong ?? palette.primary)
-    : palette.muted;
+  // Top: Platform number - large, minimal, no badge
+  const labelText = isStatusBoard ? String(slot.number) : `Rack ${slot.number}`;
+  // Platform number - subtle but clear
+  const labelColor = isStatusBoard
+    ? isOccupied
+      ? 'rgba(255, 255, 255, 0.95)'
+      : 'rgba(255, 255, 255, 0.7)'
+    : isOccupied
+      ? isHighlighted
+        ? '#ffffff'
+        : '#f1f5f9'
+      : isHighlighted
+        ? '#60a5fa'
+        : '#94a3b8';
 
   content.push({
-    text: isStatusBoard ? `Platform ${slot.number}` : `Rack ${slot.number}`,
+    text: labelText,
     size: typography.labelSize,
     color: labelColor,
     weight: typography.labelWeight,
@@ -272,14 +285,21 @@ export function RackSlot({
     gapAfter: typography.labelGap,
   });
 
-  // Middle: dominant line (squad or OPEN)
+  // Middle: dominant line (squad or Available)
   for (let i = 0; i < titleLines.length; i++) {
+    // For status-board, subtle but clear colors
+    const statusColor =
+      isStatusBoard && !currentInst
+        ? 'rgba(96, 165, 250, 0.9)' // Subtle blue for "Available"
+        : isStatusBoard && currentInst
+          ? 'rgba(255, 255, 255, 0.9)' // White for occupied
+          : !currentInst
+            ? (palette.primaryStrong ?? palette.primary)
+            : palette.primary;
     content.push({
       text: titleLines[i],
       size: typography.titleSize,
-      color: !currentInst
-        ? (palette.primaryStrong ?? palette.primary)
-        : palette.primary,
+      color: statusColor,
       weight: !currentInst
         ? typography.titleWeightAvailable
         : typography.titleWeight,
@@ -313,8 +333,12 @@ export function RackSlot({
   const totalHeight =
     content.reduce((acc, item) => acc + item.size + item.gapAfter, 0) -
     (content.at(-1)?.gapAfter ?? 0);
-  const available = innerHeight - 1.2;
+  // Better spacing for status-board - not cramped
+  const available = isStatusBoard ? innerHeight - 1.0 : innerHeight - 1.2;
   const scale = totalHeight > 0 ? Math.min(1, available / totalHeight) : 1;
+
+  // Liquid glass layout - comfortable spacing
+  const contentStartY = isStatusBoard ? innerY + 0.7 : innerY + 1.2 / 2;
 
   const lines: {
     text: string;
@@ -326,7 +350,8 @@ export function RackSlot({
     letterSpacing?: number;
   }[] = [];
 
-  let cursorY = innerY + 1.2 / 2;
+  // Adjust starting position for status-board with badge
+  let cursorY = isStatusBoard ? contentStartY : innerY + 1.2 / 2;
   for (const item of content) {
     const size = item.size * scale;
     lines.push({
@@ -344,15 +369,18 @@ export function RackSlot({
   const gradientId = `rack-grad-${slot.number}-${isOccupied ? 'occ' : 'free'}`;
   const shadeId = `rack-shade-${slot.number}`;
   const shadowId = `rack-shadow-${slot.number}`;
+  const borderGradientId = `rack-border-${slot.number}`;
   const showKioskShadow = isKiosk && isOccupied;
   const showDefaultGradient = resolvedAppearance === 'default';
+  const showStatusBoardPremium = isStatusBoard;
 
-  const fillOpacity = isDimmed ? 0.55 : 1;
-  const textOpacity = isDimmed ? 0.55 : 1;
+  // Make non-highlighted platforms more visible but still subtle
+  const fillOpacity = isDimmed ? 0.75 : 1;
+  const textOpacity = isDimmed ? 0.8 : 1;
   const showHighlight = isHighlighted && !isDimmed;
   const highlightOpacity = showHighlight ? 1 : 0;
   const highlightStroke = palette.accent;
-  const highlightStrokeWidth = isStatusBoard ? 0.85 : 1;
+  const highlightStrokeWidth = isStatusBoard ? 0.5 : 1;
   const highlightCornerRadius = Math.max(1, rackCornerRadius);
   const highlightHaloId = `rack-halo-${slot.number}`;
   const baseStyle =
@@ -389,6 +417,85 @@ export function RackSlot({
             />
           </filter>
         )}
+        {showStatusBoardPremium && (
+          <>
+            {/* Liquid glass background gradient - more defined when dimmed */}
+            <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+              <stop
+                offset="0%"
+                stopColor={
+                  isOccupied
+                    ? isDimmed
+                      ? 'rgba(30, 58, 138, 0.42)'
+                      : 'rgba(30, 58, 138, 0.35)'
+                    : isDimmed
+                      ? 'rgba(15, 23, 42, 0.48)'
+                      : 'rgba(15, 23, 42, 0.4)'
+                }
+              />
+              <stop
+                offset="50%"
+                stopColor={
+                  isOccupied
+                    ? isDimmed
+                      ? 'rgba(30, 58, 138, 0.35)'
+                      : 'rgba(30, 58, 138, 0.28)'
+                    : isDimmed
+                      ? 'rgba(15, 23, 42, 0.40)'
+                      : 'rgba(15, 23, 42, 0.32)'
+                }
+              />
+              <stop
+                offset="100%"
+                stopColor={
+                  isOccupied
+                    ? isDimmed
+                      ? 'rgba(30, 58, 138, 0.28)'
+                      : 'rgba(30, 58, 138, 0.22)'
+                    : isDimmed
+                      ? 'rgba(15, 23, 42, 0.32)'
+                      : 'rgba(15, 23, 42, 0.25)'
+                }
+              />
+            </linearGradient>
+            {/* Liquid glass border - ultra subtle, almost invisible */}
+            <linearGradient id={borderGradientId} x1="0" x2="0" y1="0" y2="1">
+              <stop
+                offset="0%"
+                stopColor={
+                  isOccupied
+                    ? 'rgba(96, 165, 250, 0.08)'
+                    : 'rgba(148, 163, 184, 0.06)'
+                }
+              />
+              <stop
+                offset="100%"
+                stopColor={
+                  isOccupied
+                    ? 'rgba(59, 130, 246, 0.06)'
+                    : 'rgba(100, 116, 139, 0.04)'
+                }
+              />
+            </linearGradient>
+            {/* Inner highlight gradient for glass effect */}
+            <linearGradient id="glassHighlight" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="rgba(255, 255, 255, 0.15)" />
+              <stop offset="100%" stopColor="rgba(255, 255, 255, 0)" />
+            </linearGradient>
+            {/* Depth shadow */}
+            <filter id={shadowId} x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow
+                dx="0"
+                dy="2"
+                stdDeviation="2.5"
+                floodColor={
+                  isOccupied ? 'rgba(30, 64, 175, 0.3)' : 'rgba(2, 6, 23, 0.4)'
+                }
+                floodOpacity="1"
+              />
+            </filter>
+          </>
+        )}
         <radialGradient id={highlightHaloId} cx="50%" cy="50%" r="65%">
           <stop offset="0%" stopColor={highlightStroke} stopOpacity="0.35" />
           <stop offset="60%" stopColor={highlightStroke} stopOpacity="0.12" />
@@ -400,20 +507,69 @@ export function RackSlot({
         <rect x={innerX} y={innerY} width={innerWidth} height={innerHeight} />
       </clipPath>
 
-      <rect
-        x={slot.x}
-        y={slot.y}
-        width={slot.width}
-        height={slot.height}
-        rx={rackCornerRadius}
-        ry={rackCornerRadius}
-        fill={showDefaultGradient ? `url(#${gradientId})` : palette.fill}
-        stroke={showDefaultGradient ? palette.stroke : 'none'}
-        strokeWidth={showDefaultGradient ? rackStrokeWidth : 0}
-        filter={showKioskShadow ? `url(#${shadowId})` : undefined}
-        opacity={fillOpacity}
-        style={baseStyle}
-      />
+      {/* Liquid glass background - layered for depth */}
+      {showStatusBoardPremium && (
+        <>
+          {/* Base shadow layer */}
+          <rect
+            x={slot.x}
+            y={slot.y}
+            width={slot.width}
+            height={slot.height}
+            rx={rackCornerRadius}
+            ry={rackCornerRadius}
+            fill="transparent"
+            filter={`url(#${shadowId})`}
+            opacity={fillOpacity}
+          />
+          {/* Main glass background */}
+          <rect
+            x={slot.x}
+            y={slot.y}
+            width={slot.width}
+            height={slot.height}
+            rx={rackCornerRadius}
+            ry={rackCornerRadius}
+            fill={
+              showDefaultGradient
+                ? `url(#${gradientId})`
+                : `url(#${gradientId})`
+            }
+            stroke="none"
+            strokeWidth="0"
+            opacity={fillOpacity}
+            style={baseStyle}
+          />
+          {/* Subtle inner highlight for glass effect */}
+          <rect
+            x={slot.x + 0.15}
+            y={slot.y + 0.15}
+            width={slot.width - 0.3}
+            height={slot.height * 0.4}
+            rx={rackCornerRadius * 0.8}
+            ry={rackCornerRadius * 0.8}
+            fill="url(#glassHighlight)"
+            opacity={fillOpacity * 0.08}
+            style={baseStyle}
+          />
+        </>
+      )}
+      {!showStatusBoardPremium && (
+        <rect
+          x={slot.x}
+          y={slot.y}
+          width={slot.width}
+          height={slot.height}
+          rx={rackCornerRadius}
+          ry={rackCornerRadius}
+          fill={showDefaultGradient ? `url(#${gradientId})` : palette.fill}
+          stroke={showDefaultGradient ? palette.stroke : 'none'}
+          strokeWidth={showDefaultGradient ? rackStrokeWidth : 0}
+          filter={showKioskShadow ? `url(#${shadowId})` : undefined}
+          opacity={fillOpacity}
+          style={baseStyle}
+        />
+      )}
       <rect
         x={slot.x - 1}
         y={slot.y - 1}
@@ -454,22 +610,24 @@ export function RackSlot({
       )}
 
       <g clipPath={`url(#${clipId})`}>
-        {lines.map((line, idx) => (
-          <text
-            key={idx}
-            x={rackCenterX}
-            y={line.y}
-            textAnchor="middle"
-            fontSize={line.size}
-            fill={line.color}
-            fontFamily={line.family ?? rackFontFamily}
-            fontWeight={line.weight}
-            letterSpacing={line.letterSpacing}
-            opacity={textOpacity}
-          >
-            {line.text}
-          </text>
-        ))}
+        {lines.map((line, idx) => {
+          return (
+            <text
+              key={idx}
+              x={rackCenterX}
+              y={line.y}
+              textAnchor="middle"
+              fontSize={line.size}
+              fill={line.color}
+              fontFamily={line.family ?? rackFontFamily}
+              fontWeight={line.weight}
+              letterSpacing={line.letterSpacing}
+              opacity={textOpacity}
+            >
+              {line.text}
+            </text>
+          );
+        })}
       </g>
     </g>
   );
