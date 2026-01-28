@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type { SideSnapshot } from '../../types/snapshot';
 import { BaseFloorplan } from '../floorplans/base/BaseFloorplan';
 import { PowerbaseFloorSvg } from '../floorplans/power/PowerFloorplan';
@@ -22,7 +22,10 @@ const FloorplanMapComponent = function FloorplanMap({
   const FloorplanComponent =
     sideKey === 'Base' ? BaseFloorplan : PowerbaseFloorSvg;
 
-  const highlightedRacks = new Set(visiblePlatformIds);
+  const highlightedRacks = useMemo(
+    () => new Set(visiblePlatformIds),
+    [visiblePlatformIds]
+  );
 
   if (error) {
     return (

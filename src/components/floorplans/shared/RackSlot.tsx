@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { ActiveInstance, NextUseInfo } from '../../../types/snapshot';
 import {
   rackCornerRadiusByAppearance,
@@ -97,7 +98,7 @@ function isSameDay(a: Date | null, b: Date | null) {
   );
 }
 
-export function RackSlot({
+function RackSlotComponent({
   slot,
   currentInst,
   nextUse,
@@ -652,3 +653,40 @@ export function RackSlot({
     </g>
   );
 }
+
+function instKey(inst: ActiveInstance | null) {
+  if (!inst) return '';
+  return [
+    (inst as { id?: string }).id ?? '',
+    (inst as { title?: string }).title ?? '',
+    (inst as { start?: string }).start ?? '',
+    (inst as { end?: string }).end ?? '',
+  ].join('|');
+}
+
+function nextUseKey(nextUse: NextUseInfo | null) {
+  if (!nextUse) return '';
+  return [
+    (nextUse as { title?: string }).title ?? '',
+    (nextUse as { start?: string }).start ?? '',
+    (nextUse as { end?: string }).end ?? '',
+  ].join('|');
+}
+
+function areRackSlotPropsEqual(prev: Props, next: Props) {
+  if (prev.appearance !== next.appearance) return false;
+  if (prev.isHighlighted !== next.isHighlighted) return false;
+  if (prev.isDimmed !== next.isDimmed) return false;
+  if (prev.snapshotDate.getTime() !== next.snapshotDate.getTime()) return false;
+  if (instKey(prev.currentInst) !== instKey(next.currentInst)) return false;
+  if (nextUseKey(prev.nextUse) !== nextUseKey(next.nextUse)) return false;
+  return (
+    prev.slot.number === next.slot.number &&
+    prev.slot.x === next.slot.x &&
+    prev.slot.y === next.slot.y &&
+    prev.slot.width === next.slot.width &&
+    prev.slot.height === next.slot.height
+  );
+}
+
+export const RackSlot = memo(RackSlotComponent, areRackSlotPropsEqual);
