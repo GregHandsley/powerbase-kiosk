@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { KioskLayout } from '../components/kiosk/KioskLayout';
 import { PeriodPanel } from '../components/kiosk/ZoneA_PeriodContext';
@@ -78,6 +78,13 @@ export function KioskWayfinding() {
   const { snapshot, error, isLoading } = useSideSnapshot(sideKey);
   useInstancesRealtime();
 
+  const BUCKET_MS = 15 * 60 * 1000;
+  const [displaySnapshot, setDisplaySnapshot] = useState(snapshot);
+  const [bucketKey, setBucketKey] = useState<string | null>(null);
+  const pendingSnapshotRef = useRef<typeof snapshot>(null);
+  const bucketTimerRef = useRef<number | null>(null);
+  const serverOffsetRef = useRef<number | null>(null);
+
   const [nowTime, setNowTime] = useState(new Date());
   useEffect(() => {
     const interval = setInterval(() => setNowTime(new Date()), TIME_REFRESH_MS);
@@ -107,13 +114,58 @@ export function KioskWayfinding() {
   );
   const visiblePlatformIds = currentPageNumbers;
   const platformPageData = useMemo(
-    () => platformPages.map((page) => mapPlatformsForPage(snapshot, page)),
-    [snapshot, platformPages]
+    () =>
+      platformPages.map((page) =>
+        mapPlatformsForPage(displaySnapshot ?? snapshot, page)
+      ),
+    [displaySnapshot, snapshot, platformPages]
   );
   const quadrantLabel =
     sideKey === 'Base'
       ? (BASE_QUADRANT_LABELS[currentCycleIndex] ?? null)
       : null;
+
+  useEffect(() => {
+    if (!snapshot?.at) return;
+    pendingSnapshotRef.current = snapshot;
+
+    const snapshotTime = new Date(snapshot.at);
+    serverOffsetRef.current = Date.now() - snapshotTime.getTime();
+    const currentBucket = Math.floor(snapshotTime.getTime() / BUCKET_MS);
+    const newBucketKey = String(currentBucket);
+
+    if (!bucketKey) {
+      setBucketKey(newBucketKey);
+      setDisplaySnapshot(snapshot);
+    }
+
+    if (!bucketTimerRef.current) {
+      const nextBoundaryServer = (currentBucket + 1) * BUCKET_MS;
+      const offset = serverOffsetRef.current ?? 0;
+      const nextBoundaryClient = nextBoundaryServer + offset;
+      const delay = Math.max(0, nextBoundaryClient - Date.now());
+      bucketTimerRef.current = window.setTimeout(() => {
+        bucketTimerRef.current = null;
+        const pending = pendingSnapshotRef.current;
+        if (pending?.at) {
+          const pendingBucket = Math.floor(
+            new Date(pending.at).getTime() / BUCKET_MS
+          );
+          setBucketKey(String(pendingBucket));
+          setDisplaySnapshot(pending);
+        }
+      }, delay);
+    }
+  }, [snapshot, bucketKey, BUCKET_MS]);
+
+  useEffect(() => {
+    return () => {
+      if (bucketTimerRef.current) {
+        window.clearTimeout(bucketTimerRef.current);
+        bucketTimerRef.current = null;
+      }
+    };
+  }, []);
   // Cycle through platforms
   useEffect(() => {
     if (totalCycles <= 1) return;
@@ -185,7 +237,7 @@ export function KioskWayfinding() {
       zoneC={
         <FloorplanMap
           sideKey={sideKey}
-          snapshot={snapshot}
+          snapshot={displaySnapshot ?? snapshot}
           visiblePlatformIds={visiblePlatformIds}
           isLoading={isLoading}
           error={error}

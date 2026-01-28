@@ -39,6 +39,8 @@ const FloorplanMapComponent = function FloorplanMap({
     null
   );
 
+  const swapRafRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!snapshot) return;
     if (lastKeyRef.current === currentKey) return;
@@ -47,14 +49,24 @@ const FloorplanMapComponent = function FloorplanMap({
     setBackSnapshot(snapshot);
     setBackHighlights(highlightedRacks);
 
-    const timeout = window.setTimeout(() => {
+    if (swapRafRef.current) {
+      window.cancelAnimationFrame(swapRafRef.current);
+    }
+
+    swapRafRef.current = window.requestAnimationFrame(() => {
       setFrontSnapshot(snapshot);
       setFrontHighlights(highlightedRacks);
       setBackSnapshot(null);
       setBackHighlights(null);
-    }, 0);
+      swapRafRef.current = null;
+    });
 
-    return () => window.clearTimeout(timeout);
+    return () => {
+      if (swapRafRef.current) {
+        window.cancelAnimationFrame(swapRafRef.current);
+        swapRafRef.current = null;
+      }
+    };
   }, [currentKey, highlightedRacks, snapshot]);
 
   if (error) {
