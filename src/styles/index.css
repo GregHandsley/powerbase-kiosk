@@ -168,8 +168,8 @@ body {
   );
   border-color: rgba(148, 163, 184, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  /* Reduced padding for floorplan zone to maximize space */
-  padding: 0.5rem;
+  /* No padding to maximize floorplan space */
+  padding: 0;
 }
 
 .kiosk-kicker {
@@ -202,18 +202,19 @@ body {
 
 /* Platform Status Card - Apple-like design with glassmorphism */
 .kiosk-platform-card {
-  /* Subtle glassmorphism that integrates with dark gradient background */
+  /* Purposeful definition through contrast and subtle depth */
   background: linear-gradient(
     135deg,
-    rgba(15, 23, 42, 0.6),
-    rgba(8, 15, 26, 0.75)
+    rgba(30, 41, 59, 0.95),
+    rgba(20, 30, 48, 0.98)
   );
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 18px;
   box-shadow:
-    0 4px 20px rgba(2, 6, 23, 0.4),
-    0 1px 3px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(12px) saturate(140%);
   transition: all 280ms cubic-bezier(0.2, 0, 0, 1);
   position: relative;

@@ -209,13 +209,13 @@
 ----------------------------------------- */
 
 .kiosk-floorplan .fp-bg-outer {
-  fill: #0a0f1a;
+  fill: transparent;
 }
 
 .kiosk-floorplan .fp-bg-path {
-  fill: #0f172a;
+  fill: transparent;
   stroke: none;
-  filter: drop-shadow(0 8px 18px rgba(2, 6, 23, 0.4));
+  filter: none;
 }
 
 .kiosk-floorplan .fp-area,
@@ -256,4 +256,90 @@
 
 .kiosk-floorplan .fp-stairs-step {
   fill: rgba(51, 65, 85, 0.5);
+}
+
+/* -----------------------------------------
+   Apple-like "You are here" indicator
+----------------------------------------- */
+
+.fp-you-are-here {
+  transform-origin: center;
+}
+
+/* Soft pulsing glow effect */
+.fp-glow-outer {
+  animation: fp-glow-pulse 3s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.fp-glow-middle {
+  animation: fp-glow-pulse 3s ease-in-out infinite;
+  animation-delay: 0.15s;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+@keyframes fp-glow-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.8;
+  }
+}
+
+/* Core location dot with noticeable pulse */
+.fp-location-dot {
+  animation: fp-dot-pulse 2.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 1))
+    drop-shadow(0 0 3px rgba(96, 165, 250, 0.8))
+    drop-shadow(0 0 5px rgba(59, 130, 246, 0.4));
+}
+
+@keyframes fp-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
+/* Refined typography - larger and more prominent */
+.fp-you-are-here-text {
+  fill: rgba(255, 255, 255, 0.95);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  font-size: 1.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.5));
+}
+
+/* Kiosk-specific styling */
+.kiosk-floorplan .fp-you-are-here-text {
+  fill: rgba(226, 232, 240, 0.95);
+  font-size: 1.4px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.kiosk-floorplan .fp-location-dot {
+  fill: rgba(255, 255, 255, 1);
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 1))
+    drop-shadow(0 0 4px rgba(96, 165, 250, 0.9))
+    drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
+}
+
+.kiosk-floorplan .fp-glow-outer,
+.kiosk-floorplan .fp-glow-middle {
+  opacity: 0.35;
 }

@@ -159,14 +159,42 @@ function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
   const nextTitle = platform.nextBooking ? platform.nextBooking.title : null;
 
   return (
-    <div className="kiosk-platform-card flex-1 min-h-0 max-h-full grid grid-cols-[160px_1fr_1fr] grid-rows-[auto_minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 px-2 py-1.5 overflow-hidden">
+    <div
+      className="kiosk-platform-card flex-1 min-h-0 max-h-full grid grid-cols-[160px_1fr_1fr] grid-rows-[auto_minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 px-2 py-1.5 overflow-hidden"
+      style={{
+        border: '2px solid transparent',
+        backgroundImage: `
+          linear-gradient(transparent 1px, transparent 1px),
+          linear-gradient(90deg, transparent 1px, transparent 1px)
+        `,
+        backgroundSize: 'calc(100% / 3) calc(100% / 3)',
+      }}
+    >
       {/* Row 1: Labels - all inline */}
-      <div className="kiosk-kicker min-w-0">Platform</div>
-      <div className="kiosk-kicker min-w-0 pl-0">Now</div>
-      <div className="kiosk-kicker min-w-0 pl-0">{nextTitle ? 'Next' : ''}</div>
+      <div className="kiosk-kicker min-w-0 relative">
+        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
+          A
+        </span>
+        Platform
+      </div>
+      <div className="kiosk-kicker min-w-0 relative pl-0">
+        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
+          B
+        </span>
+        Now
+      </div>
+      <div className="kiosk-kicker min-w-0 relative pl-0">
+        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
+          C
+        </span>
+        {nextTitle ? 'Next' : ''}
+      </div>
 
       {/* Row 2: Main content - Platform number spans D and G, Booking name, Next booking */}
-      <div className="flex items-end justify-start min-w-0 overflow-hidden row-span-2">
+      <div className="flex items-end justify-start min-w-0 overflow-hidden relative row-span-2">
+        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
+          D+G
+        </span>
         <div
           className="font-semibold tracking-tight text-slate-50 leading-none"
           style={{
@@ -177,7 +205,10 @@ function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
           {platform.platformNumber}
         </div>
       </div>
-      <div className="flex items-center justify-start min-w-0 overflow-hidden pl-0">
+      <div className="flex items-center justify-start min-w-0 overflow-hidden relative pl-0">
+        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
+          E
+        </span>
         <div className="font-semibold text-slate-50 leading-tight min-w-0 w-full">
           {platform.nowBooking ? (
             <span
@@ -201,7 +232,10 @@ function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
           )}
         </div>
       </div>
-      <div className="flex items-center justify-start min-w-0 overflow-hidden pl-0">
+      <div className="flex items-center justify-start min-w-0 overflow-hidden relative pl-0">
+        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
+          F
+        </span>
         {nextTitle && (
           <div
             className="font-medium text-slate-300 leading-snug min-w-0 w-full"
@@ -221,13 +255,18 @@ function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
       </div>
 
       {/* Row 3: Time info - G is now part of platform number cell above */}
-      <div className="min-w-0"></div>
-      <div className="flex items-center justify-start min-w-0 overflow-hidden pl-0">
+      <div className="flex items-center justify-start min-w-0 overflow-hidden relative pl-0">
+        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
+          H
+        </span>
         <div className="text-[clamp(13px,1.9vh,22px)] text-slate-400 font-mono tracking-[0.1em] min-w-0 whitespace-nowrap">
           {nowUntil ? `until ${nowUntil}` : 'until close'}
         </div>
       </div>
-      <div className="flex items-center justify-start min-w-0 overflow-hidden pl-0">
+      <div className="flex items-center justify-start min-w-0 overflow-hidden relative pl-0">
+        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
+          I
+        </span>
         <div className="text-[clamp(12px,1.7vh,20px)] text-slate-500 font-mono tracking-[0.1em] min-w-0 whitespace-nowrap">
           {nextFrom ? `from ${nextFrom}` : ''}
         </div>

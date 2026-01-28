@@ -24,19 +24,24 @@ export function BaseFloorplan({
   const rackHeight = 11;
   const rackGapY = 2;
 
-  const col1X = 57;
-  const col2X = 76;
-  const col3X = 103;
-  const col4X = 122;
+  // Hardcoded positions for the standard layout
+  const col1X = viewBoxWidth - 57 - rackWidth; // 86
+  const col2X = viewBoxWidth - 76 - rackWidth; // 67
+  const col3X = viewBoxWidth - 103 - rackWidth; // 40
+  const col4X = viewBoxWidth - 122 - rackWidth; // 21
 
-  const col1TopY = 5;
-  const col1BottomY = 48;
-  const col2TopY = 5;
-  const col2BottomY = 48;
-  const col3TopY = 5;
-  const col3BottomY = 48;
-  const col4TopY = 5;
-  const col4BottomY = 48;
+  // Hardcoded Y positions (moved up)
+  const baseTopY = 74;
+  const baseBottomY = 30;
+
+  const col1TopY = viewBoxHeight - baseTopY - rackHeight; // 5
+  const col1BottomY = viewBoxHeight - baseBottomY - rackHeight; // 49
+  const col2TopY = viewBoxHeight - baseTopY - rackHeight; // 5
+  const col2BottomY = viewBoxHeight - baseBottomY - rackHeight; // 49
+  const col3TopY = viewBoxHeight - baseTopY - rackHeight; // 5
+  const col3BottomY = viewBoxHeight - baseBottomY - rackHeight; // 49
+  const col4TopY = viewBoxHeight - baseTopY - rackHeight; // 5
+  const col4BottomY = viewBoxHeight - baseBottomY - rackHeight; // 49
 
   const cutoutWidth = 40;
   const cutoutHeight = 39;
@@ -73,13 +78,17 @@ export function BaseFloorplan({
     return racks;
   };
 
+  // Standard layout - hardcoded platform positions
   const racks: RackLayoutSlot[] = [
-    ...buildColumn(col1X, col1TopY, col1BottomY, [3, 2, 1], [24, 23, 22]),
-    ...buildColumn(col2X, col2TopY, col2BottomY, [4, 5, 6], [19, 20, 21]),
-    ...buildColumn(col3X, col3TopY, col3BottomY, [9, 8, 7], [18, 17, 16]),
-    ...buildColumn(col4X, col4TopY, col4BottomY, [10, 11, 12], [13, 14, 15]),
+    // Column 1 (leftmost): 22, 23, 24 (top) and 1, 2, 3 (bottom)
+    ...buildColumn(col1X, col1TopY, col1BottomY, [22, 23, 24], [1, 2, 3]),
+    // Column 2: 21, 20, 19 (top) and 6, 5, 4 (bottom)
+    ...buildColumn(col2X, col2TopY, col2BottomY, [21, 20, 19], [6, 5, 4]),
+    // Column 3: 16, 17, 18 (top) and 7, 8, 9 (bottom)
+    ...buildColumn(col3X, col3TopY, col3BottomY, [16, 17, 18], [7, 8, 9]),
+    // Column 4 (rightmost): 15, 14, 13 (top) and 12, 11, 10 (bottom)
+    ...buildColumn(col4X, col4TopY, col4BottomY, [15, 14, 13], [12, 11, 10]),
   ];
-
   const current = snapshot?.currentInstances ?? [];
   const nextUseByRack = snapshot?.nextUseByRack ?? {};
   const snapshotDate = snapshot?.at ? new Date(snapshot.at) : new Date();

@@ -482,18 +482,14 @@ export function RackSlot({
               <stop offset="0%" stopColor="rgba(255, 255, 255, 0.15)" />
               <stop offset="100%" stopColor="rgba(255, 255, 255, 0)" />
             </linearGradient>
-            {/* Apple-like depth shadow - purposeful and clear */}
+            {/* Removed shadow for clean appearance */}
             <filter id={shadowId} x="-50%" y="-50%" width="200%" height="200%">
               <feDropShadow
                 dx="0"
-                dy="2.5"
-                stdDeviation="3"
-                floodColor={
-                  isOccupied
-                    ? 'rgba(30, 64, 175, 0.4)' // Booked: Stronger blue shadow
-                    : 'rgba(2, 6, 23, 0.5)' // Available: Deeper shadow for visibility
-                }
-                floodOpacity="1"
+                dy="0"
+                stdDeviation="0"
+                floodColor="transparent"
+                floodOpacity="0"
               />
             </filter>
           </>
@@ -512,18 +508,6 @@ export function RackSlot({
       {/* Liquid glass background - layered for depth */}
       {showStatusBoardPremium && (
         <>
-          {/* Base shadow layer */}
-          <rect
-            x={slot.x}
-            y={slot.y}
-            width={slot.width}
-            height={slot.height}
-            rx={rackCornerRadius}
-            ry={rackCornerRadius}
-            fill="transparent"
-            filter={`url(#${shadowId})`}
-            opacity={fillOpacity}
-          />
           {/* Main glass background */}
           <rect
             x={slot.x}
@@ -590,17 +574,6 @@ export function RackSlot({
           style={baseStyle}
         />
       )}
-      <rect
-        x={slot.x - 1}
-        y={slot.y - 1}
-        width={slot.width + 2}
-        height={slot.height + 2}
-        rx={highlightCornerRadius + 1}
-        ry={highlightCornerRadius + 1}
-        fill={`url(#${highlightHaloId})`}
-        pointerEvents="none"
-        style={highlightStyle}
-      />
       <rect
         x={slot.x + 0.2}
         y={slot.y + 0.2}
