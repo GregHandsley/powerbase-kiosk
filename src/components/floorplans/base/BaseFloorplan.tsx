@@ -9,6 +9,9 @@ type Props = {
   layout?: unknown;
   appearance?: RackAppearance;
   highlightedRacks?: Set<number>;
+  renderShell?: boolean;
+  renderRacks?: boolean;
+  rackRenderMode?: 'full' | 'chrome' | 'content';
 };
 
 // Base floor SVG with booking-aware rack rendering.
@@ -18,6 +21,9 @@ export function BaseFloorplan({
   snapshot,
   appearance = 'default',
   highlightedRacks,
+  renderShell = true,
+  renderRacks = true,
+  rackRenderMode = 'full',
 }: Props) {
   const viewBoxWidth = 160;
   const viewBoxHeight = 90;
@@ -94,7 +100,12 @@ export function BaseFloorplan({
   ];
   const current = snapshot?.currentInstances ?? [];
   const nextUseByRack = snapshot?.nextUseByRack ?? {};
-  const snapshotDate = snapshot?.at ? new Date(snapshot.at) : new Date();
+  const snapshotDate =
+    rackRenderMode === 'chrome'
+      ? new Date(0)
+      : snapshot?.at
+        ? new Date(snapshot.at)
+        : new Date();
 
   const currentByRack = new Map<number, ActiveInstance>();
   for (const inst of current) {
@@ -118,33 +129,37 @@ export function BaseFloorplan({
         backfaceVisibility: 'hidden',
       }}
     >
-      <MemoFloorShell
-        viewBoxWidth={viewBoxWidth}
-        viewBoxHeight={viewBoxHeight}
-        floorMargin={floorMargin}
-        cutoutWidth={cutoutWidth}
-        cutoutHeight={cutoutHeight}
-      />
+      {renderShell && (
+        <MemoFloorShell
+          viewBoxWidth={viewBoxWidth}
+          viewBoxHeight={viewBoxHeight}
+          floorMargin={floorMargin}
+          cutoutWidth={cutoutWidth}
+          cutoutHeight={cutoutHeight}
+        />
+      )}
 
-      {racks.map((rack) => {
-        const isHighlighted = highlightedRacks?.has(rack.number) ?? false;
-        const isDimmed =
-          highlightedRacks && highlightedRacks.size > 0
-            ? !isHighlighted
-            : false;
-        return (
-          <RackSlot
-            key={rack.number}
-            slot={rack}
-            currentInst={currentByRack.get(rack.number) ?? null}
-            nextUse={nextUseByRack[String(rack.number)] ?? null}
-            snapshotDate={snapshotDate}
-            appearance={appearance}
-            isHighlighted={isHighlighted}
-            isDimmed={isDimmed}
-          />
-        );
-      })}
+      {renderRacks &&
+        racks.map((rack) => {
+          const isHighlighted = highlightedRacks?.has(rack.number) ?? false;
+          const isDimmed =
+            highlightedRacks && highlightedRacks.size > 0
+              ? !isHighlighted
+              : false;
+          return (
+            <RackSlot
+              key={rack.number}
+              slot={rack}
+              currentInst={currentByRack.get(rack.number) ?? null}
+              nextUse={nextUseByRack[String(rack.number)] ?? null}
+              snapshotDate={snapshotDate}
+              appearance={appearance}
+              isHighlighted={isHighlighted}
+              isDimmed={isDimmed}
+              renderMode={rackRenderMode}
+            />
+          );
+        })}
     </svg>
   );
 }

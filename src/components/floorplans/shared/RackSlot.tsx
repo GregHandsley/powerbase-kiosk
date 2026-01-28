@@ -26,6 +26,7 @@ type Props = {
   appearance?: RackAppearance;
   isHighlighted?: boolean;
   isDimmed?: boolean;
+  renderMode?: 'full' | 'chrome' | 'content';
 };
 
 function formatTime(iso: string | null | undefined): string | null {
@@ -106,6 +107,7 @@ function RackSlotComponent({
   appearance = 'default',
   isHighlighted = false,
   isDimmed = false,
+  renderMode = 'full',
 }: Props) {
   const resolvedAppearance = appearance ?? 'default';
   const rackPadding = rackPaddingByAppearance[resolvedAppearance];
@@ -120,6 +122,24 @@ function RackSlotComponent({
   const innerY = slot.y + rackPadding;
   const innerWidth = slot.width - rackPadding * 2;
   const innerHeight = slot.height - rackPadding * 2;
+
+  if (renderMode === 'chrome') {
+    return (
+      <g key={slot.number}>
+        <rect
+          x={slot.x}
+          y={slot.y}
+          width={slot.width}
+          height={slot.height}
+          rx={rackCornerRadius}
+          ry={rackCornerRadius}
+          fill="none"
+          stroke="rgba(148, 163, 184, 0.25)"
+          strokeWidth={0.4}
+        />
+      </g>
+    );
+  }
 
   const rackCenterX = innerX + innerWidth / 2;
   const clipId = `rack-clip-${slot.number}`;
@@ -427,11 +447,11 @@ function RackSlotComponent({
                 stopColor={
                   isOccupied
                     ? isDimmed
-                      ? 'rgba(37, 99, 235, 0.55)' // Booked: More vibrant blue when dimmed
-                      : 'rgba(37, 99, 235, 0.48)' // Booked: Vibrant blue for clear visibility
+                      ? 'rgba(37, 99, 235, 0.55)'
+                      : 'rgba(37, 99, 235, 0.48)'
                     : isDimmed
-                      ? 'rgba(30, 41, 59, 0.65)' // Available: More visible dark slate when dimmed
-                      : 'rgba(30, 41, 59, 0.58)' // Available: Visible dark slate - much better contrast
+                      ? 'rgba(30, 41, 59, 0.65)'
+                      : 'rgba(30, 41, 59, 0.58)'
                 }
               />
               <stop
@@ -440,10 +460,10 @@ function RackSlotComponent({
                   isOccupied
                     ? isDimmed
                       ? 'rgba(29, 78, 216, 0.48)'
-                      : 'rgba(29, 78, 216, 0.42)' // Booked: Rich blue gradient
+                      : 'rgba(29, 78, 216, 0.42)'
                     : isDimmed
                       ? 'rgba(15, 23, 42, 0.55)'
-                      : 'rgba(15, 23, 42, 0.50)' // Available: Better visibility
+                      : 'rgba(15, 23, 42, 0.50)'
                 }
               />
               <stop
@@ -452,10 +472,10 @@ function RackSlotComponent({
                   isOccupied
                     ? isDimmed
                       ? 'rgba(30, 64, 175, 0.42)'
-                      : 'rgba(30, 64, 175, 0.36)' // Booked: Deep blue bottom
+                      : 'rgba(30, 64, 175, 0.36)'
                     : isDimmed
                       ? 'rgba(2, 6, 23, 0.48)'
-                      : 'rgba(2, 6, 23, 0.42)' // Available: Darker bottom for depth
+                      : 'rgba(2, 6, 23, 0.42)'
                 }
               />
             </linearGradient>
@@ -465,8 +485,8 @@ function RackSlotComponent({
                 offset="0%"
                 stopColor={
                   isOccupied
-                    ? 'rgba(96, 165, 250, 0.25)' // Booked: Visible blue border
-                    : 'rgba(148, 163, 184, 0.20)' // Available: Visible gray border
+                    ? 'rgba(96, 165, 250, 0.25)'
+                    : 'rgba(148, 163, 184, 0.20)'
                 }
               />
               <stop
@@ -474,7 +494,7 @@ function RackSlotComponent({
                 stopColor={
                   isOccupied
                     ? 'rgba(59, 130, 246, 0.18)'
-                    : 'rgba(100, 116, 139, 0.15)' // Available: Subtle but visible
+                    : 'rgba(100, 116, 139, 0.15)'
                 }
               />
             </linearGradient>
@@ -549,11 +569,7 @@ function RackSlotComponent({
             rx={rackCornerRadius * 0.8}
             ry={rackCornerRadius * 0.8}
             fill="url(#glassHighlight)"
-            opacity={
-              isOccupied
-                ? fillOpacity * 0.12 // Booked: More visible highlight
-                : fillOpacity * 0.1 // Available: Subtle but visible
-            }
+            opacity={isOccupied ? fillOpacity * 0.12 : fillOpacity * 0.1}
             style={baseStyle}
           />
           {/* Border stroke for clear definition */}
@@ -674,6 +690,7 @@ function nextUseKey(nextUse: NextUseInfo | null) {
 }
 
 function areRackSlotPropsEqual(prev: Props, next: Props) {
+  if (prev.renderMode !== next.renderMode) return false;
   if (prev.appearance !== next.appearance) return false;
   if (prev.isHighlighted !== next.isHighlighted) return false;
   if (prev.isDimmed !== next.isDimmed) return false;
