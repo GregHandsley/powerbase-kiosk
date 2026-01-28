@@ -5,10 +5,48 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>powerbase-kiosk</title>
+    <style>
+      /* Critical rendering optimizations - loaded immediately */
+      * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      
+      html,
+      body {
+        /* Prevent white flashes */
+        background-color: #020617;
+        /* Force GPU acceleration */
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+      }
+      
+      #root {
+        /* Contain layout and paint operations */
+        contain: layout style paint;
+        isolation: isolate;
+      }
+      
+      /* Disable animations during page load */
+      .js-loading * {
+        animation-play-state: paused !important;
+        transition: none !important;
+      }
+    </style>
   </head>
-  <body>
+  <body class="js-loading">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Remove loading class after initial render
+      window.addEventListener('DOMContentLoaded', () => {
+        requestAnimationFrame(() => {
+          document.body.classList.remove('js-loading');
+        });
+      });
+    </script>
   </body>
 </html>
 

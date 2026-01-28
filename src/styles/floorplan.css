@@ -59,6 +59,9 @@
     #f9fafb 45%,
     #f3f4f6 100%
   );
+  /* Prevent layout shifts */
+  contain: layout style paint;
+  will-change: auto;
 }
 
 .fp-bg-outer {
@@ -264,6 +267,13 @@
 
 .fp-you-are-here {
   transform-origin: center;
+  /* Performance optimizations */
+  will-change: transform, opacity;
+  contain: layout style paint;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
 }
 
 /* Soft pulsing glow effect */
@@ -271,6 +281,10 @@
   animation: fp-glow-pulse 3s ease-in-out infinite;
   transform-origin: center;
   transform-box: fill-box;
+  /* Hardware acceleration */
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .fp-glow-middle {
@@ -278,6 +292,10 @@
   animation-delay: 0.15s;
   transform-origin: center;
   transform-box: fill-box;
+  /* Hardware acceleration */
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 @keyframes fp-glow-pulse {
@@ -298,6 +316,10 @@
   filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 1))
     drop-shadow(0 0 3px rgba(96, 165, 250, 0.8))
     drop-shadow(0 0 5px rgba(59, 130, 246, 0.4));
+  /* Hardware acceleration */
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 @keyframes fp-dot-pulse {

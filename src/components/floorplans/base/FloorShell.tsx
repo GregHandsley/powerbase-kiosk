@@ -111,15 +111,6 @@ export function FloorShell({
         </text>
       </g>
 
-      {/* Gradient definition for glow */}
-      <defs>
-        <radialGradient id="youAreHereGlow">
-          <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
-          <stop offset="70%" stopColor="#3b82f6" stopOpacity="0.4" />
-          <stop offset="100%" stopColor="#1e40af" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-
       {/* large top-right MACHINES box */}
       <g
         transform={`translate(${viewBoxWidth - floorMargin - 52} ${floorMargin + 2})`}

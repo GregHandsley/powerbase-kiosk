@@ -559,20 +559,34 @@ export function RackSlot({
         </>
       )}
       {!showStatusBoardPremium && (
-        <rect
-          x={slot.x}
-          y={slot.y}
-          width={slot.width}
-          height={slot.height}
-          rx={rackCornerRadius}
-          ry={rackCornerRadius}
-          fill={showDefaultGradient ? `url(#${gradientId})` : palette.fill}
-          stroke={showDefaultGradient ? palette.stroke : 'none'}
-          strokeWidth={showDefaultGradient ? rackStrokeWidth : 0}
-          filter={showKioskShadow ? `url(#${shadowId})` : undefined}
-          opacity={fillOpacity}
-          style={baseStyle}
-        />
+        <>
+          {/* Base layer to prevent white flash */}
+          <rect
+            x={slot.x}
+            y={slot.y}
+            width={slot.width}
+            height={slot.height}
+            rx={rackCornerRadius}
+            ry={rackCornerRadius}
+            fill={isOccupied ? '#1e3a8a' : '#1e293b'}
+            opacity={0.3}
+          />
+          {/* Main content layer */}
+          <rect
+            x={slot.x}
+            y={slot.y}
+            width={slot.width}
+            height={slot.height}
+            rx={rackCornerRadius}
+            ry={rackCornerRadius}
+            fill={showDefaultGradient ? `url(#${gradientId})` : palette.fill}
+            stroke={showDefaultGradient ? palette.stroke : 'none'}
+            strokeWidth={showDefaultGradient ? rackStrokeWidth : 0}
+            filter={showKioskShadow ? `url(#${shadowId})` : undefined}
+            opacity={fillOpacity}
+            style={baseStyle}
+          />
+        </>
       )}
       <rect
         x={slot.x + 0.2}
