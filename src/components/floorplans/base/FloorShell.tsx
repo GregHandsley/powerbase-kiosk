@@ -67,39 +67,39 @@ export function FloorShell({
         </text>
       </g>
 
-      {/* Apple-like "You are here" indicator below BIKE/MET CON AREA */}
+      {/* "You are here" indicator below BIKE/MET CON AREA */}
       <g
         transform={`translate(${viewBoxWidth - floorMargin - 29.5 + 27.5 / 2} ${floorMargin + 2 + 41 + 4})`}
         className="fp-you-are-here"
       >
-        {/* Soft glow layers - larger and more visible */}
+        {/* Pulsing rings (no gradients/filters for stability) */}
         <circle
-          className="fp-glow-outer"
+          className="fp-you-here-ring"
           cx={0}
           cy={0}
           r={6}
-          fill="url(#youAreHereGlow)"
-          opacity={0.4}
+          fill="none"
+          stroke="rgba(96, 165, 250, 0.55)"
+          strokeWidth={0.6}
         />
         <circle
-          className="fp-glow-middle"
+          className="fp-you-here-ring fp-you-here-ring--delay"
           cx={0}
           cy={0}
-          r={4}
-          fill="url(#youAreHereGlow)"
-          opacity={0.6}
+          r={4.5}
+          fill="none"
+          stroke="rgba(96, 165, 250, 0.35)"
+          strokeWidth={0.6}
         />
-        {/* Core dot - larger */}
+        {/* Core dot */}
         <circle
           className="fp-location-dot"
           cx={0}
           cy={0}
-          r={1.8}
-          fill="#ffffff"
+          r={2}
+          fill="#f8fafc"
         />
-        {/* Inner highlight - larger */}
-        <circle cx={0} cy={-0.5} r={0.6} fill="rgba(255, 255, 255, 0.6)" />
-        {/* "You are here" text - larger and bolder */}
+        {/* "You are here" text */}
         <text
           className="fp-you-are-here-text"
           x={0}

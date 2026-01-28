@@ -276,9 +276,9 @@
   transform-style: preserve-3d;
 }
 
-/* Soft pulsing glow effect */
-.fp-glow-outer {
-  animation: fp-glow-pulse 3s ease-in-out infinite;
+/* Pulsing rings (no gradients/filters for stability) */
+.fp-you-here-ring {
+  animation: fp-ring-pulse 2.6s ease-out infinite;
   transform-origin: center;
   transform-box: fill-box;
   /* Hardware acceleration */
@@ -287,35 +287,27 @@
   -webkit-backface-visibility: hidden;
 }
 
-.fp-glow-middle {
-  animation: fp-glow-pulse 3s ease-in-out infinite;
-  animation-delay: 0.15s;
-  transform-origin: center;
-  transform-box: fill-box;
-  /* Hardware acceleration */
-  will-change: transform, opacity;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+.fp-you-here-ring--delay {
+  animation-delay: 1.3s;
 }
 
-@keyframes fp-glow-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.4;
+@keyframes fp-ring-pulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
   }
-  50% {
-    transform: scale(1.25);
-    opacity: 0.8;
+  70% {
+    opacity: 0.2;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
   }
 }
 
 /* Core location dot with noticeable pulse */
 .fp-location-dot {
   animation: fp-dot-pulse 2.5s ease-in-out infinite;
-  filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 1))
-    drop-shadow(0 0 3px rgba(96, 165, 250, 0.8))
-    drop-shadow(0 0 5px rgba(59, 130, 246, 0.4));
   /* Hardware acceleration */
   will-change: transform, opacity;
   backface-visibility: hidden;
@@ -343,7 +335,6 @@
   font-weight: 600;
   letter-spacing: 0.03em;
   opacity: 0.9;
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.5));
 }
 
 /* Kiosk-specific styling */
@@ -356,12 +347,8 @@
 
 .kiosk-floorplan .fp-location-dot {
   fill: rgba(255, 255, 255, 1);
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 1))
-    drop-shadow(0 0 4px rgba(96, 165, 250, 0.9))
-    drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
 }
 
-.kiosk-floorplan .fp-glow-outer,
-.kiosk-floorplan .fp-glow-middle {
-  opacity: 0.35;
+.kiosk-floorplan .fp-you-here-ring {
+  stroke: rgba(96, 165, 250, 0.6);
 }

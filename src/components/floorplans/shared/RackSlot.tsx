@@ -508,6 +508,19 @@ export function RackSlot({
       {/* Liquid glass background - layered for depth */}
       {showStatusBoardPremium && (
         <>
+          {/* Base layer to prevent white flash */}
+          <rect
+            x={slot.x}
+            y={slot.y}
+            width={slot.width}
+            height={slot.height}
+            rx={rackCornerRadius}
+            ry={rackCornerRadius}
+            fill={
+              isOccupied ? 'rgba(37, 99, 235, 0.35)' : 'rgba(15, 23, 42, 0.35)'
+            }
+            opacity={fillOpacity}
+          />
           {/* Main glass background */}
           <rect
             x={slot.x}
