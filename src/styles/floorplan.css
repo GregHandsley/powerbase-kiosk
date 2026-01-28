@@ -274,6 +274,12 @@
   -webkit-backface-visibility: hidden;
   -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.fp-you-are-here-static {
+  pointer-events: none;
+  transform-origin: center;
 }
 
 /* Pulsing rings (no gradients/filters for stability) */

@@ -99,6 +99,11 @@ export function FloorShell({
           r={2}
           fill="#f8fafc"
         />
+      </g>
+      <g
+        transform={`translate(${viewBoxWidth - floorMargin - 29.5 + 27.5 / 2} ${floorMargin + 2 + 41 + 4})`}
+        className="fp-you-are-here-static"
+      >
         {/* "You are here" text */}
         <text
           className="fp-you-are-here-text"

@@ -677,7 +677,9 @@ function areRackSlotPropsEqual(prev: Props, next: Props) {
   if (prev.appearance !== next.appearance) return false;
   if (prev.isHighlighted !== next.isHighlighted) return false;
   if (prev.isDimmed !== next.isDimmed) return false;
-  if (prev.snapshotDate.getTime() !== next.snapshotDate.getTime()) return false;
+  if (prev.snapshotDate.toDateString() !== next.snapshotDate.toDateString()) {
+    return false;
+  }
   if (instKey(prev.currentInst) !== instKey(next.currentInst)) return false;
   if (nextUseKey(prev.nextUse) !== nextUseKey(next.nextUse)) return false;
   return (

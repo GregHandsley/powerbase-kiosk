@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { SideSnapshot, ActiveInstance } from '../../../types/snapshot';
 import { FloorShell } from './FloorShell';
 import { RackSlot, type RackLayoutSlot } from '../shared/RackSlot';
@@ -11,6 +12,8 @@ type Props = {
 };
 
 // Base floor SVG with booking-aware rack rendering.
+const MemoFloorShell = memo(FloorShell);
+
 export function BaseFloorplan({
   snapshot,
   appearance = 'default',
@@ -115,7 +118,7 @@ export function BaseFloorplan({
         backfaceVisibility: 'hidden',
       }}
     >
-      <FloorShell
+      <MemoFloorShell
         viewBoxWidth={viewBoxWidth}
         viewBoxHeight={viewBoxHeight}
         floorMargin={floorMargin}
