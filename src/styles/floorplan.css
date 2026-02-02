@@ -358,3 +358,19 @@
 .kiosk-floorplan .fp-you-here-ring {
   stroke: rgba(96, 165, 250, 0.6);
 }
+
+/* Stream Preview Mode - Simulates low-FPS (2-3 fps) capture */
+/* Makes animations choppy/stepped to preview how they'll look when streamed */
+.stream-preview-mode .fp-you-here-ring {
+  /* Simulate 2-3 fps: 2.6s animation / 0.33s per frame = ~8 steps */
+  animation: fp-ring-pulse 2.6s steps(8, end) infinite;
+}
+
+.stream-preview-mode .fp-you-here-ring--delay {
+  animation-delay: 1.3s;
+}
+
+.stream-preview-mode .fp-location-dot {
+  /* Simulate 2-3 fps: 2.5s animation / 0.33s per frame = ~8 steps */
+  animation: fp-dot-pulse 2.5s steps(8, end) infinite;
+}

@@ -183,6 +183,26 @@ body {
   transition: opacity 300ms cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* Stream Preview Mode - Simulates low-FPS capture */
+.stream-preview-mode .kiosk-fade {
+  /* Make transitions step-based to simulate low frame rate */
+  transition: opacity 300ms steps(1, end);
+}
+
+.stream-preview-mode .kiosk-quadrant-page {
+  /* Platform cycling transition: 360ms / 0.33s per frame = ~1 step */
+  transition: opacity 360ms steps(1, end);
+}
+
+.stream-preview-mode .kiosk-platform-card {
+  /* Card transitions: 280ms / 0.33s per frame = ~1 step */
+  transition: all 280ms steps(1, end);
+}
+
+.stream-preview-mode .kiosk-platform-card::before {
+  transition: opacity 280ms steps(1, end);
+}
+
 .kiosk-status-divider {
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }

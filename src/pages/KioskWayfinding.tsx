@@ -74,6 +74,19 @@ export function KioskWayfinding() {
   const sideKeyParam = search.get('side') as SideKey | null;
   const sideKey: SideKey =
     sideKeyParam === 'Base' || sideKeyParam === 'Power' ? sideKeyParam : 'Base';
+  const streamPreview = search.get('streamPreview') === 'true';
+
+  // Add class to body for stream preview mode (simulates low-FPS capture)
+  useEffect(() => {
+    if (streamPreview) {
+      document.body.classList.add('stream-preview-mode');
+    } else {
+      document.body.classList.remove('stream-preview-mode');
+    }
+    return () => {
+      document.body.classList.remove('stream-preview-mode');
+    };
+  }, [streamPreview]);
 
   const { snapshot, error, isLoading } = useSideSnapshot(sideKey);
   useInstancesRealtime();
