@@ -187,24 +187,28 @@ body {
   transition: opacity 300ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Stream Preview Mode - Simulates low-FPS capture (2-3 fps) */
+/* Stream Preview Mode - Simulates low-FPS capture */
+/* Uses CSS custom properties for dynamic FPS control via diagnostics panel */
 .stream-preview-mode .kiosk-fade {
-  /* Simulate 2-3 fps: 300ms / 0.33s per frame = ~1 step */
-  transition: opacity 300ms steps(1, end);
+  transition: opacity 300ms steps(var(--fps-steps-fade, 1), end);
 }
 
 .stream-preview-mode .kiosk-quadrant-page {
-  /* Platform cycling transition: 360ms / 0.33s per frame = ~1 step (2-3 fps) */
-  transition: opacity 360ms steps(1, end);
+  transition: opacity 360ms steps(var(--fps-steps-quadrant, 1), end);
 }
 
 .stream-preview-mode .kiosk-platform-card {
-  /* Card transitions: 280ms / 0.33s per frame = ~1 step (2-3 fps) */
-  transition: all 280ms steps(1, end);
+  transition: all 280ms steps(var(--fps-steps-card, 1), end);
 }
 
 .stream-preview-mode .kiosk-platform-card::before {
-  transition: opacity 280ms steps(1, end);
+  transition: opacity 280ms steps(var(--fps-steps-card, 1), end);
+}
+
+/* Smooth mode override - when steps is 0, use smooth transitions */
+body:not(.stream-preview-mode) .kiosk-fade,
+body.stream-preview-mode[style*='--fps-steps-fade: 0'] .kiosk-fade {
+  transition: opacity 300ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .kiosk-status-divider {

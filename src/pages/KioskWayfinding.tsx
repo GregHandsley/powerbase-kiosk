@@ -4,6 +4,7 @@ import { KioskLayout } from '../components/kiosk/KioskLayout';
 import { PeriodPanel } from '../components/kiosk/ZoneA_PeriodContext';
 import { PlatformStatusBoard } from '../components/kiosk/ZoneB_PlatformStatus';
 import { FloorplanMap } from '../components/kiosk/ZoneC_FloorplanMap';
+import { KioskDiagnostics } from '../components/kiosk/KioskDiagnostics';
 import { useSideSnapshot } from '../hooks/useSideSnapshot';
 import { useInstancesRealtime } from '../hooks/useInstancesRealtime';
 import type { SideKey } from '../nodes/data/sidesNodes';
@@ -212,37 +213,40 @@ export function KioskWayfinding() {
   }, [capacitySchedules, dateStr, dayOfWeek, timeStr]);
 
   return (
-    <KioskLayout
-      zoneA={
-        <PeriodPanel
-          periodType={currentPeriod?.type ?? null}
-          periodStart={currentPeriod?.start ?? null}
-          periodEnd={currentPeriod?.end ?? null}
-          nextPeriodType={nextPeriod?.type ?? null}
-          nextPeriodStart={nextPeriod?.start ?? null}
-          isLoading={isLoading || schedulesLoading}
-        />
-      }
-      zoneB={
-        <PlatformStatusBoard
-          platformPages={platformPageData}
-          currentCycleIndex={currentCycleIndex}
-          totalCycles={totalCycles}
-          rowsPerPage={PLATFORMS_PER_CYCLE}
-          cycleLabel={quadrantLabel}
-          isLoading={isLoading}
-        />
-      }
-      zoneC={
-        <FloorplanMap
-          sideKey={sideKey}
-          snapshot={displaySnapshot ?? snapshot}
-          visiblePlatformIds={visiblePlatformIds}
-          isLoading={isLoading}
-          error={error}
-        />
-      }
-    />
+    <>
+      <KioskDiagnostics />
+      <KioskLayout
+        zoneA={
+          <PeriodPanel
+            periodType={currentPeriod?.type ?? null}
+            periodStart={currentPeriod?.start ?? null}
+            periodEnd={currentPeriod?.end ?? null}
+            nextPeriodType={nextPeriod?.type ?? null}
+            nextPeriodStart={nextPeriod?.start ?? null}
+            isLoading={isLoading || schedulesLoading}
+          />
+        }
+        zoneB={
+          <PlatformStatusBoard
+            platformPages={platformPageData}
+            currentCycleIndex={currentCycleIndex}
+            totalCycles={totalCycles}
+            rowsPerPage={PLATFORMS_PER_CYCLE}
+            cycleLabel={quadrantLabel}
+            isLoading={isLoading}
+          />
+        }
+        zoneC={
+          <FloorplanMap
+            sideKey={sideKey}
+            snapshot={displaySnapshot ?? snapshot}
+            visiblePlatformIds={visiblePlatformIds}
+            isLoading={isLoading}
+            error={error}
+          />
+        }
+      />
+    </>
   );
 }
 

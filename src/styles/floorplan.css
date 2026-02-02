@@ -359,12 +359,11 @@
   stroke: rgba(96, 165, 250, 0.6);
 }
 
-/* Stream Preview Mode - Simulates low-FPS (2-3 fps) capture */
-/* Makes animations choppy/stepped to preview how they'll look when streamed */
-/* NOTE: Pulsating icon stays smooth for better visual quality */
+/* Stream Preview Mode - Simulates low-FPS capture */
+/* Uses CSS custom properties for dynamic FPS control */
 .stream-preview-mode .fp-you-here-ring {
-  /* Keep icon smooth - it's the only animation that benefits from smoothness */
-  animation: fp-ring-pulse 2.6s ease-out infinite;
+  /* Use stepped animation based on FPS setting */
+  animation: fp-ring-pulse 2.6s steps(var(--fps-steps-icon, 8), end) infinite;
 }
 
 .stream-preview-mode .fp-you-here-ring--delay {
@@ -372,6 +371,27 @@
 }
 
 .stream-preview-mode .fp-location-dot {
-  /* Keep icon smooth - it's the only animation that benefits from smoothness */
-  animation: fp-dot-pulse 2.5s ease-in-out infinite;
+  /* Use stepped animation based on FPS setting */
+  animation: fp-dot-pulse 2.5s steps(var(--fps-steps-icon, 8), end) infinite;
+}
+
+/* Low-FPS alternative: Static indicator with subtle border pulse */
+.stream-preview-mode .fp-location-dot-static {
+  fill: rgba(255, 255, 255, 1);
+  stroke: rgba(96, 165, 250, 0.8);
+  stroke-width: 0.4;
+  /* Very slow, stepped pulse for low FPS */
+  animation: fp-static-pulse 3s steps(var(--fps-steps-icon, 4), end) infinite;
+}
+
+@keyframes fp-static-pulse {
+  0%,
+  100% {
+    stroke-opacity: 0.8;
+    stroke-width: 0.4;
+  }
+  50% {
+    stroke-opacity: 0.4;
+    stroke-width: 0.6;
+  }
 }
