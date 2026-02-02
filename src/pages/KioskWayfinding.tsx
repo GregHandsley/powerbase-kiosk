@@ -77,6 +77,13 @@ export function KioskWayfinding() {
     sideKeyParam === 'Base' || sideKeyParam === 'Power' ? sideKeyParam : 'Base';
   const streamPreview = search.get('streamPreview') === 'true';
 
+  useEffect(() => {
+    document.body.classList.add('kiosk-mode');
+    return () => {
+      document.body.classList.remove('kiosk-mode');
+    };
+  }, []);
+
   // Add class to body for stream preview mode (simulates low-FPS capture)
   useEffect(() => {
     if (streamPreview) {

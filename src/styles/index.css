@@ -256,6 +256,17 @@ body.stream-preview-mode[style*='--fps-steps-fade: 0'] .kiosk-fade {
   -webkit-transform: translateZ(0);
 }
 
+/* Kiosk mode: avoid GPU-heavy effects that cause white flashes on signage */
+body.kiosk-mode .kiosk-platform-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: none;
+}
+
+body.kiosk-mode .kiosk-platform-card::before {
+  transition: none;
+}
+
 /* Subtle hover effect for interactivity (even if not clickable, provides depth) */
 .kiosk-platform-card::before {
   content: '';

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { AspectRatio } from '../components/AspectRatio';
@@ -12,6 +13,13 @@ export function KioskPower() {
   const ratio = parseRatioParam(search.get('ratio'), 16 / 9);
   const { snapshot, error, isLoading } = useSideSnapshot('Power');
   useInstancesRealtime();
+
+  useEffect(() => {
+    document.body.classList.add('kiosk-mode');
+    return () => {
+      document.body.classList.remove('kiosk-mode');
+    };
+  }, []);
 
   const first = snapshot?.currentInstances?.[0];
   const slotLabel =

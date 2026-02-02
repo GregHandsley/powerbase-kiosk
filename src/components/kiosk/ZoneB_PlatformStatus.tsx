@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { format } from 'date-fns';
 
 type PlatformBooking = {
@@ -49,6 +50,17 @@ export function PlatformStatusBoard({
   cycleLabel = null,
   isLoading = false,
 }: Props) {
+  const currentPlatforms = useMemo(() => {
+    const page = platformPages[currentCycleIndex] ?? [];
+    if (page.length >= rowsPerPage) {
+      return page.slice(0, rowsPerPage);
+    }
+    return [
+      ...page,
+      ...Array.from({ length: rowsPerPage - page.length }, () => null),
+    ];
+  }, [platformPages, currentCycleIndex, rowsPerPage]);
+
   if (isLoading) {
     return (
       <div className="h-full flex flex-col kiosk-surface rounded-2xl p-4">
@@ -84,59 +96,14 @@ export function PlatformStatusBoard({
       </div>
 
       {/* Status list */}
-      <div className="flex-1 min-h-0 relative overflow-hidden">
-        <QuadrantPages
-          platformPages={platformPages}
-          activeIndex={currentCycleIndex}
-          rowsPerPage={rowsPerPage}
-        />
+      <div className="flex-1 min-h-0 flex flex-col gap-2">
+        {currentPlatforms.map((platform, index) => (
+          <PlatformStatusRow
+            key={platform ? platform.platformNumber : `empty-${index}`}
+            platform={platform}
+          />
+        ))}
       </div>
-    </div>
-  );
-}
-
-function QuadrantPages({
-  platformPages,
-  activeIndex,
-  rowsPerPage,
-}: {
-  platformPages: PlatformBooking[][];
-  activeIndex: number;
-  rowsPerPage: number;
-}) {
-  return (
-    <div className="absolute inset-0">
-      {platformPages.map((platforms, pageIndex) => {
-        const paddedPlatforms =
-          platforms.length < rowsPerPage
-            ? [
-                ...platforms,
-                ...Array.from(
-                  { length: rowsPerPage - platforms.length },
-                  () => null
-                ),
-              ]
-            : platforms;
-        const isActive = pageIndex === activeIndex;
-
-        return (
-          <div
-            key={`quadrant-page-${pageIndex}`}
-            className="absolute inset-0 flex flex-col gap-2 min-h-0 kiosk-quadrant-page overflow-hidden"
-            style={{
-              opacity: isActive ? 1 : 0,
-              pointerEvents: isActive ? 'auto' : 'none',
-            }}
-          >
-            {paddedPlatforms.map((platform, index) => (
-              <PlatformStatusRow
-                key={platform ? platform.platformNumber : `empty-${index}`}
-                platform={platform}
-              />
-            ))}
-          </div>
-        );
-      })}
     </div>
   );
 }
