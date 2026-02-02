@@ -6,6 +6,8 @@ import { AcceptInvite } from './pages/AcceptInvite';
 import { KioskPower } from './pages/KioskPower';
 import { KioskBase } from './pages/KioskBase';
 import { KioskWayfinding } from './pages/KioskWayfinding';
+import { KioskWayfindingStatic } from './pages/KioskWayfindingStatic';
+import { KioskBaseStatic } from './pages/KioskBaseStatic';
 import { FloorplanTest } from './pages/FloorplanTest';
 import { LiveView } from './pages/LiveView';
 import { Schedule } from './pages/Schedule';
@@ -117,10 +119,26 @@ export default function App() {
           }
         />
         <Route
+          path="/kiosk/base-static"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskBaseStatic />
+            </ErrorBoundary>
+          }
+        />
+        <Route
           path="/kiosk/wayfinding"
           element={
             <ErrorBoundary FallbackComponent={KioskErrorScreen}>
               <KioskWayfinding />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/kiosk/wayfinding-static"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskWayfindingStatic />
             </ErrorBoundary>
           }
         />
@@ -212,10 +230,26 @@ export default function App() {
             }
           />
           <Route
+            path="/kiosk/base-static"
+            element={
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskBaseStatic />
+              </ErrorBoundary>
+            }
+          />
+          <Route
             path="/kiosk/wayfinding"
             element={
               <ErrorBoundary FallbackComponent={KioskErrorScreen}>
                 <KioskWayfinding />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/kiosk/wayfinding-static"
+            element={
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskWayfindingStatic />
               </ErrorBoundary>
             }
           />
