@@ -89,8 +89,7 @@
 }
 
 html,
-body,
-#root {
+body {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -98,10 +97,15 @@ body,
 
 body {
   overflow: auto;
+  /* Ensure body can scroll */
+  min-height: 100vh;
 }
 
 #root {
   overflow: visible;
+  /* Allow root to grow beyond viewport for scrolling */
+  min-height: 100%;
+  height: auto;
 }
 
 .app-shell {
@@ -183,24 +187,24 @@ body {
   transition: opacity 300ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Stream Preview Mode - Simulates low-FPS capture */
+/* Stream Preview Mode - Simulates low-FPS capture (5-10 fps equivalent) */
 .stream-preview-mode .kiosk-fade {
-  /* Make transitions step-based to simulate low frame rate */
-  transition: opacity 300ms steps(1, end);
+  /* Simulate ~8-10 fps: 300ms / 0.1s per frame = ~3 steps */
+  transition: opacity 300ms steps(3, end);
 }
 
 .stream-preview-mode .kiosk-quadrant-page {
-  /* Platform cycling transition: 360ms / 0.33s per frame = ~1 step */
-  transition: opacity 360ms steps(1, end);
+  /* Platform cycling transition: 360ms / 0.1s per frame = ~3-4 steps (~8-10 fps) */
+  transition: opacity 360ms steps(4, end);
 }
 
 .stream-preview-mode .kiosk-platform-card {
-  /* Card transitions: 280ms / 0.33s per frame = ~1 step */
-  transition: all 280ms steps(1, end);
+  /* Card transitions: 280ms / 0.1s per frame = ~3 steps (~8-10 fps) */
+  transition: all 280ms steps(3, end);
 }
 
 .stream-preview-mode .kiosk-platform-card::before {
-  transition: opacity 280ms steps(1, end);
+  transition: opacity 280ms steps(3, end);
 }
 
 .kiosk-status-divider {

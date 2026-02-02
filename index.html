@@ -24,9 +24,12 @@
       }
       
       #root {
-        /* Contain layout and paint operations */
+        /* Contain layout and paint operations - but allow scrolling */
         contain: layout style paint;
         isolation: isolate;
+        overflow: visible;
+        height: auto;
+        min-height: 100%;
       }
       
       /* Disable animations during page load */

@@ -91,12 +91,11 @@ export function KioskWayfinding() {
   const { snapshot, error, isLoading } = useSideSnapshot(sideKey);
   useInstancesRealtime();
 
-  const BUCKET_MS = 15 * 60 * 1000;
+  // Debounced immediate updates: Update within 2-3 seconds of data changes
+  // This provides near real-time updates while preventing jolty rendering
+  const DEBOUNCE_MS = 2500; // 2.5 seconds - smooth but responsive
   const [displaySnapshot, setDisplaySnapshot] = useState(snapshot);
-  const [bucketKey, setBucketKey] = useState<string | null>(null);
-  const pendingSnapshotRef = useRef<typeof snapshot>(null);
-  const bucketTimerRef = useRef<number | null>(null);
-  const serverOffsetRef = useRef<number | null>(null);
+  const debounceTimerRef = useRef<number | null>(null);
 
   const [nowTime, setNowTime] = useState(new Date());
   useEffect(() => {
@@ -138,47 +137,34 @@ export function KioskWayfinding() {
       ? (BASE_QUADRANT_LABELS[currentCycleIndex] ?? null)
       : null;
 
+  // Debounced update: Wait 2.5 seconds after data changes, then update display
+  // This prevents jolty rendering from rapid updates while providing near real-time feedback
   useEffect(() => {
-    if (!snapshot?.at) return;
-    pendingSnapshotRef.current = snapshot;
+    if (!snapshot) {
+      // If snapshot is null, update immediately (loading state)
+      setDisplaySnapshot(null);
+      return;
+    }
 
-    const snapshotTime = new Date(snapshot.at);
-    serverOffsetRef.current = Date.now() - snapshotTime.getTime();
-    const currentBucket = Math.floor(snapshotTime.getTime() / BUCKET_MS);
-    const newBucketKey = String(currentBucket);
+    // Clear any pending debounce timer
+    if (debounceTimerRef.current) {
+      window.clearTimeout(debounceTimerRef.current);
+    }
 
-    if (!bucketKey) {
-      setBucketKey(newBucketKey);
+    // Set new debounce timer
+    debounceTimerRef.current = window.setTimeout(() => {
+      debounceTimerRef.current = null;
       setDisplaySnapshot(snapshot);
-    }
+    }, DEBOUNCE_MS);
 
-    if (!bucketTimerRef.current) {
-      const nextBoundaryServer = (currentBucket + 1) * BUCKET_MS;
-      const offset = serverOffsetRef.current ?? 0;
-      const nextBoundaryClient = nextBoundaryServer + offset;
-      const delay = Math.max(0, nextBoundaryClient - Date.now());
-      bucketTimerRef.current = window.setTimeout(() => {
-        bucketTimerRef.current = null;
-        const pending = pendingSnapshotRef.current;
-        if (pending?.at) {
-          const pendingBucket = Math.floor(
-            new Date(pending.at).getTime() / BUCKET_MS
-          );
-          setBucketKey(String(pendingBucket));
-          setDisplaySnapshot(pending);
-        }
-      }, delay);
-    }
-  }, [snapshot, bucketKey, BUCKET_MS]);
-
-  useEffect(() => {
+    // Cleanup on unmount
     return () => {
-      if (bucketTimerRef.current) {
-        window.clearTimeout(bucketTimerRef.current);
-        bucketTimerRef.current = null;
+      if (debounceTimerRef.current) {
+        window.clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
       }
     };
-  }, []);
+  }, [snapshot]);
   // Cycle through platforms
   useEffect(() => {
     if (totalCycles <= 1) return;

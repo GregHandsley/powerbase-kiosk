@@ -361,9 +361,10 @@
 
 /* Stream Preview Mode - Simulates low-FPS (2-3 fps) capture */
 /* Makes animations choppy/stepped to preview how they'll look when streamed */
+/* NOTE: Pulsating icon stays smooth for better visual quality */
 .stream-preview-mode .fp-you-here-ring {
-  /* Simulate 2-3 fps: 2.6s animation / 0.33s per frame = ~8 steps */
-  animation: fp-ring-pulse 2.6s steps(8, end) infinite;
+  /* Keep icon smooth - it's the only animation that benefits from smoothness */
+  animation: fp-ring-pulse 2.6s ease-out infinite;
 }
 
 .stream-preview-mode .fp-you-here-ring--delay {
@@ -371,6 +372,6 @@
 }
 
 .stream-preview-mode .fp-location-dot {
-  /* Simulate 2-3 fps: 2.5s animation / 0.33s per frame = ~8 steps */
-  animation: fp-dot-pulse 2.5s steps(8, end) infinite;
+  /* Keep icon smooth - it's the only animation that benefits from smoothness */
+  animation: fp-dot-pulse 2.5s ease-in-out infinite;
 }

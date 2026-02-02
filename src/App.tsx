@@ -139,7 +139,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-visible">
       {/* simple header for dev; hidden on kiosk routes */}
       {showHeader && (
         <header className="relative z-[70] px-4 py-3 glass-header">
