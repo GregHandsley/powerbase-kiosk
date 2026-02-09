@@ -48,6 +48,7 @@ sudo apt install -y \
   xserver-xorg \
   xinit \
   unclutter \
+  cec-utils \
   fonts-noto \
   fonts-noto-color-emoji
 ```

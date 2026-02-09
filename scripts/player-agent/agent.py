@@ -8,6 +8,7 @@ import time
 import uuid
 import urllib.request
 import urllib.parse
+import shutil
 
 STATE_PATH = os.path.expanduser("~/.facilityos/player-agent.json")
 KIOSK_CONFIG_PATH = os.path.expanduser("~/.facilityos/kiosk.conf")
@@ -296,6 +297,19 @@ def restart_kiosk():
     os.system("pkill -f chromium >/dev/null 2>&1 || true")
 
 
+def execute_cec_command(power_state):
+    if not shutil.which("cec-client"):
+        raise RuntimeError("cec-client not installed")
+
+    if power_state == "on":
+        os.system('echo "on 0" | cec-client -s -d 1')
+        return
+    if power_state == "off":
+        os.system('echo "standby 0" | cec-client -s -d 1')
+        return
+    raise RuntimeError(f"Unknown power state: {power_state}")
+
+
 def execute_command(command):
     command_type = command.get("type")
     payload = command.get("payload") or {}
@@ -311,6 +325,12 @@ def execute_command(command):
         return
     if command_type == "reboot":
         os.system("sudo reboot")
+        return
+    if command_type == "display_on":
+        execute_cec_command("on")
+        return
+    if command_type == "display_off":
+        execute_cec_command("off")
         return
     raise RuntimeError(f"Unknown command type: {command_type}")
 
