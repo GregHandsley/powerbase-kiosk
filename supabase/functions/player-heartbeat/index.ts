@@ -63,7 +63,7 @@ serve(async (req) => {
 
   const { data: device, error: deviceError } = await supabaseAdmin
     .from('player_devices')
-    .select('id, player_id, token_hash')
+    .select('id, player_id, token_hash, last_seen_at, online_since')
     .eq('device_id', body.device_id)
     .maybeSingle();
 
@@ -74,10 +74,20 @@ serve(async (req) => {
     });
   }
 
+  const now = new Date();
+  const lastSeenAt = device.last_seen_at ? new Date(device.last_seen_at) : null;
+  const wasOffline =
+    !lastSeenAt || now.getTime() - lastSeenAt.getTime() > 2 * 60 * 1000;
+  const onlineSince =
+    device.online_since && !wasOffline
+      ? device.online_since
+      : now.toISOString();
+
   const { error: updateError } = await supabaseAdmin
     .from('player_devices')
     .update({
-      last_seen_at: new Date().toISOString(),
+      last_seen_at: now.toISOString(),
+      online_since: onlineSince,
       meta_json: body.meta ?? {},
     })
     .eq('id', device.id);

@@ -14,6 +14,7 @@ export type Player = {
   updated_at: string;
   site_name?: string | null;
   last_seen_at?: string | null;
+  online_since?: string | null;
 };
 
 export type CreatePlayerParams = {
@@ -46,8 +47,8 @@ export type PairingCodeResult = {
 type PlayerWithSite = Player & {
   site: { id: number; name: string } | { id: number; name: string }[] | null;
   devices:
-    | { last_seen_at: string | null }
-    | { last_seen_at: string | null }[]
+    | { last_seen_at: string | null; online_since: string | null }
+    | { last_seen_at: string | null; online_since: string | null }[]
     | null;
 };
 
@@ -81,7 +82,8 @@ export function usePlayers(organizationId: number | null) {
             name
           ),
           devices:player_devices (
-            last_seen_at
+            last_seen_at,
+            online_since
           )
         `
         )
@@ -112,11 +114,20 @@ export function usePlayers(organizationId: number | null) {
           },
           null
         );
+        const onlineSince = deviceList.reduce<string | null>(
+          (latest, device) => {
+            if (!device?.online_since) return latest;
+            if (!latest) return device.online_since;
+            return device.online_since > latest ? device.online_since : latest;
+          },
+          null
+        );
 
         return {
           ...row,
           site_name: siteName,
           last_seen_at: lastSeenAt,
+          online_since: onlineSince,
         } as Player;
       });
     },

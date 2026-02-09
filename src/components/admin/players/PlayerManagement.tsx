@@ -404,6 +404,14 @@ export function PlayerManagement() {
                             const isOnline =
                               Date.now() - lastSeenDate.getTime() <
                               ONLINE_THRESHOLD_MS;
+                            const onlineSince = player.online_since
+                              ? parseISO(player.online_since)
+                              : null;
+                            const durationLabel = isOnline
+                              ? onlineSince
+                                ? `Up for ${formatDistanceToNow(onlineSince)}`
+                                : 'Up for just now'
+                              : `Down for ${formatDistanceToNow(lastSeenDate)}`;
                             return (
                               <div className="flex flex-col">
                                 <span
@@ -416,15 +424,13 @@ export function PlayerManagement() {
                                   {isOnline ? 'Online' : 'Offline'}
                                 </span>
                                 <span className="text-xs text-slate-400">
-                                  {formatDistanceToNow(lastSeenDate, {
-                                    addSuffix: true,
-                                  })}
+                                  {durationLabel}
                                 </span>
                               </div>
                             );
                           })()
                         ) : (
-                          <span className="text-slate-500">Offline</span>
+                          <span className="text-slate-500">Down (no data)</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-400">

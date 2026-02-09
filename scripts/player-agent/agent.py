@@ -218,6 +218,61 @@ def fetch_commands(supabase_url, supabase_key):
     return commands
 
 
+def ack_command(supabase_url, supabase_key, command_id, status, error_text=None):
+    state = load_state()
+    device_id = state.get("device_id")
+    device_token = state.get("device_token")
+    payload = {
+        "command_id": command_id,
+        "device_id": device_id,
+        "device_token": device_token,
+        "status": status,
+        "error": error_text,
+    }
+
+    endpoint = f"{supabase_url}/functions/v1/player-command-ack"
+    request = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    with urllib.request.urlopen(request) as response:
+        body = response.read().decode("utf-8")
+        return json.loads(body)
+
+
+def log_message(supabase_url, supabase_key, level, message, meta=None):
+    state = load_state()
+    device_id = state.get("device_id")
+    device_token = state.get("device_token")
+    payload = {
+        "device_id": device_id,
+        "device_token": device_token,
+        "level": level,
+        "message": message,
+        "meta": meta or {},
+    }
+
+    endpoint = f"{supabase_url}/functions/v1/player-logs"
+    request = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    with urllib.request.urlopen(request):
+        return
+
+
 def update_kiosk_config(desired_url):
     os.makedirs(os.path.dirname(KIOSK_CONFIG_PATH), exist_ok=True)
     target_url = desired_url or DEFAULT_KIOSK_URL
@@ -241,6 +296,25 @@ def restart_kiosk():
     os.system("pkill -f chromium >/dev/null 2>&1 || true")
 
 
+def execute_command(command):
+    command_type = command.get("type")
+    payload = command.get("payload") or {}
+    if command_type == "set_url":
+        url = payload.get("url")
+        if not url:
+            raise RuntimeError("Missing url in payload")
+        update_kiosk_config(url)
+        restart_kiosk()
+        return
+    if command_type in {"reload", "restart_kiosk"}:
+        restart_kiosk()
+        return
+    if command_type == "reboot":
+        os.system("sudo reboot")
+        return
+    raise RuntimeError(f"Unknown command type: {command_type}")
+
+
 def heartbeat_loop(supabase_url, supabase_key, interval_seconds):
     while True:
         send_heartbeat(supabase_url, supabase_key)
@@ -251,8 +325,30 @@ def heartbeat_loop(supabase_url, supabase_key, interval_seconds):
             restart_kiosk()
             print("Kiosk URL updated; Chromium restarting.")
         if commands:
-            command_ids = [command.get("id") for command in commands]
-            print(f"Received commands: {command_ids}")
+            for command in commands:
+                command_id = command.get("id")
+                try:
+                    execute_command(command)
+                    ack_command(supabase_url, supabase_key, command_id, "success")
+                    log_message(
+                        supabase_url,
+                        supabase_key,
+                        "info",
+                        f"Command {command.get('type')} executed",
+                        {"command_id": command_id},
+                    )
+                except Exception as exc:
+                    error_text = str(exc)
+                    ack_command(
+                        supabase_url, supabase_key, command_id, "fail", error_text
+                    )
+                    log_message(
+                        supabase_url,
+                        supabase_key,
+                        "error",
+                        f"Command {command.get('type')} failed",
+                        {"command_id": command_id, "error": error_text},
+                    )
         else:
             print("Heartbeat sent.")
         time.sleep(interval_seconds)
