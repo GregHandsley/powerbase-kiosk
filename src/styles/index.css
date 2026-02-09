@@ -31,11 +31,65 @@
     sans-serif;
   background-color: #020617;
   color: #f9fafb;
+
+  /* Organization Branding Variables */
+  /* These are set dynamically by BrandingProvider */
+  --brand-primary: #361163; /* African Violet */
+  --brand-secondary: #b70062; /* Mulberry */
+  --brand-accent: #e4002b; /* Mercia Red */
+  --brand-background: #cbcece; /* Fountain Grey */
+  --brand-text: #525e66; /* Asphalt */
+  --brand-primary-rgb: 54 17 99;
+  --brand-secondary-rgb: 183 0 98;
+  --brand-accent-rgb: 228 0 43;
+  --brand-background-rgb: 203 206 206;
+  --brand-text-rgb: 82 94 102;
+  --brand-logo-url: none;
+}
+
+/* Branding Utility Classes */
+.btn-brand-primary {
+  background-color: var(--brand-primary);
+  color: white;
+}
+
+.btn-brand-primary:hover {
+  background-color: var(--brand-primary);
+  opacity: 0.9;
+}
+
+.btn-brand-secondary {
+  background-color: var(--brand-secondary);
+  color: white;
+}
+
+.btn-brand-secondary:hover {
+  background-color: var(--brand-secondary);
+  opacity: 0.9;
+}
+
+.text-brand-primary {
+  color: var(--brand-primary);
+}
+
+.text-brand-secondary {
+  color: var(--brand-secondary);
+}
+
+.text-brand-accent {
+  color: var(--brand-accent);
+}
+
+.bg-brand-background {
+  background-color: var(--brand-background);
+}
+
+.text-brand-text {
+  color: var(--brand-text);
 }
 
 html,
-body,
-#root {
+body {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -43,6 +97,15 @@ body,
 
 body {
   overflow: auto;
+  /* Ensure body can scroll */
+  min-height: 100vh;
+}
+
+#root {
+  overflow: visible;
+  /* Allow root to grow beyond viewport for scrolling */
+  min-height: 100%;
+  height: auto;
 }
 
 .app-shell {
@@ -51,24 +114,323 @@ body {
   color: #f9fafb;
 }
 
-@keyframes kioskPulse {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.kiosk-gradient {
-  background: radial-gradient(circle at top, #1d4ed8, #020617 40%, #0f172a 80%);
-  background-size: 200% 200%;
-  animation: kioskPulse 20s ease-in-out infinite;
-}
-
 .kiosk-page {
   overflow: hidden;
+}
+
+.kiosk-shell {
+  background: radial-gradient(circle at top left, #111827 0%, #020617 58%);
+  color: #e2e8f0;
+  font-family: 'SF Pro Display', 'Inter', system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  --kiosk-gutter: 2rem;
+}
+
+.kiosk-frame {
+  /* Flexible scaling: fill viewport while maintaining close to 16:9 */
+  /* Uses whichever dimension is more constrained to prevent cutoff */
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  /* Removed strict aspect-ratio to allow slight deviation when needed */
+  max-width: 100vw;
+  max-height: 100vh;
+}
+
+.kiosk-frame-inner {
+  height: 100%;
+  width: 100%;
+  padding: var(--kiosk-gutter);
+  box-sizing: border-box;
+}
+
+.kiosk-grid {
+  gap: var(--kiosk-gutter);
+}
+
+.kiosk-zone {
+  border-radius: 20px;
+  padding: 1.6rem;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.85),
+    rgba(2, 6, 23, 0.92)
+  );
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow:
+    0 20px 45px rgba(2, 6, 23, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.kiosk-zone--quiet {
+  background: linear-gradient(
+    180deg,
+    rgba(8, 15, 26, 0.72),
+    rgba(2, 6, 23, 0.88)
+  );
+  border-color: rgba(148, 163, 184, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  /* No padding to maximize floorplan space */
+  padding: 0;
+}
+
+.kiosk-kicker {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  color: #64748b;
+}
+
+.kiosk-fade {
+  transition: opacity 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Stream Preview Mode - Simulates low-FPS capture */
+/* Uses CSS custom properties for dynamic FPS control via diagnostics panel */
+.stream-preview-mode .kiosk-fade {
+  transition: opacity 300ms steps(var(--fps-steps-fade, 1), end);
+}
+
+.stream-preview-mode .kiosk-quadrant-page {
+  transition: opacity 360ms steps(var(--fps-steps-quadrant, 1), end);
+}
+
+.stream-preview-mode .kiosk-platform-card {
+  transition: all 280ms steps(var(--fps-steps-card, 1), end);
+}
+
+.stream-preview-mode .kiosk-platform-card::before {
+  transition: opacity 280ms steps(var(--fps-steps-card, 1), end);
+}
+
+/* Smooth mode override - when steps is 0, use smooth transitions */
+body:not(.stream-preview-mode) .kiosk-fade,
+body.stream-preview-mode[style*='--fps-steps-fade: 0'] .kiosk-fade {
+  transition: opacity 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.kiosk-status-divider {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.kiosk-status-list {
+  background-color: #0a0f1a;
+  padding: 0.5rem;
+}
+
+.kiosk-quadrant-page {
+  /* Removed solid background - cards provide their own visual separation */
+  transition: opacity 360ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: opacity;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Platform Status Card - Apple-like design with glassmorphism */
+.kiosk-platform-card {
+  /* Purposeful definition through contrast and subtle depth */
+  background: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.95),
+    rgba(20, 30, 48, 0.98)
+  );
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 18px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px) saturate(140%);
+  transition: all 280ms cubic-bezier(0.2, 0, 0, 1);
+  position: relative;
+  overflow: hidden;
+  /* Rendering optimizations */
+  contain: layout style paint;
+  will-change: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Kiosk mode: avoid GPU-heavy effects that cause white flashes on signage */
+body.kiosk-mode .kiosk-platform-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: none;
+}
+
+body.kiosk-mode .kiosk-platform-card::before {
+  transition: none;
+}
+
+/* Subtle hover effect for interactivity (even if not clickable, provides depth) */
+.kiosk-platform-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(148, 163, 184, 0.05),
+    rgba(255, 255, 255, 0.03)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 280ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Subtle inner glow for depth */
+.kiosk-platform-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  pointer-events: none;
+}
+
+.kiosk-status-row {
+  background-color: #0a0f1a;
+  padding: 0 1rem;
+  border-radius: 0.75rem;
+}
+
+.kiosk-surface {
+  background-color: #0a0f1a;
+}
+
+.kiosk-header {
+  background-color: #0a0f1a;
+}
+
+.kiosk-floorplan {
+  /* Removed padding to allow floorplan to use more space */
+  /* The zone container already provides padding */
+  /* Rendering optimizations */
+  contain: layout style paint;
+  will-change: auto;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Glassmorphism utilities */
+.glass-panel {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.78),
+    rgba(2, 6, 23, 0.65)
+  );
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow:
+    0 14px 40px rgba(2, 6, 23, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+
+.glass-header {
+  background: linear-gradient(
+    180deg,
+    rgba(2, 6, 23, 0.7),
+    rgba(15, 23, 42, 0.55)
+  );
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow:
+    0 10px 24px rgba(2, 6, 23, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(22px) saturate(170%);
+}
+
+.glass-panel:before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.22),
+    rgba(99, 102, 241, 0.18),
+    rgba(255, 255, 255, 0.06)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.login-ambient {
+  position: relative;
+  overflow: hidden;
+}
+
+.login-ambient:before,
+.login-ambient:after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(
+      circle at var(--glow-x, 50%) var(--glow-y, 50%),
+      rgba(99, 102, 241, 0.22),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 80% 30%,
+      rgba(14, 165, 233, 0.18),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 20% 80%,
+      rgba(236, 72, 153, 0.14),
+      transparent 45%
+    );
+  filter: blur(12px);
+  animation: ambientDrift 26s ease-in-out infinite alternate;
+  z-index: 0;
+}
+
+.login-ambient:after {
+  animation-duration: 34s;
+  animation-delay: -10s;
+  opacity: 0.55;
+}
+
+@keyframes ambientDrift {
+  0% {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate3d(3%, 2%, 0) scale(1.04);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate3d(2%, -3%, 0) scale(1.06);
+    opacity: 0.6;
+  }
 }

@@ -8,6 +8,13 @@ export default {
   theme: {
     extend: {
       colors: {
+        indigo: {
+          400: 'rgb(var(--brand-primary-rgb) / <alpha-value>)',
+          500: 'rgb(var(--brand-primary-rgb) / <alpha-value>)',
+          600: 'rgb(var(--brand-primary-rgb) / <alpha-value>)',
+          700: 'rgb(var(--brand-primary-rgb) / <alpha-value>)',
+          900: 'rgb(var(--brand-primary-rgb) / <alpha-value>)',
+        },
         brand: {
           bg: brand.bg,
           panel: brand.panel,

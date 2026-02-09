@@ -4,15 +4,14 @@ type BookingEditorActionsProps = {
   onEditRacks?: () => void;
   onCancel: () => void;
   onSave?: () => void;
-  onDeleteSelected?: () => void;
-  onDeleteSeries?: () => void;
+  onCancelBooking?: () => void;
   onExtend?: () => void;
   saving: boolean;
-  deleting: boolean;
+  cancelling: boolean;
   hasChanges: boolean;
   selectedInstancesCount: number;
   seriesInstancesCount: number;
-  showDeleteConfirm: boolean;
+  showCancelDialog: boolean;
   showExtendDialog: boolean;
   isLocked: boolean;
 };
@@ -24,15 +23,14 @@ export function BookingEditorActions({
   onEditRacks,
   onCancel,
   onSave,
-  onDeleteSelected,
-  onDeleteSeries,
+  onCancelBooking,
   onExtend,
   saving,
-  deleting,
+  cancelling,
   hasChanges,
   selectedInstancesCount,
-  seriesInstancesCount,
-  showDeleteConfirm,
+  // seriesInstancesCount,
+  showCancelDialog,
   showExtendDialog,
   isLocked,
 }: BookingEditorActionsProps) {
@@ -43,7 +41,7 @@ export function BookingEditorActions({
           <button
             type="button"
             onClick={onEditRacks}
-            disabled={isLocked || saving || deleting}
+            disabled={isLocked || saving || cancelling}
             className={clsx(
               'px-4 py-2 text-sm font-medium rounded-md',
               'bg-slate-700 hover:bg-slate-600 text-slate-100',
@@ -57,7 +55,7 @@ export function BookingEditorActions({
           <button
             type="button"
             onClick={onCancel}
-            disabled={saving || deleting}
+            disabled={saving || cancelling}
             className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-slate-100 disabled:opacity-50"
           >
             Cancel
@@ -68,7 +66,7 @@ export function BookingEditorActions({
               onClick={onSave}
               disabled={
                 saving ||
-                deleting ||
+                cancelling ||
                 isLocked ||
                 !hasChanges ||
                 selectedInstancesCount === 0
@@ -85,17 +83,17 @@ export function BookingEditorActions({
         </div>
       </div>
 
-      {/* Delete Actions */}
+      {/* Cancel Actions */}
       <div className="flex gap-2 pt-2 border-t border-slate-800">
-        {onDeleteSelected && selectedInstancesCount > 0 && (
+        {onCancelBooking && (
           <button
             type="button"
-            onClick={onDeleteSelected}
+            onClick={onCancelBooking}
             disabled={
               isLocked ||
               saving ||
-              deleting ||
-              showDeleteConfirm !== false ||
+              cancelling ||
+              showCancelDialog ||
               showExtendDialog
             }
             className={clsx(
@@ -104,27 +102,7 @@ export function BookingEditorActions({
               'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >
-            Delete Selected ({selectedInstancesCount})
-          </button>
-        )}
-        {onDeleteSeries && seriesInstancesCount > 1 && (
-          <button
-            type="button"
-            onClick={onDeleteSeries}
-            disabled={
-              isLocked ||
-              saving ||
-              deleting ||
-              showDeleteConfirm !== false ||
-              showExtendDialog
-            }
-            className={clsx(
-              'px-3 py-1.5 text-xs font-medium rounded-md',
-              'bg-red-900/30 hover:bg-red-900/50 text-red-300 border border-red-800/50',
-              'disabled:opacity-50 disabled:cursor-not-allowed'
-            )}
-          >
-            Delete Entire Series
+            Cancel Booking
           </button>
         )}
         {onExtend && (
@@ -134,9 +112,9 @@ export function BookingEditorActions({
             disabled={
               isLocked ||
               saving ||
-              deleting ||
+              cancelling ||
               showExtendDialog ||
-              showDeleteConfirm !== false
+              showCancelDialog
             }
             className={clsx(
               'px-3 py-1.5 text-xs font-medium rounded-md',

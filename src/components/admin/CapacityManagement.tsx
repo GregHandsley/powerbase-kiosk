@@ -5,6 +5,7 @@ import { CapacityEditModal } from './CapacityEditModal';
 import { WeekNavigationHeader } from './capacity/WeekNavigationHeader';
 import { CapacityCalendarGrid } from './capacity/CapacityCalendarGrid';
 import { DeleteScheduleDialog } from './capacity/DeleteScheduleDialog';
+import { EditScheduleDialog } from './capacity/EditScheduleDialog';
 import { useCapacitySchedules } from './capacity/useCapacitySchedules';
 import { useScheduleDeletion } from './capacity/useScheduleDeletion';
 import { useScheduleSaving } from './capacity/useScheduleSaving';
@@ -15,8 +16,19 @@ import {
   type RecurrenceType,
   type TimeSlot,
 } from './capacity/scheduleUtils';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../../hooks/usePermissions';
 
 export function CapacityManagement() {
+  // Check permissions for managing capacity
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canManageCapacity } = usePermission(
+    primaryOrgId,
+    'capacity.manage'
+  );
+
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedSide, setSelectedSide] = useState<'Power' | 'Base'>('Power');
   const [sideId, setSideId] = useState<number | null>(null);
@@ -54,6 +66,35 @@ export function CapacityManagement() {
   // Schedule saving hook
   const { saveCapacity } = useScheduleSaving(sideId);
 
+  // Edit mode state
+  const [editConfirm, setEditConfirm] = useState<{
+    isOpen: boolean;
+    selectedDate: Date | null;
+    selectedTime: string | null;
+    scheduleInfo: {
+      recurrenceType: string;
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+      periodType: string;
+    } | null;
+    editData: {
+      capacity: number;
+      periodType: PeriodType;
+      recurrenceType: RecurrenceType;
+      startTime: string;
+      endTime: string;
+      platforms: number[];
+    } | null;
+  }>({
+    isOpen: false,
+    selectedDate: null,
+    selectedTime: null,
+    scheduleInfo: null,
+    editData: null,
+  });
+  const [editMode, setEditMode] = useState<'single' | 'future'>('single');
+
   const navigateWeek = (direction: 'prev' | 'next') => {
     setCurrentWeek((prev) => addDays(prev, direction === 'next' ? 7 : -7));
   };
@@ -63,6 +104,9 @@ export function CapacityManagement() {
   };
 
   const handleCellClick = (day: Date, timeSlot: TimeSlot) => {
+    if (!canManageCapacity) {
+      return;
+    }
     const timeStr = `${String(timeSlot.hour).padStart(2, '0')}:${String(timeSlot.minute).padStart(2, '0')}`;
     setEditingCell({ date: day, time: timeStr });
   };
@@ -85,8 +129,29 @@ export function CapacityManagement() {
     const currentSchedule = cellData?.scheduleId
       ? scheduleData.get(cellData.scheduleId)
       : null;
-    const existingScheduleIds = currentSchedule ? [currentSchedule.id] : [];
 
+    // If editing an existing schedule, show the edit mode dialog
+    if (currentSchedule && cellData) {
+      const scheduleInfo = {
+        recurrenceType: currentSchedule.recurrence_type,
+        dayOfWeek: currentSchedule.day_of_week,
+        startTime: currentSchedule.start_time,
+        endTime: currentSchedule.end_time,
+        periodType: currentSchedule.period_type,
+      };
+
+      setEditConfirm({
+        isOpen: true,
+        selectedDate: editingCell.date,
+        selectedTime: editingCell.time,
+        scheduleInfo,
+        editData: data,
+      });
+      setEditMode('single');
+      return;
+    }
+
+    // For new schedules, save directly
     await saveCapacity(
       data,
       editingCell.date,
@@ -94,7 +159,45 @@ export function CapacityManagement() {
         setCurrentWeek((prev) => new Date(prev.getTime()));
         setEditingCell(null);
       },
-      existingScheduleIds
+      [],
+      'single'
+    );
+  };
+
+  const handleConfirmEdit = async () => {
+    if (
+      !editConfirm.editData ||
+      !editConfirm.selectedDate ||
+      !editConfirm.selectedTime
+    )
+      return;
+
+    const [hour, minute] = editConfirm.selectedTime.split(':').map(Number);
+    const cellData = getCellCapacity(editConfirm.selectedDate, {
+      hour,
+      minute,
+    });
+    const currentSchedule = cellData?.scheduleId
+      ? scheduleData.get(cellData.scheduleId)
+      : null;
+    const existingScheduleIds = currentSchedule ? [currentSchedule.id] : [];
+
+    await saveCapacity(
+      editConfirm.editData,
+      editConfirm.selectedDate,
+      () => {
+        setCurrentWeek((prev) => new Date(prev.getTime()));
+        setEditingCell(null);
+        setEditConfirm({
+          isOpen: false,
+          selectedDate: null,
+          selectedTime: null,
+          scheduleInfo: null,
+          editData: null,
+        });
+      },
+      existingScheduleIds,
+      editMode
     );
   };
 
@@ -108,6 +211,35 @@ export function CapacityManagement() {
     setCurrentWeek((prev) => new Date(prev.getTime()));
     setEditingCell(null);
   };
+
+  // Show access denied message if user doesn't have permission
+  if (!canManageCapacity) {
+    return (
+      <div className="h-full flex items-center justify-center p-8">
+        <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-md">
+          <div className="flex items-center gap-2 text-slate-400">
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span className="text-sm">
+              You don't have permission to manage capacity. Contact your
+              administrator if you need access.
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col space-y-4">
@@ -205,6 +337,24 @@ export function CapacityManagement() {
             scheduleIds: [],
             selectedDate: null,
             scheduleInfo: null,
+          })
+        }
+      />
+
+      <EditScheduleDialog
+        isOpen={editConfirm.isOpen}
+        selectedDate={editConfirm.selectedDate}
+        scheduleInfo={editConfirm.scheduleInfo}
+        editMode={editMode}
+        onEditModeChange={setEditMode}
+        onConfirm={handleConfirmEdit}
+        onCancel={() =>
+          setEditConfirm({
+            isOpen: false,
+            selectedDate: null,
+            selectedTime: null,
+            scheduleInfo: null,
+            editData: null,
           })
         }
       />

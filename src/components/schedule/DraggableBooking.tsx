@@ -2,7 +2,6 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { ActiveInstance } from '../../types/snapshot';
 import { useAuth } from '../../context/AuthContext';
-import { StatusBadge } from '../shared/StatusBadge';
 import { canMoveBooking } from '../../utils/bookingPermissions';
 
 type Props = {
@@ -93,7 +92,6 @@ export function DraggableBooking({
         <span>{booking.title}</span>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
-        {booking.status && <StatusBadge status={booking.status} size="sm" />}
         <div className="text-sm sm:text-base text-slate-300 whitespace-nowrap">
           {booking.start.slice(11, 16)}–{booking.end.slice(11, 16)}
         </div>

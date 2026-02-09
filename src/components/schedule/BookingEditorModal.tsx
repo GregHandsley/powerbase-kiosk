@@ -7,7 +7,7 @@ import { BookingEditorHeader } from './booking-editor/BookingEditorHeader';
 import { TimeInputSection } from './booking-editor/TimeInputSection';
 import { SeriesInstancesList } from './booking-editor/SeriesInstancesList';
 import { ExtendBookingDialog } from './booking-editor/ExtendBookingDialog';
-import { DeleteConfirmationDialog } from './booking-editor/DeleteConfirmationDialog';
+import { CancelBookingDialog } from './booking-editor/CancelBookingDialog';
 import { UpdateTimeConfirmationDialog } from './booking-editor/UpdateTimeConfirmationDialog';
 import { BookingEditorActions } from './booking-editor/BookingEditorActions';
 import { useBookingEditor } from './booking-editor/useBookingEditor';
@@ -48,8 +48,9 @@ export function BookingEditorModal({
     capacity,
     saving,
     error,
-    showDeleteConfirm,
-    deleting,
+    showCancelDialog,
+    cancelMode,
+    cancelling,
     selectedInstances,
     applyToAll,
     currentWeekIndex,
@@ -65,7 +66,8 @@ export function BookingEditorModal({
     setEndTime,
     setCapacity,
     setError,
-    setShowDeleteConfirm,
+    setShowCancelDialog,
+    setCancelMode,
     setApplyToAll,
     setCurrentWeekIndex,
     setShowExtendDialog,
@@ -73,8 +75,7 @@ export function BookingEditorModal({
     setShowUpdateTimeConfirm,
     handleSaveTime,
     performUpdate,
-    handleDeleteSelected,
-    handleDeleteSeries,
+    handleCancelBooking,
     handleExtendBooking,
     handleInstanceToggle,
   } = useBookingEditor(booking, isOpen, initialSelectedInstances);
@@ -127,8 +128,13 @@ export function BookingEditorModal({
 
   if (!isOpen || !booking) return null;
 
+  // Check if booking is cancelled
+  const isCancelled =
+    booking.status === 'cancelled' || booking.status === 'pending_cancellation';
+
   // Check if user has permission to edit this booking
-  const canEdit = canEditBooking(booking, user?.id || null, role);
+  const canEdit =
+    !isCancelled && canEditBooking(booking, user?.id || null, role);
   const isLocked = booking.isLocked && role !== 'admin';
 
   const handleCancel = () => {
@@ -174,7 +180,12 @@ export function BookingEditorModal({
           mode={canEdit ? 'edit' : 'view'}
         />
 
-        {!canEdit && (
+        {isCancelled && (
+          <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-md text-sm text-red-200">
+            This booking has been cancelled and cannot be edited.
+          </div>
+        )}
+        {!canEdit && !isCancelled && (
           <div className="p-3 bg-amber-900/20 border border-amber-700/50 rounded-md text-sm text-amber-200">
             You don't have permission to edit this booking. Only the coach who
             created it or an admin can edit it.
@@ -230,7 +241,7 @@ export function BookingEditorModal({
           onApplyToAllChange={setApplyToAll}
           currentWeekIndex={currentWeekIndex}
           onWeekIndexChange={setCurrentWeekIndex}
-          disabled={isLocked || saving || deleting}
+          disabled={isLocked || saving || cancelling}
           showCapacity={!applyToAll}
         />
 
@@ -274,34 +285,41 @@ export function BookingEditorModal({
           disabled={isLocked}
         />
 
-        <DeleteConfirmationDialog
-          isOpen={showDeleteConfirm !== null}
-          type={showDeleteConfirm ?? 'selected'}
-          selectedInstances={selectedInstances}
-          seriesInstances={seriesInstances}
-          onCancel={() => setShowDeleteConfirm(null)}
+        <CancelBookingDialog
+          isOpen={showCancelDialog}
+          selectedDate={booking ? new Date(booking.start) : null}
+          bookingInfo={
+            booking
+              ? {
+                  title: booking.title,
+                  bookingId: booking.bookingId,
+                  hasRecurrence: seriesInstances.length > 1,
+                }
+              : null
+          }
+          cancelMode={cancelMode}
+          onCancelModeChange={setCancelMode}
+          onCancel={() => setShowCancelDialog(false)}
           onConfirm={async () => {
-            const success =
-              showDeleteConfirm === 'selected'
-                ? await handleDeleteSelected()
-                : await handleDeleteSeries();
+            const success = await handleCancelBooking();
             if (success) {
               onClose();
             }
           }}
-          deleting={deleting}
-          disabled={isLocked}
+          cancelling={cancelling}
         />
 
         <BookingEditorActions
           onEditRacks={canEdit ? handleClearRacks : undefined}
           onCancel={handleCancel}
           onSave={canEdit ? handleSave : undefined}
-          onDeleteSelected={
-            canEdit ? () => setShowDeleteConfirm('selected') : undefined
-          }
-          onDeleteSeries={
-            canEdit ? () => setShowDeleteConfirm('series') : undefined
+          onCancelBooking={
+            canEdit
+              ? () => {
+                  setShowCancelDialog(true);
+                  setCancelMode('single');
+                }
+              : undefined
           }
           onExtend={
             canEdit
@@ -312,11 +330,11 @@ export function BookingEditorModal({
               : undefined
           }
           saving={saving}
-          deleting={deleting}
+          cancelling={cancelling}
           hasChanges={hasChanges}
           selectedInstancesCount={selectedInstances.size}
           seriesInstancesCount={seriesInstances.length}
-          showDeleteConfirm={showDeleteConfirm !== null}
+          showCancelDialog={showCancelDialog}
           showExtendDialog={showExtendDialog}
           isLocked={isLocked || !canEdit}
         />

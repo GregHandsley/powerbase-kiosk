@@ -12,6 +12,23 @@ const SENTRY_DSN =
  * Should be called as early as possible in the application lifecycle
  */
 export function initSentry() {
+  // Suppress Sentry 429 rate limit errors in console (development only)
+  if (APP_ENV === 'development') {
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => {
+      const message = args.join(' ');
+      // Filter out Sentry 429 errors
+      if (
+        typeof message === 'string' &&
+        (message.includes('sentry.io') || message.includes('Sentry')) &&
+        (message.includes('429') || message.includes('Too Many Requests'))
+      ) {
+        return; // Silently ignore
+      }
+      originalError.apply(console, args);
+    };
+  }
+
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: APP_ENV,
@@ -32,27 +49,44 @@ export function initSentry() {
         blockAllMedia: true, // Privacy: block all media
       }),
       // Send console.log, console.warn, and console.error calls as logs to Sentry
-      Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
+      // Only in production to reduce dev noise
+      ...(APP_ENV === 'production'
+        ? [
+            Sentry.consoleLoggingIntegration({
+              levels: ['log', 'warn', 'error'],
+            }),
+          ]
+        : []),
     ],
 
     // Performance Monitoring
-    tracesSampleRate: APP_ENV === 'production' ? 0.1 : 1.0, // 10% in prod, 100% in dev
+    tracesSampleRate: APP_ENV === 'production' ? 0.1 : 0.0, // 10% in prod, 0% in dev (reduce noise)
 
     // Session Replay
-    replaysSessionSampleRate: APP_ENV === 'production' ? 0.1 : 1.0, // 10% in prod
-    replaysOnErrorSampleRate: 1.0, // Always capture replays on errors
+    replaysSessionSampleRate: APP_ENV === 'production' ? 0.1 : 0.0, // 10% in prod, 0% in dev (reduce noise)
+    replaysOnErrorSampleRate: APP_ENV === 'production' ? 1.0 : 0.0, // Only in prod
 
     // Error filtering - don't send certain errors
     beforeSend(event, hint) {
       // Filter out known non-critical errors
       const error = hint.originalException;
 
+      // Ignore Sentry rate limiting errors (429)
+      if (
+        event.request?.url?.includes('sentry.io') &&
+        (event.tags?.status === 429 || event.extra?.status === 429)
+      ) {
+        return null; // Silently ignore Sentry rate limit errors
+      }
+
       // Ignore network errors that are expected (e.g., offline)
       if (error instanceof Error) {
         if (
           error.message.includes('Failed to fetch') ||
           error.message.includes('NetworkError') ||
-          error.message.includes('Load failed')
+          error.message.includes('Load failed') ||
+          error.message.includes('429') ||
+          error.message.includes('Too Many Requests')
         ) {
           // Only ignore in development, track in production
           if (APP_ENV === 'development') {

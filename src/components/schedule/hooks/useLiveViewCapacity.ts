@@ -190,6 +190,8 @@ export function useLiveViewCapacity({ side, date, time }: Args) {
   return {
     sideId,
     applicableSchedule,
+    capacitySchedules,
+    schedulesLoading,
     availablePlatforms,
     isClosedPeriod,
   };

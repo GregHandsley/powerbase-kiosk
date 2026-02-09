@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   useBookingsTeam,
@@ -13,6 +14,10 @@ import { ConfirmationDialog } from '../components/shared/ConfirmationDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import { deleteTasksForBooking } from '../hooks/useTasks';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../hooks/usePermissions';
 
 function InfoTooltip({ content }: { content: string }) {
   const [show, setShow] = useState(false);
@@ -53,13 +58,15 @@ function InfoTooltip({ content }: { content: string }) {
 export function BookingsTeam() {
   const { user, role } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // Default to today's date to filter out completed sessions
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const [filters, setFilters] = useState<BookingsTeamFilter>({
-    status: 'pending', // Default to pending
+    status: 'pending', // Only show pending bookings by default
     side: 'all',
-    dateFrom: today,
+    dateFrom: today, // Filter out past sessions
   });
   const [selectedBookings, setSelectedBookings] = useState<Set<number>>(
     new Set()
@@ -69,34 +76,87 @@ export function BookingsTeam() {
   );
   const [processingBooking, setProcessingBooking] =
     useState<BookingForTeam | null>(null);
+  const [cancellingBooking, setCancellingBooking] =
+    useState<BookingForTeam | null>(null);
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [processing, setProcessing] = useState(false);
 
   // Check if user has access (admin or bookings_team role)
   const hasAccess = role === 'admin'; // TODO: Add "bookings_team" role check when implemented
 
+  // Check permissions for processing bookings
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canProcessBookings } = usePermission(
+    primaryOrgId,
+    'bookings.process'
+  );
+
   // Fetch bookings
   const { data: bookings = [], isLoading, error } = useBookingsTeam(filters);
 
-  // Fetch coaches for filter dropdown
+  // Handle booking query parameter to open modal
+  useEffect(() => {
+    const bookingIdParam = searchParams.get('booking');
+    if (bookingIdParam) {
+      const bookingId = parseInt(bookingIdParam, 10);
+      if (!isNaN(bookingId)) {
+        // Find the booking in the current list
+        const booking = bookings.find((b) => b.id === bookingId);
+        if (booking) {
+          setViewingBooking(booking);
+        }
+      }
+    }
+  }, [searchParams, bookings]);
+
+  // Clear booking query parameter when modal is closed
+  const handleCloseModal = () => {
+    setViewingBooking(null);
+    // Remove booking query parameter from URL
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('booking');
+    setSearchParams(newSearchParams, { replace: true });
+  };
+
+  // Fetch coach-like roles for filter dropdown (2.3.1: query organization_memberships)
   const { data: coaches = [] } = useQuery({
     queryKey: ['coaches-list'],
     queryFn: async () => {
+      // Get all users with coach-like roles (S&C Coach, Fitness Coach, etc.)
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .eq('role', 'coach')
-        .order('full_name', { ascending: true });
+        .from('organization_memberships')
+        .select('user_id, profiles!inner(id, full_name)')
+        .in('role', [
+          'snc_coach',
+          'fitness_coach',
+          'customer_service_assistant',
+          'duty_manager',
+        ])
+        .order('profiles(full_name)', { ascending: true });
 
       if (error) {
         console.error('Error fetching coaches:', error);
         return [];
       }
 
-      return (data || []).map((p) => ({
-        id: p.id,
-        full_name: p.full_name,
-      }));
+      // Extract unique users (a user might have multiple coach roles in different orgs)
+      const uniqueUsers = new Map<
+        string,
+        { id: string; full_name: string | null }
+      >();
+      (data || []).forEach((m) => {
+        const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+        if (profile && !uniqueUsers.has(m.user_id)) {
+          uniqueUsers.set(m.user_id, {
+            id: profile.id,
+            full_name: profile.full_name,
+          });
+        }
+      });
+
+      return Array.from(uniqueUsers.values()).sort((a, b) =>
+        (a.full_name || '').localeCompare(b.full_name || '')
+      );
     },
   });
 
@@ -158,8 +218,60 @@ export function BookingsTeam() {
         throw new Error(error.message);
       }
 
+      // Log activity: booking approved (processed)
+      if (user?.id && booking.organization_id) {
+        // Fetch site_id from booking
+        const { data: bookingData } = await supabase
+          .from('bookings')
+          .select('site_id')
+          .eq('id', booking.id)
+          .single();
+
+        if (bookingData?.site_id) {
+          const { ActivityLogger } = await import('../lib/activityLogger');
+          ActivityLogger.booking
+            .approved(
+              booking.organization_id,
+              bookingData.site_id,
+              user.id,
+              booking.id,
+              booking.created_by,
+              {
+                title: booking.title,
+              }
+            )
+            .catch((err) => {
+              // Fail-open: don't break booking processing if logging fails
+              console.error('Failed to log booking approval activity:', err);
+            });
+        }
+      }
+
       // Delete tasks related to this booking since it's now processed/resolved
       await deleteTasksForBooking(booking.id);
+
+      // Create notification for the user who created the booking
+      if (booking.created_by) {
+        try {
+          const { createNotification } =
+            await import('../hooks/useNotifications');
+          await createNotification({
+            userId: booking.created_by,
+            type: 'booking:processed',
+            title: 'Booking Processed',
+            message: `Your booking "${booking.title}" has been processed by the bookings team.`,
+            link: `/my-bookings?booking=${booking.id}`,
+            metadata: {
+              booking_id: booking.id,
+              booking_title: booking.title,
+              processed_by: user.id,
+            },
+          });
+        } catch (notifError) {
+          // Fail-open: don't break booking processing if notification fails
+          console.error('Failed to create notification:', notifError);
+        }
+      }
 
       // Invalidate queries
       await queryClient.invalidateQueries({ queryKey: ['bookings-team'] });
@@ -172,6 +284,111 @@ export function BookingsTeam() {
     } catch (err) {
       console.error('Failed to process booking:', err);
       alert(err instanceof Error ? err.message : 'Failed to process booking');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleConfirmCancellation = async (booking: BookingForTeam) => {
+    if (!user) return;
+
+    setProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          status: 'cancelled',
+          processed_by: user.id,
+          processed_at: new Date().toISOString(),
+        })
+        .eq('id', booking.id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Log activity: booking cancelled
+      if (user?.id && booking.organization_id) {
+        // Fetch site_id from booking
+        const { data: bookingData } = await supabase
+          .from('bookings')
+          .select('site_id')
+          .eq('id', booking.id)
+          .single();
+
+        if (bookingData?.site_id) {
+          const { ActivityLogger } = await import('../lib/activityLogger');
+          ActivityLogger.booking
+            .cancellationConfirmed(
+              booking.organization_id,
+              bookingData.site_id,
+              user.id,
+              booking.id,
+              {
+                title: booking.title,
+              }
+            )
+            .catch((err) => {
+              // Fail-open: don't break booking cancellation if logging fails
+              console.error(
+                'Failed to log booking cancellation confirmation activity:',
+                err
+              );
+            });
+        }
+      }
+
+      // Delete tasks related to this booking since cancellation is confirmed
+      await deleteTasksForBooking(booking.id);
+
+      // Notify the booking creator that the cancellation was confirmed
+      if (booking.created_by) {
+        try {
+          const { createNotification } =
+            await import('../hooks/useNotifications');
+          await createNotification({
+            userId: booking.created_by,
+            type: 'booking:cancelled',
+            title: 'Booking Cancelled',
+            message: `Your booking "${booking.title}" has been cancelled.`,
+            link: `/my-bookings?booking=${booking.id}`,
+            metadata: {
+              booking_id: booking.id,
+              booking_title: booking.title,
+              cancelled_by: user.id,
+            },
+          });
+        } catch (notifError) {
+          // Fail-open: don't break cancellation if notification fails
+          console.error(
+            'Failed to create cancellation notification:',
+            notifError
+          );
+        }
+      }
+
+      // Invalidate queries to refresh all views
+      await queryClient.invalidateQueries({ queryKey: ['bookings-team'] });
+      await queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+      await queryClient.invalidateQueries({ queryKey: ['snapshot'] });
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await queryClient.invalidateQueries({ queryKey: ['schedule-bookings'] });
+      await queryClient.invalidateQueries({
+        queryKey: ['booking-instances-for-time'],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['existing-instances-for-capacity-check'],
+      });
+
+      // Close the modal and confirmation dialog immediately after successful cancellation
+      setViewingBooking(null);
+      setCancellingBooking(null);
+      setProcessingBooking(null);
+    } catch (err) {
+      console.error('Failed to confirm cancellation:', err);
+      alert(
+        err instanceof Error ? err.message : 'Failed to confirm cancellation'
+      );
     } finally {
       setProcessing(false);
     }
@@ -245,6 +462,41 @@ export function BookingsTeam() {
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      // Log activity: bulk booking approvals
+      if (user?.id && bookingsToProcess.length > 0) {
+        const { ActivityLogger } = await import('../lib/activityLogger');
+        await Promise.all(
+          bookingsToProcess.map(async (booking) => {
+            const { data: bookingData } = await supabase
+              .from('bookings')
+              .select('site_id')
+              .eq('id', booking.id)
+              .single();
+
+            if (bookingData?.site_id) {
+              return ActivityLogger.booking
+                .approved(
+                  booking.organization_id,
+                  bookingData.site_id,
+                  user.id,
+                  booking.id,
+                  booking.created_by,
+                  {
+                    title: booking.title,
+                    bulk_operation: true,
+                  }
+                )
+                .catch((err) => {
+                  console.error(
+                    `Failed to log bulk booking approval for booking ${booking.id}:`,
+                    err
+                  );
+                });
+            }
+          })
+        );
       }
 
       // Delete tasks for all processed bookings
@@ -470,16 +722,22 @@ export function BookingsTeam() {
                 ? 'Deselect All'
                 : 'Select All Pending'}
             </button>
-            <button
-              type="button"
-              onClick={handleBulkProcess}
-              disabled={bulkProcessing || selectedPendingCount === 0}
-              className="px-4 py-1.5 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {bulkProcessing
-                ? 'Processing...'
-                : `Process ${selectedPendingCount} Pending`}
-            </button>
+            {canProcessBookings ? (
+              <button
+                type="button"
+                onClick={handleBulkProcess}
+                disabled={bulkProcessing || selectedPendingCount === 0}
+                className="px-4 py-1.5 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {bulkProcessing
+                  ? 'Processing...'
+                  : `Process ${selectedPendingCount} Pending`}
+              </button>
+            ) : (
+              <span className="px-4 py-1.5 text-sm text-slate-500 italic">
+                No permission to process
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -519,6 +777,11 @@ export function BookingsTeam() {
               onProcess={setProcessingBooking}
               isSelected={selectedBookings.has(booking.id)}
               onSelect={handleSelectBooking}
+              onConfirmCancellation={
+                booking.status === 'pending_cancellation'
+                  ? () => setCancellingBooking(booking)
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -528,8 +791,19 @@ export function BookingsTeam() {
       <BookingDetailModal
         booking={viewingBooking}
         isOpen={!!viewingBooking}
-        onClose={() => setViewingBooking(null)}
+        onClose={handleCloseModal}
         onProcess={handleProcessBooking}
+        onConfirmCancellation={
+          viewingBooking?.status === 'pending_cancellation'
+            ? () => {
+                console.log(
+                  '[BookingsTeam] Opening cancellation confirmation for:',
+                  viewingBooking
+                );
+                setCancellingBooking(viewingBooking);
+              }
+            : undefined
+        }
         processing={processing}
       />
 
@@ -544,6 +818,30 @@ export function BookingsTeam() {
           onConfirm={() => handleProcessBooking(processingBooking)}
           onCancel={() => setProcessingBooking(null)}
           confirmVariant="primary"
+        />
+      )}
+
+      {/* Cancellation Confirmation */}
+      {cancellingBooking && (
+        <ConfirmationDialog
+          isOpen={!!cancellingBooking}
+          title="Confirm Cancellation"
+          message={`Are you sure you want to confirm the cancellation of "${cancellingBooking.title}"? This will mark it as cancelled and remove it from the schedule.`}
+          confirmLabel="Confirm Cancellation"
+          cancelLabel="Cancel"
+          onConfirm={async () => {
+            console.log(
+              '[BookingsTeam] Confirming cancellation for:',
+              cancellingBooking
+            );
+            await handleConfirmCancellation(cancellingBooking);
+          }}
+          onCancel={() => {
+            console.log('[BookingsTeam] Cancelling cancellation confirmation');
+            setCancellingBooking(null);
+          }}
+          confirmVariant="danger"
+          loading={processing}
         />
       )}
     </div>

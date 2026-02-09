@@ -3,13 +3,15 @@
  */
 
 import type { ActiveInstance } from '../types/snapshot';
+import type { OrgRole } from '../types/auth';
+import { isCoachRole } from '../types/auth';
 
 /**
  * Check if a user can edit a booking
  *
  * Rules:
  * - Admins can edit any booking
- * - Coaches can only edit their own bookings (created_by matches user id)
+ * - Coach-like roles (S&C Coach, Fitness Coach, etc.) can only edit their own bookings (created_by matches user id)
  * - Locked bookings can only be edited by admins
  *
  * @param booking - The booking to check
@@ -20,7 +22,7 @@ import type { ActiveInstance } from '../types/snapshot';
 export function canEditBooking(
   booking: ActiveInstance | null,
   userId: string | null,
-  role: 'admin' | 'coach' | null
+  role: OrgRole | null
 ): boolean {
   if (!booking || !userId || !role) return false;
 
@@ -30,8 +32,8 @@ export function canEditBooking(
   // Locked bookings can only be edited by admins
   if (booking.isLocked) return false;
 
-  // Coaches can only edit their own bookings
-  if (role === 'coach') {
+  // Coach-like roles can only edit their own bookings
+  if (isCoachRole(role)) {
     return booking.createdBy === userId;
   }
 
@@ -47,6 +49,6 @@ export function canEditBooking(
  * @param role - Current user's role
  * @returns true if user can move bookings
  */
-export function canMoveBooking(role: 'admin' | 'coach' | null): boolean {
+export function canMoveBooking(role: OrgRole | null): boolean {
   return role === 'admin';
 }

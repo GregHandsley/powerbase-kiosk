@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { BookingStatus } from '../types/db';
 import { endOfDay, parseISO, isAfter } from 'date-fns';
+import { getUserNamesByIds } from '../utils/emailRecipients';
 
 export type BookingsTeamFilter = {
   status?: BookingStatus | 'all';
@@ -37,6 +38,7 @@ type BookingFromSupabase = {
   processed_at: string | null;
   processed_by: string | null;
   processed_snapshot: ProcessedSnapshot | null;
+  organization_id: number;
   side:
     | {
         key: string;
@@ -61,6 +63,7 @@ export type BookingForTeam = {
   processed_at: string | null;
   processed_by: string | null;
   processed_snapshot: ProcessedSnapshot | null;
+  organization_id: number;
   side: {
     key: string;
     name: string;
@@ -103,6 +106,7 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
           processed_at,
           processed_by,
           processed_snapshot,
+          organization_id,
           side:sides (
             key,
             name
@@ -112,8 +116,13 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
         .order('created_at', { ascending: false });
 
       // Apply status filter
+      // When filtering for 'pending', also include 'pending_cancellation'
       if (filters.status && filters.status !== 'all') {
-        query = query.eq('status', filters.status);
+        if (filters.status === 'pending') {
+          query = query.in('status', ['pending', 'pending_cancellation']);
+        } else {
+          query = query.eq('status', filters.status);
+        }
       }
 
       // Apply coach filter
@@ -153,7 +162,7 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
         if (booking.processed_by) processorIds.add(booking.processed_by);
       });
 
-      // Fetch all profiles at once
+      // Fetch all profiles at once using database function (bypasses RLS)
       const allProfileIds = Array.from(
         new Set([...creatorIds, ...processorIds])
       );
@@ -163,25 +172,29 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
       >();
 
       if (allProfileIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', allProfileIds);
+        try {
+          const nameMap = await getUserNamesByIds(allProfileIds);
 
-        if (profiles) {
-          profiles.forEach((p) => {
-            profilesMap.set(p.id, { id: p.id, full_name: p.full_name });
+          // Populate profiles map with fetched names
+          nameMap.forEach((fullName, userId) => {
+            profilesMap.set(userId, { id: userId, full_name: fullName });
           });
+        } catch (error) {
+          console.error('Error fetching user names:', error);
         }
       }
 
       // Fetch instances for each booking with date filtering
+      // Filter out past sessions at database level to reduce data
+      const currentTime = new Date();
       const bookingsWithInstances: BookingForTeam[] = await Promise.all(
         bookings.map(async (booking: BookingFromSupabase) => {
           let instancesQuery = supabase
             .from('booking_instances')
             .select('id, start, end, racks, areas, capacity')
             .eq('booking_id', booking.id)
+            // Filter out past sessions: only include instances that haven't ended yet
+            .gte('end', currentTime.toISOString())
             .order('start', { ascending: true });
 
           if (filters.dateFrom) {
@@ -226,6 +239,7 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
             processed_snapshot: booking.processed_snapshot
               ? (booking.processed_snapshot as ProcessedSnapshot)
               : null,
+            organization_id: booking.organization_id,
             side,
             creator: creator
               ? {

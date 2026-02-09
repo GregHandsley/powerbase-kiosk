@@ -4,6 +4,7 @@ export type BookingStatus =
   | 'processed'
   | 'confirmed'
   | 'completed'
+  | 'pending_cancellation'
   | 'cancelled';
 
 export interface BookingInstanceRow {

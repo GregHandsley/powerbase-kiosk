@@ -182,7 +182,8 @@ export function useRackSelection({
           racks,
           booking:bookings (
             title,
-            color
+            color,
+            status
           )
         `
         )
@@ -195,7 +196,21 @@ export function useRackSelection({
         return [];
       }
 
-      return (data ?? []).map((row: unknown) => {
+      // Filter out cancelled bookings (but keep pending_cancellation until confirmed)
+      // Supabase doesn't support filtering on joined table fields
+      const validBookings = (data ?? []).filter((row: unknown) => {
+        const r = row as {
+          booking?: { status?: string } | null;
+        };
+        const status = r.booking?.status;
+        // Only exclude fully cancelled bookings
+        // pending_cancellation bookings should still appear and block capacity until confirmed
+        // If status is undefined/null, include it (backward compatibility)
+        if (!status) return true;
+        return status !== 'cancelled';
+      });
+
+      return validBookings.map((row: unknown) => {
         const r = row as {
           id: number;
           booking_id: number;
@@ -205,6 +220,7 @@ export function useRackSelection({
           booking?: {
             title?: string;
             color?: string;
+            status?: string;
           } | null;
         };
         return {

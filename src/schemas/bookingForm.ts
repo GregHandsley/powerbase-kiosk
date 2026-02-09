@@ -32,6 +32,7 @@ export const BookingFormSchema = z.object({
   areas: z.array(z.string()), // Required - default provided in form defaultValues
   color: z.string().optional(),
   isLocked: z.boolean().optional(), // will be ignored for non-admins
+  emergencyReason: z.string().optional(),
   capacity: z
     .number()
     .int({ message: 'Number of athletes must be a whole number' })

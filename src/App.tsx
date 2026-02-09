@@ -2,17 +2,34 @@ import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
+import { AcceptInvite } from './pages/AcceptInvite';
 import { KioskPower } from './pages/KioskPower';
 import { KioskBase } from './pages/KioskBase';
+import { KioskWayfinding } from './pages/KioskWayfinding';
+import { KioskWayfindingStatic } from './pages/KioskWayfindingStatic';
+import { KioskBaseStatic } from './pages/KioskBaseStatic';
+import { KioskUnpaired } from './pages/KioskUnpaired';
+import { FloorplanTest } from './pages/FloorplanTest';
 import { LiveView } from './pages/LiveView';
 import { Schedule } from './pages/Schedule';
 import { Bookings } from './pages/Bookings';
 import { MyBookings } from './pages/MyBookings';
 import { BookingsTeam } from './pages/BookingsTeam';
 import { Admin } from './pages/Admin';
+import { Profile } from './pages/Profile';
 import { KioskErrorScreen } from './components/KioskErrorScreen';
 import { TaskBell } from './components/tasks/TaskBell';
+import { NotificationBell } from './components/notifications/NotificationBell';
+import { FeedbackButton } from './components/shared/FeedbackButton';
+import { AnnouncementModal } from './components/shared/AnnouncementModal';
 import { useAuth } from './context/AuthContext';
+import { useAnnouncements } from './hooks/useAnnouncements';
+import { useState, useEffect } from 'react';
+import { useBranding } from './context/BrandingContext';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from './hooks/usePermissions';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -36,14 +53,97 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { pathname } = useLocation();
   const { user, loading } = useAuth();
-  const showHeader =
-    !pathname.startsWith('/kiosk') && !pathname.startsWith('/login');
+  const { branding } = useBranding();
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canViewAllBookings } = usePermission(
+    primaryOrgId,
+    'bookings.view_all'
+  );
+  const {
+    announcements,
+    hasNewAnnouncements,
+    acknowledge,
+    isAcknowledging,
+    isLoading: isLoadingAnnouncements,
+  } = useAnnouncements();
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
 
-  // Show only login page if not authenticated
+  // Show announcement modal when there are new announcements and user is logged in
+  useEffect(() => {
+    if (
+      !loading &&
+      !isLoadingAnnouncements &&
+      user &&
+      hasNewAnnouncements &&
+      !showAnnouncementModal
+    ) {
+      console.log('Showing announcement modal', {
+        announcements,
+        hasNewAnnouncements,
+      });
+      setShowAnnouncementModal(true);
+    }
+  }, [
+    loading,
+    isLoadingAnnouncements,
+    user,
+    hasNewAnnouncements,
+    showAnnouncementModal,
+    announcements,
+  ]);
+
+  const showHeader =
+    !pathname.startsWith('/kiosk') &&
+    !pathname.startsWith('/login') &&
+    !pathname.startsWith('/accept-invite');
+
+  // Show only public kiosk + auth pages if not authenticated
   if (!loading && !user) {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/accept-invite" element={<AcceptInvite />} />
+        <Route
+          path="/kiosk/power"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskPower />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/kiosk/base"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskBase />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/kiosk/base-static"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskBaseStatic />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/kiosk/wayfinding"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskWayfinding />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/kiosk/wayfinding-static"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskWayfindingStatic />
+            </ErrorBoundary>
+          }
+        />
+        <Route path="/kiosk/unpaired" element={<KioskUnpaired />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -59,13 +159,23 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-visible">
       {/* simple header for dev; hidden on kiosk routes */}
       {showHeader && (
-        <header className="px-4 py-3 border-b border-slate-700/60 bg-slate-950/70 backdrop-blur">
+        <header className="relative z-[70] px-4 py-3 glass-header">
           <nav className="flex items-center gap-4 text-sm text-slate-200">
-            <Link to="/" className="font-semibold tracking-wide">
-              Facility OS
+            <Link
+              to="/"
+              className="flex items-center gap-2 font-semibold tracking-wide"
+            >
+              {branding?.logo_url && (
+                <img
+                  src={branding.logo_url}
+                  alt="Organization logo"
+                  className="h-6 w-6 object-contain"
+                />
+              )}
+              <span>Facility OS</span>
             </Link>
             <Link to="/live-view" className="hover:text-white">
               Session View
@@ -76,11 +186,17 @@ export default function App() {
             <Link to="/my-bookings" className="hover:text-white">
               My Bookings
             </Link>
-            <Link to="/bookings-team" className="hover:text-white">
-              Bookings Team
-            </Link>
+            {canViewAllBookings && (
+              <Link to="/bookings-team" className="hover:text-white">
+                Bookings Team
+              </Link>
+            )}
             <div className="ml-auto flex items-center gap-4">
+              {user && <NotificationBell />}
               {user && <TaskBell />}
+              <Link to="/profile" className="hover:text-white">
+                Profile
+              </Link>
               <Link to="/admin" className="hover:text-white">
                 Admin
               </Link>
@@ -102,20 +218,49 @@ export default function App() {
           <Route
             path="/kiosk/power"
             element={
-              <ProtectedRoute>
-                <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-                  <KioskPower />
-                </ErrorBoundary>
-              </ProtectedRoute>
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskPower />
+              </ErrorBoundary>
             }
           />
           <Route
             path="/kiosk/base"
             element={
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskBase />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/kiosk/base-static"
+            element={
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskBaseStatic />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/kiosk/wayfinding"
+            element={
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskWayfinding />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/kiosk/wayfinding-static"
+            element={
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskWayfindingStatic />
+              </ErrorBoundary>
+            }
+          />
+          <Route path="/kiosk/unpaired" element={<KioskUnpaired />} />
+          <Route
+            path="/floorplan-test"
+            element={
               <ProtectedRoute>
-                <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-                  <KioskBase />
-                </ErrorBoundary>
+                <FloorplanTest />
               </ProtectedRoute>
             }
           />
@@ -167,9 +312,26 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/accept-invite" element={<AcceptInvite />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      {showHeader && <FeedbackButton />}
+      <AnnouncementModal
+        isOpen={showAnnouncementModal}
+        onClose={() => setShowAnnouncementModal(false)}
+        announcements={announcements}
+        onAcknowledge={acknowledge}
+        isAcknowledging={isAcknowledging}
+      />
     </div>
   );
 }

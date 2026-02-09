@@ -1,47 +1,83 @@
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
+import { useAuth } from '../../context/AuthContext';
 
 type Props = {
   isOpen: boolean;
   onToggle: () => void;
+  roleLabel: string;
+  displayName: string;
+  onSignOut: () => void;
 };
 
-export function AdminSidebar({ isOpen, onToggle }: Props) {
+export function AdminSidebar({
+  isOpen,
+  onToggle,
+  roleLabel,
+  displayName,
+  onSignOut,
+}: Props) {
   const location = useLocation();
+  const { isSuperAdmin } = useAuth();
 
   const menuItems = [
     {
       path: '/admin?view=capacity-schedule',
       label: 'Capacity Schedule',
-      icon: '📊',
     },
     {
       path: '/admin?view=period-capacity',
       label: 'Period Capacity',
-      icon: '👥',
+    },
+    {
+      path: '/admin?view=players',
+      label: 'Players',
     },
     {
       path: '/admin?view=notification-settings',
       label: 'Notification Settings',
-      icon: '🔔',
     },
-  ];
+    {
+      path: '/admin?view=branding',
+      label: 'Branding',
+      requiresSuperAdmin: true,
+    },
+    {
+      path: '/admin?view=invitations',
+      label: 'Invitations',
+    },
+    {
+      path: '/admin?view=audit',
+      label: 'Audit Log',
+    },
+    {
+      path: '/admin?view=activity',
+      label: 'Activity Log',
+    },
+    {
+      path: '/admin?view=announcements',
+      label: 'Announcements',
+      requiresSuperAdmin: true,
+    },
+  ].filter((item) => (item.requiresSuperAdmin ? isSuperAdmin : true));
 
   return (
     <>
       {/* Sidebar */}
       <aside
         className={clsx(
-          'bg-slate-900 border-r border-slate-700 transition-all duration-300 flex flex-col shrink-0',
-          isOpen ? 'w-64' : 'w-0 overflow-hidden'
+          'bg-slate-950/40 border-r border-white/5 transition-all duration-300 flex flex-col shrink-0',
+          isOpen ? 'w-52' : 'w-0 overflow-hidden'
         )}
       >
-        <div className="p-4 border-b border-slate-700">
+        <div className="px-4 py-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-200">Admin</h2>
+            <h2 className="text-[11px] font-semibold tracking-[0.2em] text-slate-500">
+              ADMIN
+            </h2>
             <button
               onClick={onToggle}
-              className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+              className="p-1 rounded hover:bg-slate-800/60 text-slate-500 hover:text-slate-200"
               aria-label="Toggle sidebar"
             >
               <svg
@@ -59,9 +95,14 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
               </svg>
             </button>
           </div>
+          <div className="mt-2 text-xs text-slate-400 truncate">
+            <span className="text-slate-100 font-medium">{displayName}</span>
+            <span className="mx-1">·</span>
+            <span className="capitalize">{roleLabel}</span>
+          </div>
         </div>
 
-        <nav className="flex-1 p-2 space-y-1">
+        <nav className="flex-1 px-4 pb-4 pt-2 space-y-1.5">
           {menuItems.map((item) => {
             const currentView =
               new URLSearchParams(location.search).get('view') ||
@@ -74,18 +115,25 @@ export function AdminSidebar({ isOpen, onToggle }: Props) {
                 key={item.path}
                 to={item.path}
                 className={clsx(
-                  'flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
+                  'flex items-center gap-2 px-2.5 py-2 rounded-md text-sm font-normal transition-colors',
                   isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-indigo-500/20 text-slate-100'
+                    : 'text-slate-300/80 hover:bg-slate-800/40 hover:text-slate-100'
                 )}
               >
-                <span>{item.icon}</span>
                 <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
+        <div className="px-4 py-4 border-t border-white/5">
+          <button
+            onClick={onSignOut}
+            className="w-full text-xs text-slate-300 hover:text-white underline"
+          >
+            Sign out
+          </button>
+        </div>
       </aside>
 
       {/* Toggle button when sidebar is closed */}

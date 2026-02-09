@@ -51,9 +51,12 @@ type CapacityValidation = {
 /**
  * Hook to handle booking form submission
  */
+import type { OrgRole } from '../../../types/auth';
+import { isAdminRole } from '../../../types/auth';
+
 export function useBookingSubmission(
   form: UseFormReturn<BookingFormValues>,
-  role: 'admin' | 'coach',
+  role: OrgRole, // Now accepts all org roles (2.3.1)
   userId: string | null,
   timeRangeIsClosed: boolean,
   weekManagement: WeekManagement,
@@ -78,6 +81,28 @@ export function useBookingSubmission(
 
     try {
       const sideId = await getSideIdByKeyNode(values.sideKey as SideKey);
+
+      // Get the side's organization_id and site_id (required for booking creation)
+      const { data: sideData, error: sideError } = await supabase
+        .from('sides')
+        .select('organization_id, site_id')
+        .eq('id', sideId)
+        .maybeSingle();
+
+      if (sideError || !sideData || !sideData.organization_id) {
+        throw new Error(
+          'Failed to determine organization for this booking. Please try again.'
+        );
+      }
+
+      if (!sideData.site_id) {
+        throw new Error(
+          'Failed to determine site for this booking. The side must have a site_id assigned.'
+        );
+      }
+
+      const organizationId = sideData.organization_id;
+      const siteId = sideData.site_id;
 
       const startTemplate = combineDateAndTime(
         values.startDate,
@@ -173,7 +198,8 @@ export function useBookingSubmission(
             "end",
             racks,
             booking:bookings (
-              title
+              title,
+              status
             )
           `
             )
@@ -189,9 +215,25 @@ export function useBookingSubmission(
           );
         }
 
-        // Check each selected rack for conflicts
+        // Filter out cancelled bookings (but keep pending_cancellation until confirmed)
+        // Supabase doesn't support filtering on joined table fields
+        const validInstances = (overlappingInstances ?? []).filter(
+          (inst: unknown) => {
+            const i = inst as {
+              booking?: { status?: string } | null;
+            };
+            const status = i.booking?.status;
+            // Only exclude fully cancelled bookings
+            // pending_cancellation bookings should still appear and block capacity until confirmed
+            // If status is undefined/null, include it (backward compatibility)
+            if (!status) return true;
+            return status !== 'cancelled';
+          }
+        );
+
+        // Check each selected rack for conflicts (using filtered instances that exclude cancelled bookings)
         for (const rack of weekRacks) {
-          const conflictingInstance = overlappingInstances?.find((inst) => {
+          const conflictingInstance = validInstances.find((inst) => {
             const instRacks = Array.isArray(inst.racks) ? inst.racks : [];
             return instRacks.includes(rack);
           });
@@ -276,10 +318,23 @@ export function useBookingSubmission(
           startTemplate,
           settings
         );
-        throw new Error(
+
+        const hardCutoffError =
           `⚠️ Hard Restriction: ${hardRestrictionMessage}\n\n` +
-            `This booking cannot be created. Please contact an administrator if this is an emergency.`
-        );
+          `Bookings within this window must be handled in person. Please speak to staff.\n`;
+
+        // Non-admins cannot override; block with clear guidance
+        if (!isAdminRole(role)) {
+          throw new Error(hardCutoffError);
+        }
+
+        // Admins may proceed only if they provided a reason
+        if (!values.emergencyReason || !values.emergencyReason.trim()) {
+          throw new Error(
+            hardCutoffError +
+              '\n(Admin: please provide a reason for this emergency booking to proceed.)'
+          );
+        }
       }
 
       // Check notification window (not a hard block, but triggers emails)
@@ -291,7 +346,7 @@ export function useBookingSubmission(
       const areasKeys = values.areas || [];
 
       // Admin can lock; coaches cannot
-      const isLocked = role === 'admin' ? !!values.isLocked : false;
+      const isLocked = isAdminRole(role) ? !!values.isLocked : false;
 
       // Recurrence descriptor (for info/debug)
       const recurrence = {
@@ -321,6 +376,8 @@ export function useBookingSubmission(
         .insert({
           title: values.title,
           side_id: sideId,
+          organization_id: organizationId, // Required: bookings must belong to an organization
+          site_id: siteId, // Required: bookings must belong to a site (S6a/S6b)
           start_template: startTemplate.toISOString(),
           end_template: endTemplate.toISOString(),
           recurrence,
@@ -333,7 +390,10 @@ export function useBookingSubmission(
           status: 'pending', // New bookings start as pending
           last_minute_change: lastMinuteChange,
           cutoff_at: notificationDeadline?.toISOString() || null,
-          override_by: lastMinuteChange && role === 'admin' ? userId : null,
+          override_by:
+            isAdminRole(role) && (lastMinuteChange || isWithinHardRestrict)
+              ? userId
+              : null,
         })
         .select('*')
         .single();
@@ -389,6 +449,20 @@ export function useBookingSubmission(
         throw new Error(
           `Failed to create booking instances: ${instancesError.message}. The booking was not created.`
         );
+      }
+
+      // Log activity: booking created
+      if (userId && organizationId && siteId) {
+        const { ActivityLogger } = await import('../../../lib/activityLogger');
+        ActivityLogger.booking
+          .created(organizationId, siteId, userId, booking.id, {
+            title: booking.title,
+            last_minute_change: booking.last_minute_change || false,
+          })
+          .catch((err) => {
+            // Fail-open: don't break booking creation if logging fails
+            console.error('Failed to log booking creation activity:', err);
+          });
       }
 
       // Invalidate queries to refresh the floorplan and live view

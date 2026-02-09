@@ -170,7 +170,7 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
 
   if (isLoading) {
     return (
-      <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50">
+      <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-[80]">
         <div className="p-4 text-center text-slate-400 text-sm">
           Loading notifications...
         </div>
@@ -179,7 +179,7 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
   }
 
   return (
-    <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 max-h-[500px] flex flex-col">
+    <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-[80] max-h-[500px] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-700">
         <h3 className="text-sm font-semibold text-slate-200">Notifications</h3>

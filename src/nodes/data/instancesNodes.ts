@@ -40,86 +40,56 @@ type RawInstanceRow = {
     | null;
 };
 
-type BookingRowFull = {
-  title: string | null;
-  color: string | null;
-  is_locked: boolean | null;
-  created_by: string | null;
-  status: BookingStatus | null;
-  processed_by: string | null;
-  processed_at: string | null;
-  last_edited_at: string | null;
-  last_edited_by: string | null;
-};
+// type BookingRowFull = {
+//   title: string | null;
+//   color: string | null;
+//   is_locked: boolean | null;
+//   created_by: string | null;
+//   status: BookingStatus | null;
+//   processed_by: string | null;
+//   processed_at: string | null;
+//   last_edited_at: string | null;
+//   last_edited_by: string | null;
+// };
 
-type InstanceRowFull = {
-  id: number | null;
-  booking_id: number | null;
-  side_id: number | null;
-  start: string | null;
-  end: string | null;
-  areas: unknown;
-  racks: unknown;
-  created_at: string | null;
-  updated_at: string | null;
-  booking: BookingRowFull[];
-};
+// // Type coercion helpers
+// const asStringOrNull = (v: unknown): string | null =>
+//   typeof v === 'string' ? v : null;
 
-// Type coercion helpers
-const asStringOrNull = (v: unknown): string | null =>
-  typeof v === 'string' ? v : null;
+// const asBooleanOrNull = (v: unknown): boolean | null =>
+//   typeof v === 'boolean' ? v : null;
 
-const asNumberOrNull = (v: unknown): number | null =>
-  typeof v === 'number' && Number.isFinite(v) ? v : null;
+// const asRecord = (v: unknown): Record<string, unknown> | null =>
+//   v && typeof v === 'object' && !Array.isArray(v)
+//     ? (v as Record<string, unknown>)
+//     : null;
 
-const asBooleanOrNull = (v: unknown): boolean | null =>
-  typeof v === 'boolean' ? v : null;
-
-const asRecord = (v: unknown): Record<string, unknown> | null =>
-  v && typeof v === 'object' && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : null;
-
-function normalizeBooking(input: unknown): BookingRowFull {
-  const b = asRecord(input);
-
-  return {
-    title: asStringOrNull(b?.title),
-    color: asStringOrNull(b?.color),
-    is_locked: asBooleanOrNull(b?.is_locked),
-    created_by: asStringOrNull(b?.created_by),
-    status: typeof b?.status === 'string' ? (b.status as BookingStatus) : null,
-    processed_by: asStringOrNull(b?.processed_by),
-    processed_at: asStringOrNull(b?.processed_at),
-    last_edited_at: asStringOrNull(b?.last_edited_at),
-    last_edited_by: asStringOrNull(b?.last_edited_by),
-  };
-}
-
-function normalizeFallbackInstanceRow(input: unknown): InstanceRowFull {
-  const row = asRecord(input);
-
-  const bookingRaw = row?.booking;
-  const bookingArray = Array.isArray(bookingRaw)
-    ? bookingRaw
-    : bookingRaw
-      ? [bookingRaw]
-      : [];
-
-  return {
-    id: asNumberOrNull(row?.id),
-    booking_id: asNumberOrNull(row?.booking_id),
-    side_id: asNumberOrNull(row?.side_id),
-    start: asStringOrNull(row?.start),
-    end: asStringOrNull(row?.end),
-    // IMPORTANT: make these always present (your error says areas was optional)
-    areas: row?.areas ?? [],
-    racks: row?.racks ?? [],
-    created_at: asStringOrNull(row?.created_at),
-    updated_at: asStringOrNull(row?.updated_at),
-    booking: bookingArray.map(normalizeBooking),
-  };
-}
+// Note: normalizeFallbackInstanceRow is no longer used since we now normalize
+// fallback data directly to BookingInstanceWithBookingRow using normalizeInstanceRow
+// Keeping the function commented out in case it's needed for future reference
+// function normalizeFallbackInstanceRow(input: unknown): InstanceRowFull {
+//   const row = asRecord(input);
+//
+//   const bookingRaw = row?.booking;
+//   const bookingArray = Array.isArray(bookingRaw)
+//     ? bookingRaw
+//     : bookingRaw
+//       ? [bookingRaw]
+//       : [];
+//
+//   return {
+//     id: asNumberOrNull(row?.id),
+//     booking_id: asNumberOrNull(row?.booking_id),
+//     side_id: asNumberOrNull(row?.side_id),
+//     start: asStringOrNull(row?.start),
+//     end: asStringOrNull(row?.end),
+//     areas: row?.areas ?? [],
+//     racks: row?.racks ?? [],
+//     created_at: asStringOrNull(row?.created_at),
+//     updated_at: asStringOrNull(row?.updated_at),
+//     booking: bookingArray.map(normalizeBooking),
+//   };
+// }
 
 function normalizeInstanceRow(
   row: RawInstanceRow
@@ -192,7 +162,10 @@ function normalizeInstanceRow(
  * Returns all booking_instances for a side from the start of the day containing `atIso`
  * through to the end of the next day. We'll decide "current" vs "future" in computeSnapshot.
  */
-export async function getInstancesAtNode(sideId: number, atIso: string) {
+export async function getInstancesAtNode(
+  sideId: number,
+  atIso: string
+): Promise<{ data: BookingInstanceWithBookingRow[]; error: Error | null }> {
   const atDate = new Date(atIso);
   if (Number.isNaN(atDate.getTime())) {
     throw new Error(`Invalid atIso passed to getInstancesAtNode: ${atIso}`);
@@ -236,7 +209,16 @@ export async function getInstancesAtNode(sideId: number, atIso: string) {
     .lt('start', endOfNextDay.toISOString())
     .order('start', { ascending: true });
 
-  let { data, error } = await query;
+  const { data, error: initialError } = await query;
+  let error = initialError;
+  let normalizedData: BookingInstanceWithBookingRow[] = [];
+
+  // Normalize data if query succeeded
+  if (!error && data) {
+    normalizedData = (data ?? []).map((row) =>
+      normalizeInstanceRow(row as RawInstanceRow)
+    );
+  }
 
   // If error is about missing columns, fallback to basic query (migration not run yet)
   if (
@@ -273,8 +255,10 @@ export async function getInstancesAtNode(sideId: number, atIso: string) {
 
     const fallbackResult = await fallbackQuery;
     if (!fallbackResult.error) {
-      // Map fallback data to add missing booking fields
-      data = (fallbackResult.data ?? []).map(normalizeFallbackInstanceRow);
+      // Map fallback data to BookingInstanceWithBookingRow format
+      normalizedData = (fallbackResult.data ?? []).map((row) =>
+        normalizeInstanceRow(row as RawInstanceRow)
+      );
       error = null;
     } else {
       // If fallback also fails, return the original error
@@ -282,12 +266,19 @@ export async function getInstancesAtNode(sideId: number, atIso: string) {
     }
   }
 
-  const rows = (data ?? []).map((row) =>
-    normalizeInstanceRow(row as RawInstanceRow)
-  );
+  // Filter out cancelled bookings (but keep pending_cancellation until confirmed)
+  // Supabase doesn't support filtering on joined table fields
+  const validRows = normalizedData.filter((row) => {
+    const status = row.booking?.status;
+    // Only exclude fully cancelled bookings
+    // pending_cancellation bookings should still appear and block capacity until confirmed
+    // If status is undefined/null, include it (backward compatibility)
+    if (!status) return true;
+    return status !== 'cancelled';
+  });
 
   return {
-    data: rows,
+    data: validRows,
     error,
   };
 }
@@ -300,7 +291,7 @@ export async function getFutureInstancesForRackNode(
   rackNumber: number,
   fromIso: string,
   toIso: string
-) {
+): Promise<{ data: BookingInstanceWithBookingRow[]; error: Error | null }> {
   // Try with status fields first (if migration has been run)
   const query = supabase
     .from('booking_instances')
@@ -334,7 +325,16 @@ export async function getFutureInstancesForRackNode(
     .lt('start', toIso)
     .order('start', { ascending: true });
 
-  let { data, error } = await query;
+  const { data, error: initialError } = await query;
+  let error = initialError;
+  let normalizedData: BookingInstanceWithBookingRow[] = [];
+
+  // Normalize data if query succeeded
+  if (!error && data) {
+    normalizedData = (data ?? []).map((row) =>
+      normalizeInstanceRow(row as RawInstanceRow)
+    );
+  }
 
   // If error is about missing columns, fallback to basic query (migration not run yet)
   if (
@@ -372,8 +372,10 @@ export async function getFutureInstancesForRackNode(
 
     const fallbackResult = await fallbackQuery;
     if (!fallbackResult.error) {
-      // Map fallback data to add missing booking fields
-      data = (fallbackResult.data ?? []).map(normalizeFallbackInstanceRow);
+      // Map fallback data to BookingInstanceWithBookingRow format
+      normalizedData = (fallbackResult.data ?? []).map((row) =>
+        normalizeInstanceRow(row as RawInstanceRow)
+      );
       error = null;
     } else {
       // If fallback also fails, return the original error
@@ -381,12 +383,19 @@ export async function getFutureInstancesForRackNode(
     }
   }
 
-  const rows = (data ?? []).map((row) =>
-    normalizeInstanceRow(row as RawInstanceRow)
-  );
+  // Filter out cancelled bookings (but keep pending_cancellation until confirmed)
+  // Supabase doesn't support filtering on joined table fields
+  const validRows = normalizedData.filter((row) => {
+    const status = row.booking?.status;
+    // Only exclude fully cancelled bookings
+    // pending_cancellation bookings should still appear and block capacity until confirmed
+    // If status is undefined/null, include it (backward compatibility)
+    if (!status) return true;
+    return status !== 'cancelled';
+  });
 
   return {
-    data: rows,
+    data: validRows,
     error,
   };
 }

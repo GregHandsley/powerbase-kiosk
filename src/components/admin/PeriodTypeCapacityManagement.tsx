@@ -212,19 +212,6 @@ export function PeriodTypeCapacityManagement() {
 
   return (
     <div className="h-full flex flex-col space-y-6 overflow-y-auto min-h-0">
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-100">
-            Period Type Capacity
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">
-            Set default capacity and platforms for each period type per side
-            (Power/Base) and override for specific dates
-          </p>
-        </div>
-      </div>
-
       {/* Error Message */}
       {errorMessage && (
         <div className="bg-red-900/20 border border-red-700 rounded-md p-3 flex items-center justify-between">

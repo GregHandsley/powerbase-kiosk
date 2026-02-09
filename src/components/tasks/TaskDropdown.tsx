@@ -1,22 +1,32 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { useTasks } from '../../hooks/useTasks';
 import type { Task } from '../../hooks/useTasks';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../../hooks/usePermissions';
 
-function TaskItem({ task }: { task: Task }) {
-  const { markAsRead, deleteTask } = useTasks();
+function TaskItem({ task, onClose }: { task: Task; onClose: () => void }) {
+  const navigate = useNavigate();
   const isRead = !!task.read_at;
 
-  const handleClick = () => {
-    if (!isRead) {
-      markAsRead(task.id);
-    }
-  };
-
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation();
-    deleteTask(task.id);
+
+    // Get booking ID from task metadata or link
+    const bookingId =
+      task.metadata?.booking_id || task.link?.match(/booking=(\d+)/)?.[1];
+
+    if (bookingId) {
+      // Navigate to bookings team page with booking query parameter
+      navigate(`/bookings-team?booking=${String(bookingId)}`);
+      onClose();
+    } else if (task.link) {
+      // Fallback to original link if no booking ID found
+      navigate(task.link);
+      onClose();
+    }
   };
 
   const getTaskIcon = (type: string) => {
@@ -75,6 +85,24 @@ function TaskItem({ task }: { task: Task }) {
             </svg>
           </div>
         );
+      case 'booking:cancelled':
+        return (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/20">
+            <svg
+              className="h-4 w-4 text-red-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </div>
+        );
       default:
         return (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-500/20">
@@ -96,7 +124,7 @@ function TaskItem({ task }: { task: Task }) {
     }
   };
 
-  const content = (
+  return (
     <div
       className={`flex gap-3 p-3 hover:bg-slate-800/50 transition-colors cursor-pointer ${
         !isRead ? 'bg-slate-800/30' : ''
@@ -119,43 +147,8 @@ function TaskItem({ task }: { task: Task }) {
           {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
         </p>
       </div>
-      <button
-        onClick={handleDelete}
-        onMouseDown={(e) => {
-          // Prevent link navigation when clicking delete
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        className="text-slate-500 hover:text-slate-300 transition-colors shrink-0"
-        aria-label="Delete task"
-        type="button"
-      >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
     </div>
   );
-
-  if (task.link) {
-    return (
-      <Link to={task.link} className="block">
-        {content}
-      </Link>
-    );
-  }
-
-  return content;
 }
 
 type TaskDropdownProps = {
@@ -163,11 +156,16 @@ type TaskDropdownProps = {
 };
 
 export function TaskDropdown({ onClose }: TaskDropdownProps) {
-  const { tasks, unreadCount, markAllAsRead, isLoading } = useTasks();
+  const { tasks, isLoading } = useTasks();
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canViewAllBookings } = usePermission(
+    primaryOrgId,
+    'bookings.view_all'
+  );
 
   if (isLoading) {
     return (
-      <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50">
+      <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-[80]">
         <div className="p-4 text-center text-slate-400 text-sm">
           Loading tasks...
         </div>
@@ -176,18 +174,10 @@ export function TaskDropdown({ onClose }: TaskDropdownProps) {
   }
 
   return (
-    <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 max-h-[500px] flex flex-col">
+    <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-[80] max-h-[500px] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-700">
         <h3 className="text-sm font-semibold text-slate-200">Tasks</h3>
-        {unreadCount > 0 && (
-          <button
-            onClick={() => markAllAsRead()}
-            className="text-xs text-slate-400 hover:text-slate-300 transition-colors"
-          >
-            Mark all as done
-          </button>
-        )}
       </div>
 
       {/* Tasks List */}
@@ -211,15 +201,17 @@ export function TaskDropdown({ onClose }: TaskDropdownProps) {
             <p className="text-xs mt-1">All caught up!</p>
           </div>
         ) : (
-          tasks.map((task) => <TaskItem key={task.id} task={task} />)
+          tasks.map((task) => (
+            <TaskItem key={task.id} task={task} onClose={onClose} />
+          ))
         )}
       </div>
 
       {/* Footer */}
-      {tasks.length > 0 && (
+      {tasks.length > 0 && canViewAllBookings && (
         <div className="p-3 border-t border-slate-700">
           <Link
-            to="/tasks"
+            to="/bookings-team"
             className="block text-center text-xs text-slate-400 hover:text-slate-300 transition-colors"
             onClick={onClose}
           >

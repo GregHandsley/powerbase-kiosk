@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { AspectRatio } from '../components/AspectRatio';
@@ -13,6 +14,13 @@ export function KioskPower() {
   const { snapshot, error, isLoading } = useSideSnapshot('Power');
   useInstancesRealtime();
 
+  useEffect(() => {
+    document.body.classList.add('kiosk-mode');
+    return () => {
+      document.body.classList.remove('kiosk-mode');
+    };
+  }, []);
+
   const first = snapshot?.currentInstances?.[0];
   const slotLabel =
     first && first.start && first.end
@@ -20,9 +28,9 @@ export function KioskPower() {
       : null;
 
   return (
-    <KioskFrame title="Power" slotLabel={slotLabel}>
+    <KioskFrame title="Power" slotLabel={slotLabel} sideKey="Power">
       <AspectRatio ratio={ratio}>
-        <div className="w-full h-full bg-slate-900/70 border border-slate-800 rounded-xl p-2 md:p-3">
+        <div className="w-full h-full kiosk-floorplan">
           {error && (
             <div className="w-full h-full flex items-center justify-center text-xs text-red-400">
               Error loading snapshot: {error}
@@ -35,7 +43,7 @@ export function KioskPower() {
                   Loading snapshot...
                 </div>
               ) : (
-                <PowerbaseFloorSvg snapshot={snapshot} />
+                <PowerbaseFloorSvg snapshot={snapshot} appearance="kiosk" />
               )}
             </div>
           )}

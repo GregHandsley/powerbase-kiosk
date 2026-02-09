@@ -6,6 +6,10 @@ import {
   type TimeSlot,
 } from '../components/admin/capacity/scheduleUtils';
 import { isTimeSlotInPast } from '../components/admin/booking/utils';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../hooks/usePermissions';
 
 type SlotCapacityData = {
   availablePlatforms: Set<number> | null;
@@ -180,7 +184,8 @@ export function Schedule() {
             title,
             color,
             is_locked,
-            created_by
+            created_by,
+            status
           )
         `
         )
@@ -194,8 +199,31 @@ export function Schedule() {
         return [];
       }
 
+      // Filter out cancelled bookings (but keep pending_cancellation until confirmed)
+      // Supabase doesn't support filtering on joined table fields
+      const validBookings = (data ?? []).filter((row: unknown) => {
+        const r = row as {
+          booking_id?: number;
+          booking?: { status?: string; title?: string | null } | null;
+        };
+        const status = r.booking?.status;
+        // Only exclude fully cancelled bookings
+        // pending_cancellation bookings should still appear and block capacity until confirmed
+        // If status is undefined/null, include it (backward compatibility)
+        if (!status) return true;
+        const isCancelled = status === 'cancelled';
+        if (isCancelled) {
+          console.log('[Schedule] Filtering out cancelled booking:', {
+            bookingId: r.booking_id,
+            status,
+            title: r.booking?.title || 'Untitled',
+          });
+        }
+        return !isCancelled;
+      });
+
       // Normalize to ActiveInstance format
-      return (data ?? []).map((row: unknown) => {
+      return validBookings.map((row: unknown) => {
         const r = row as {
           id: number;
           booking_id: number;
@@ -205,10 +233,11 @@ export function Schedule() {
           areas: string[] | unknown;
           capacity?: number;
           booking?: {
-            title?: string;
-            color?: string;
+            title?: string | null;
+            color?: string | null;
             is_locked?: boolean;
-            created_by?: string;
+            created_by?: string | null;
+            status?: string;
           } | null;
         };
         return {
@@ -248,9 +277,21 @@ export function Schedule() {
     );
   }, [sideId, capacitySchedules, timeSlots, currentDate, bookings]);
 
+  // Check permissions for creating bookings
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canCreateBookings } = usePermission(
+    primaryOrgId,
+    'bookings.create'
+  );
+
   const handleCellClick = (rack: number, timeSlot: TimeSlot) => {
     // Prevent clicking on past times
     if (isTimeSlotInPast(currentDate, timeSlot)) {
+      return;
+    }
+
+    // Check permission before opening create modal
+    if (!canCreateBookings) {
       return;
     }
 
@@ -450,7 +491,7 @@ export function Schedule() {
           initialTimeSlot={newBookingContext.timeSlot}
           initialRack={newBookingContext.rack}
           initialSide={newBookingContext.side}
-          role={role || 'coach'}
+          role={role || 'snc_coach'}
           selectedRacks={newBookingContext.selectedRacks}
           endTimeSlot={newBookingContext.endTimeSlot}
           onSuccess={handleCloseNewBookingModal}

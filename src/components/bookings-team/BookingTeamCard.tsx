@@ -8,6 +8,7 @@ import {
   isBookingInPast,
   isPastBookingUnprocessed,
 } from '../admin/booking/utils';
+import { usePermission } from '../../hooks/usePermissions';
 import type { BookingForTeam } from '../../hooks/useBookingsTeam';
 import type { BookingStatus } from '../../types/db';
 
@@ -15,14 +16,70 @@ type Props = {
   booking: BookingForTeam;
   onView: (booking: BookingForTeam) => void;
   onProcess: (booking: BookingForTeam) => void;
+  onConfirmCancellation?: (booking: BookingForTeam) => void;
   isSelected?: boolean;
   onSelect?: (bookingId: number, selected: boolean) => void;
 };
+
+/**
+ * Component to render the process button with permission check
+ */
+function ProcessButton({
+  booking,
+  onProcess,
+  wasEditedAfterProcessing,
+  requiresAcknowledgment,
+  allChangesAcknowledged,
+}: {
+  booking: BookingForTeam;
+  onProcess: (booking: BookingForTeam) => void;
+  wasEditedAfterProcessing: boolean;
+  requiresAcknowledgment: boolean;
+  allChangesAcknowledged: boolean;
+}) {
+  const { hasPermission: canProcess } = usePermission(
+    booking.organization_id,
+    'bookings.process'
+  );
+
+  if (!canProcess) {
+    return (
+      <span className="px-3 py-1.5 text-sm text-slate-500 italic">
+        No permission to process
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onProcess(booking)}
+      disabled={
+        Boolean(
+          wasEditedAfterProcessing &&
+          requiresAcknowledgment &&
+          !allChangesAcknowledged
+        ) || undefined
+      }
+      className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      title={
+        wasEditedAfterProcessing &&
+        requiresAcknowledgment &&
+        !allChangesAcknowledged
+          ? 'Please acknowledge all changes before processing'
+          : ''
+      }
+    >
+      Mark as Processed
+    </button>
+  );
+}
 
 export function BookingTeamCard({
   booking,
   onView,
   onProcess,
+  onConfirmCancellation,
   isSelected = false,
   // onSelect,
 }: Props) {
@@ -182,10 +239,11 @@ export function BookingTeamCard({
   const [showVariationDetails, setShowVariationDetails] = useState(false);
 
   const isPending = booking.status === 'pending';
-  const wasEditedAfterProcessing =
+  const wasEditedAfterProcessing = Boolean(
     booking.processed_at &&
     booking.last_edited_at &&
-    new Date(booking.last_edited_at) > new Date(booking.processed_at);
+    new Date(booking.last_edited_at) > new Date(booking.processed_at)
+  );
 
   // Check if booking is in the past
   const bookingIsPast = isBookingInPast(booking.instances);
@@ -228,7 +286,7 @@ export function BookingTeamCard({
                 </span>
               )}
               {wasEditedAfterProcessing && (
-                <span className="px-2 py-0.5 text-xs bg-amber-900/30 text-amber-300 rounded border border-amber-700/50">
+                <span className="px-1.5 py-0.5 text-xs font-medium bg-amber-900/30 text-amber-300 rounded border border-amber-700/50">
                   Edited
                 </span>
               )}
@@ -547,28 +605,23 @@ export function BookingTeamCard({
         >
           View Details
         </button>
-        {isPending && (
+        {booking.status === 'pending_cancellation' && onConfirmCancellation && (
           <button
             type="button"
-            onClick={() => onProcess(booking)}
-            disabled={
-              Boolean(
-                wasEditedAfterProcessing &&
-                requiresAcknowledgment &&
-                !allChangesAcknowledged
-              ) || undefined
-            }
-            className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title={
-              wasEditedAfterProcessing &&
-              requiresAcknowledgment &&
-              !allChangesAcknowledged
-                ? 'Please acknowledge all changes before processing'
-                : ''
-            }
+            onClick={() => onConfirmCancellation(booking)}
+            className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-500 text-white rounded-md transition-colors"
           >
-            Mark as Processed
+            Confirm Cancellation
           </button>
+        )}
+        {isPending && (
+          <ProcessButton
+            booking={booking}
+            onProcess={onProcess}
+            wasEditedAfterProcessing={wasEditedAfterProcessing}
+            requiresAcknowledgment={requiresAcknowledgment}
+            allChangesAcknowledged={allChangesAcknowledged}
+          />
         )}
       </div>
     </div>

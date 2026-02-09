@@ -42,7 +42,16 @@ export interface UpdateNotificationSettingsInput {
 }
 
 /**
- * Hook to fetch and manage notification settings
+ * Hook to fetch and manage SYSTEM-WIDE notification settings
+ *
+ * This is for ADMIN/SUPER ADMIN use only - controls how the notification system behaves:
+ * - Notification windows and deadlines
+ * - Hard restrictions
+ * - Reminder schedules
+ * - Who receives last-minute alerts
+ *
+ * For individual user preferences (what notifications they want to receive),
+ * see useNotificationPreferences() instead.
  */
 export function useNotificationSettings() {
   const { user } = useAuth();

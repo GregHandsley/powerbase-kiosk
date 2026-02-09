@@ -59,6 +59,9 @@
     #f9fafb 45%,
     #f3f4f6 100%
   );
+  /* Prevent layout shifts */
+  contain: layout style paint;
+  will-change: auto;
 }
 
 .fp-bg-outer {
@@ -202,4 +205,193 @@
 .fp-wall {
   fill: var(--fp-walls);
   filter: drop-shadow(var(--fp-shadow-strong));
+}
+
+/* -----------------------------------------
+   Kiosk-specific overrides (calm system UI)
+----------------------------------------- */
+
+.kiosk-floorplan .fp-bg-outer {
+  fill: transparent;
+}
+
+.kiosk-floorplan .fp-bg-path {
+  fill: transparent;
+  stroke: none;
+  filter: none;
+}
+
+.kiosk-floorplan .fp-area,
+.kiosk-floorplan .fp-banner,
+.kiosk-floorplan .fp-track {
+  fill: rgba(15, 23, 42, 0.25);
+  stroke: rgba(148, 163, 184, 0.2);
+  stroke-width: 0.4;
+  filter: drop-shadow(0 2px 4px rgba(2, 6, 23, 0.2));
+  rx: 2;
+  ry: 2;
+}
+
+.kiosk-floorplan .fp-area-label,
+.kiosk-floorplan .fp-area-label-small,
+.kiosk-floorplan .fp-banner-text,
+.kiosk-floorplan .fp-track-text {
+  fill: rgba(148, 163, 184, 0.7);
+  font-weight: 500;
+  letter-spacing: 0.2em;
+}
+
+.kiosk-floorplan .fp-banner-text {
+  font-size: 1.6px;
+}
+
+.kiosk-floorplan .fp-vertical-text {
+  fill: #64748b;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+}
+
+.kiosk-floorplan .fp-stairs-main {
+  fill: rgba(31, 41, 55, 0.6);
+  stroke: rgba(148, 163, 184, 0.15);
+  stroke-width: 0.3;
+}
+
+.kiosk-floorplan .fp-stairs-step {
+  fill: rgba(51, 65, 85, 0.5);
+}
+
+/* -----------------------------------------
+   Apple-like "You are here" indicator
+----------------------------------------- */
+
+.fp-you-are-here {
+  transform-origin: center;
+  /* Performance optimizations */
+  will-change: transform, opacity;
+  contain: layout style paint;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.fp-you-are-here-static {
+  pointer-events: none;
+  transform-origin: center;
+}
+
+/* Pulsing rings (no gradients/filters for stability) */
+.fp-you-here-ring {
+  animation: fp-ring-pulse 2.6s ease-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+  /* Hardware acceleration */
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.fp-you-here-ring--delay {
+  animation-delay: 1.3s;
+}
+
+@keyframes fp-ring-pulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  70% {
+    opacity: 0.2;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Core location dot with noticeable pulse */
+.fp-location-dot {
+  animation: fp-dot-pulse 2.5s ease-in-out infinite;
+  /* Hardware acceleration */
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+@keyframes fp-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
+/* Refined typography - larger and more prominent */
+.fp-you-are-here-text {
+  fill: rgba(255, 255, 255, 0.95);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  font-size: 1.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  opacity: 0.9;
+}
+
+/* Kiosk-specific styling */
+.kiosk-floorplan .fp-you-are-here-text {
+  fill: rgba(226, 232, 240, 0.95);
+  font-size: 1.4px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.kiosk-floorplan .fp-location-dot {
+  fill: rgba(255, 255, 255, 1);
+}
+
+.kiosk-floorplan .fp-you-here-ring {
+  stroke: rgba(96, 165, 250, 0.6);
+}
+
+/* Stream Preview Mode - Simulates low-FPS capture */
+/* Uses CSS custom properties for dynamic FPS control */
+.stream-preview-mode .fp-you-here-ring {
+  /* Use stepped animation based on FPS setting */
+  animation: fp-ring-pulse 2.6s steps(var(--fps-steps-icon, 8), end) infinite;
+}
+
+.stream-preview-mode .fp-you-here-ring--delay {
+  animation-delay: 1.3s;
+}
+
+.stream-preview-mode .fp-location-dot {
+  /* Use stepped animation based on FPS setting */
+  animation: fp-dot-pulse 2.5s steps(var(--fps-steps-icon, 8), end) infinite;
+}
+
+/* Low-FPS alternative: Static indicator with subtle border pulse */
+.stream-preview-mode .fp-location-dot-static {
+  fill: rgba(255, 255, 255, 1);
+  stroke: rgba(96, 165, 250, 0.8);
+  stroke-width: 0.4;
+  /* Very slow, stepped pulse for low FPS */
+  animation: fp-static-pulse 3s steps(var(--fps-steps-icon, 4), end) infinite;
+}
+
+@keyframes fp-static-pulse {
+  0%,
+  100% {
+    stroke-opacity: 0.8;
+    stroke-width: 0.4;
+  }
+  50% {
+    stroke-opacity: 0.4;
+    stroke-width: 0.6;
+  }
 }

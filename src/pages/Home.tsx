@@ -58,6 +58,32 @@ export function Home() {
           >
             Open Base Kiosk
           </button>
+          <button
+            type="button"
+            onClick={() =>
+              handleKioskClick(
+                '/kiosk/wayfinding?side=Base',
+                'Wayfinding Kiosk (Base)',
+                'kiosk-wayfinding-base'
+              )
+            }
+            className="px-4 py-2 rounded-md bg-purple-600 hover:bg-purple-500 text-white"
+          >
+            Open Wayfinding (Base)
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              handleKioskClick(
+                '/kiosk/wayfinding?side=Power',
+                'Wayfinding Kiosk (Power)',
+                'kiosk-wayfinding-power'
+              )
+            }
+            className="px-4 py-2 rounded-md bg-purple-600 hover:bg-purple-500 text-white"
+          >
+            Open Wayfinding (Power)
+          </button>
         </div>
 
         <p className="text-xs text-slate-400">

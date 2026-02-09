@@ -37,7 +37,7 @@ export function ConfirmationDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
       onClick={(e) => {
         e.stopPropagation();
         if (e.target === e.currentTarget) {

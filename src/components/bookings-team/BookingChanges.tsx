@@ -1,5 +1,5 @@
 import { useMemo, useEffect } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isAfter } from 'date-fns';
 import { formatDateBritish, formatDateBritishShort } from '../shared/dateUtils';
 import type {
   BookingForTeam,
@@ -31,21 +31,49 @@ export function BookingChanges({
 
     const snapshot = booking.processed_snapshot;
     const current = booking.instances;
+    const now = new Date();
+
+    // Only show changes that occurred after the last processing
+    // If last_edited_at is before processed_at, these changes were already processed
+    if (booking.last_edited_at && booking.processed_at) {
+      const lastEdited = parseISO(booking.last_edited_at);
+      const processedAt = parseISO(booking.processed_at);
+      if (!isAfter(lastEdited, processedAt)) {
+        // Changes were made before or at processing time, so they're already processed
+        return [];
+      }
+    }
+
+    // Helper to check if a session date is in the past
+    const isSessionInPast = (sessionStart: string): boolean => {
+      const sessionDate = parseISO(sessionStart);
+      return !isAfter(sessionDate, now);
+    };
     // const firstCurrent = current[0];
     // const lastCurrent = current[current.length - 1];
 
     const detectedChanges: Change[] = [];
 
     // Check if booking was extended (more instances)
+    // Only count future sessions
     if (current.length > snapshot.instanceCount) {
       const newSessions = current.slice(snapshot.instanceCount);
-      const newDates = newSessions.map((inst) => formatDateBritish(inst.start));
-      detectedChanges.push({
-        type: 'extended',
-        message: `Booking extended: ${snapshot.instanceCount} → ${current.length} sessions. New sessions: ${newDates.slice(0, 3).join(', ')}${newDates.length > 3 ? ` +${newDates.length - 3} more` : ''}`,
-        oldValue: snapshot.instanceCount,
-        newValue: current.length,
-      });
+      // Filter to only future sessions
+      const futureNewSessions = newSessions.filter(
+        (inst) => !isSessionInPast(inst.start)
+      );
+
+      if (futureNewSessions.length > 0) {
+        const newDates = futureNewSessions.map((inst) =>
+          formatDateBritish(inst.start)
+        );
+        detectedChanges.push({
+          type: 'extended',
+          message: `Booking extended: ${snapshot.instanceCount} → ${current.length} sessions. New sessions: ${newDates.slice(0, 3).join(', ')}${newDates.length > 3 ? ` +${newDates.length - 3} more` : ''}`,
+          oldValue: snapshot.instanceCount,
+          newValue: current.length,
+        });
+      }
     }
 
     // Check if sessions were removed
@@ -59,8 +87,13 @@ export function BookingChanges({
           (startDate) => !currentStartDates.has(startDate)
         );
 
-        if (removedStartDates.length > 0) {
-          const removedDates = removedStartDates.map((date) =>
+        // Filter to only future sessions that were removed
+        const futureRemovedDates = removedStartDates.filter(
+          (startDate) => !isSessionInPast(startDate)
+        );
+
+        if (futureRemovedDates.length > 0) {
+          const removedDates = futureRemovedDates.map((date) =>
             formatDateBritish(date)
           );
 
@@ -77,7 +110,7 @@ export function BookingChanges({
               .join('\n');
             detectedChanges.push({
               type: 'sessions_removed',
-              message: `${removedCount} sessions removed:\n${sessionDetails}`,
+              message: `${futureRemovedDates.length} sessions removed:\n${sessionDetails}`,
               oldValue: snapshot.instanceCount,
               newValue: current.length,
             });
@@ -125,19 +158,22 @@ export function BookingChanges({
           const removedDates: string[] = [];
 
           expectedDates.forEach((expectedDate) => {
-            const expectedDateStr = format(expectedDate, 'yyyy-MM-dd');
-            if (!currentDateStrings.has(expectedDateStr)) {
-              // Check if there's a close match (within 1 day) to account for timezone issues
-              const hasCloseMatch = currentDates.some((currentDate) => {
-                const diffDays = Math.abs(
-                  (currentDate.getTime() - expectedDate.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                );
-                return diffDays < 1;
-              });
+            // Only check future dates
+            if (isAfter(expectedDate, now)) {
+              const expectedDateStr = format(expectedDate, 'yyyy-MM-dd');
+              if (!currentDateStrings.has(expectedDateStr)) {
+                // Check if there's a close match (within 1 day) to account for timezone issues
+                const hasCloseMatch = currentDates.some((currentDate) => {
+                  const diffDays = Math.abs(
+                    (currentDate.getTime() - expectedDate.getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  );
+                  return diffDays < 1;
+                });
 
-              if (!hasCloseMatch) {
-                removedDates.push(formatDateBritish(expectedDate));
+                if (!hasCloseMatch) {
+                  removedDates.push(formatDateBritish(expectedDate));
+                }
               }
             }
           });
@@ -194,7 +230,11 @@ export function BookingChanges({
       snapshot.allInstanceCapacities.length > 0
     ) {
       // We have stored capacities for each instance, match by date and compare
+      // Only check future sessions
       current.forEach((inst) => {
+        // Skip past sessions
+        if (isSessionInPast(inst.start)) return;
+
         const instDateStr = format(parseISO(inst.start), 'yyyy-MM-dd');
         const currentCapacity = inst.capacity ?? 1;
 
@@ -223,8 +263,12 @@ export function BookingChanges({
       });
     } else if (snapshot.firstInstanceCapacity !== undefined) {
       // Fallback for old snapshots - compare all instances against first instance capacity
+      // Only check future sessions
       const firstCapacity = snapshot.firstInstanceCapacity;
       current.forEach((inst) => {
+        // Skip past sessions
+        if (isSessionInPast(inst.start)) return;
+
         const currentCapacity = inst.capacity ?? 1;
         if (currentCapacity !== firstCapacity) {
           changedSessions.push({
@@ -299,7 +343,11 @@ export function BookingChanges({
 
     if (snapshot.allInstanceTimes && snapshot.allInstanceTimes.length > 0) {
       // We have stored instance times, match current instances by date and compare times
+      // Only check future sessions
       current.forEach((inst) => {
+        // Skip past sessions
+        if (isSessionInPast(inst.start)) return;
+
         const instDateStr = format(parseISO(inst.start), 'yyyy-MM-dd');
 
         // Find the corresponding snapshot instance by matching date (within 1 day tolerance)
@@ -330,6 +378,7 @@ export function BookingChanges({
       // Fallback for old snapshots - reconstruct expected times based on pattern
       // For old snapshots, we can only reliably detect time changes on the first instance
       // But we'll check all instances that match the first instance's date pattern
+      // Only check future sessions
       if (snapshot.firstInstanceStart && current.length > 0) {
         // const firstSnapshotDate = parseISO(snapshot.firstInstanceStart);
         const firstSnapshotTime = formatTime(snapshot.firstInstanceStart);
@@ -338,6 +387,9 @@ export function BookingChanges({
         // Check all current instances - if any match the first snapshot date or are close to it,
         // and have different times, we detected a change
         current.forEach((inst) => {
+          // Skip past sessions
+          if (isSessionInPast(inst.start)) return;
+
           const instDate = parseISO(inst.start);
           // const instDateStr = format(instDate, 'yyyy-MM-dd');
           // const snapshotDateStr = format(firstSnapshotDate, 'yyyy-MM-dd');
@@ -422,7 +474,11 @@ export function BookingChanges({
 
     if (snapshot.allInstanceRacks && snapshot.allInstanceRacks.length > 0) {
       // We have stored racks for each instance, match by date and compare
+      // Only check future sessions
       current.forEach((inst) => {
+        // Skip past sessions
+        if (isSessionInPast(inst.start)) return;
+
         const instDateStr = format(parseISO(inst.start), 'yyyy-MM-dd');
         const instRacks = inst.racks || [];
         const instRacksSet = new Set(instRacks);
@@ -459,10 +515,14 @@ export function BookingChanges({
       });
     } else {
       // Fallback for old snapshots - compare all instances against first instance racks
+      // Only check future sessions
       const baselineRacks = snapshot.firstInstanceRacks || [];
       const baselineRacksSet = new Set(baselineRacks);
 
       current.forEach((inst) => {
+        // Skip past sessions
+        if (isSessionInPast(inst.start)) return;
+
         const instRacks = inst.racks || [];
         const instRacksSet = new Set(instRacks);
 

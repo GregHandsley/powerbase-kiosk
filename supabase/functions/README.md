@@ -65,6 +65,30 @@ await sendEmail({
 });
 ```
 
+### `accept-invitation`
+
+Accepts an invitation and creates a user account. Uses service role to bypass signup restrictions.
+Called from the `AcceptInvite` page when a user accepts an invitation.
+
+**Usage:**
+
+The function is called automatically when a user submits the invitation acceptance form.
+It handles:
+
+- Validating the invitation token
+- Creating the auth user (using service role)
+- Finalizing invitation acceptance (creating membership, profile, etc.)
+- Error handling and cleanup
+
+**Environment Variables:**
+
+The function automatically has access to:
+
+- `SUPABASE_URL` (automatically available)
+- `SUPABASE_SERVICE_ROLE_KEY` (automatically available)
+
+No additional configuration needed.
+
 ## Testing Locally
 
 You can test Edge Functions locally using the Supabase CLI:

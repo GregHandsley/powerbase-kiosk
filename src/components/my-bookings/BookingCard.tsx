@@ -64,6 +64,10 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
     booking.status as BookingStatus | undefined
   );
 
+  // Check if booking is cancelled
+  const isCancelled =
+    booking.status === 'cancelled' || booking.status === 'pending_cancellation';
+
   return (
     <div
       className={clsx(
@@ -183,7 +187,7 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
 
       {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap">
-        {liveViewUrl && (
+        {liveViewUrl && !isCancelled && (
           <Link
             to={liveViewUrl}
             className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors"
@@ -196,7 +200,7 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
             {isNextInstanceFuture ? 'View Next Session' : 'View Session'}
           </Link>
         )}
-        {onEdit && (
+        {onEdit && !isCancelled && (
           <button
             type="button"
             onClick={() => onEdit(booking)}

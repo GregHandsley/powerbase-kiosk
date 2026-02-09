@@ -16,10 +16,17 @@ import { useCapacityValidation } from './booking/useCapacityValidation';
 import { BookingTimeInputs } from './booking/BookingTimeInputs';
 import { BookingPlatformSelection } from './booking/BookingPlatformSelection';
 import { CapacityDisplay } from './booking/CapacityDisplay';
+import { useNotificationSettings } from '../../hooks/useNotificationSettings';
+import {
+  usePermission,
+  usePrimaryOrganizationId,
+} from '../../hooks/usePermissions';
+import type { OrgRole } from '../../types/auth';
+import { isAdminRole } from '../../types/auth';
 import clsx from 'clsx';
 
 type Props = {
-  role: 'admin' | 'coach';
+  role: OrgRole; // Now accepts all org roles (2.3.1)
   /** Optional initial values to pre-fill the form */
   initialValues?: Partial<BookingFormValues>;
   /** Callback when booking is successfully created */
@@ -29,6 +36,13 @@ type Props = {
 export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   const { user } = useAuth();
   const { areas, areasLoading, areasError } = useAreas();
+
+  // Check permissions for creating bookings
+  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+  const { hasPermission: canCreateBookings } = usePermission(
+    primaryOrgId,
+    'bookings.create'
+  );
 
   const todayStr = useMemo(() => {
     const d = new Date();
@@ -51,6 +65,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
       areas: [],
       color: '#4f46e5',
       isLocked: false,
+      emergencyReason: '',
       capacity: 1,
       ...initialValues,
     },
@@ -76,6 +91,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
         areas: [],
         color: '#4f46e5',
         isLocked: false,
+        emergencyReason: '',
         capacity: 1,
         ...initialValues,
         // Ensure sideKey is properly typed after spread (override if needed)
@@ -103,17 +119,38 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
     isLoading: closedTimesLoading,
   } = useClosedTimes(sideId, startDate || null);
 
+  // Hard cutoff settings
+  const { settings: notificationSettings } = useNotificationSettings();
+  const hardRestrictionEnabled =
+    notificationSettings?.hard_restriction_enabled ?? true;
+  const cutoffHours = notificationSettings?.hard_restriction_hours ?? 12;
+
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideReasonError, setOverrideReasonError] = useState<string | null>(
+    null
+  );
+
   // Check if selected times are closed
   const startTime = useWatch({ control: form.control, name: 'startTime' });
   const endTime = useWatch({ control: form.control, name: 'endTime' });
   const capacity = useWatch({ control: form.control, name: 'capacity' });
   const weeks = useWatch({ control: form.control, name: 'weeks' });
-
   // Check if any time in the range is closed
   const timeRangeIsClosed = useMemo(() => {
     if (!startTime || !endTime) return false;
     return isTimeRangeClosed(closedTimes, startTime, endTime, closedPeriods);
   }, [startTime, endTime, closedTimes, closedPeriods]);
+
+  // Determine if we're inside the hard cutoff window
+  const isInsideHardCutoff = useMemo(() => {
+    if (!hardRestrictionEnabled || !startDate || !startTime) return false;
+    const startDateTime = new Date(`${startDate}T${startTime}:00`);
+    const hoursUntil =
+      (startDateTime.getTime() - new Date().getTime()) / (1000 * 60 * 60);
+    return hoursUntil < cutoffHours;
+  }, [hardRestrictionEnabled, startDate, startTime, cutoffHours]);
 
   // Time defaults management
   const {
@@ -155,6 +192,37 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
       capacityValidation
     );
 
+  // Wrapper to enforce cutoff UX before calling onSubmit
+  const handleSubmitWithCutoff = form.handleSubmit((vals) => {
+    if (hardRestrictionEnabled && isInsideHardCutoff) {
+      // Non-admins are blocked inside the cutoff window
+      if (!isAdminRole(role)) {
+        setInlineError(
+          `Bookings must be made at least ${cutoffHours} hours in advance. Please speak to the on-site team to handle this.`
+        );
+        return;
+      }
+
+      // Admins must supply a reason; show modal if missing
+      const reason =
+        overrideReason.trim() || vals.emergencyReason?.trim() || '';
+      if (!reason) {
+        setInlineError(null);
+        setOverrideReason('');
+        setOverrideReasonError(null);
+        setOverrideModalOpen(true);
+        return;
+      }
+
+      vals.emergencyReason = reason;
+    }
+
+    setInlineError(null);
+    setOverrideModalOpen(false);
+    setOverrideReasonError(null);
+    onSubmit(vals);
+  });
+
   // Call onSuccess when booking is successfully created
   useEffect(() => {
     if (submitMessage && onSuccess) {
@@ -165,6 +233,33 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
       return () => clearTimeout(timer);
     }
   }, [submitMessage, onSuccess]);
+
+  // Show access denied message if user doesn't have permission
+  if (!canCreateBookings) {
+    return (
+      <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
+        <div className="flex items-center gap-2 text-slate-400">
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+          <span className="text-sm">
+            You don't have permission to create bookings. Contact your
+            administrator if you need access.
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-3">
@@ -182,7 +277,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
       </div>
 
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={handleSubmitWithCutoff}
         className="grid gap-3 md:grid-cols-3 text-xs"
       >
         {/* Left column: basic details and time */}
@@ -331,7 +426,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
           </div>
 
           {/* Locked booking */}
-          {role === 'admin' && (
+          {isAdminRole(role) && (
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -345,13 +440,27 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
             </div>
           )}
 
+          {/* Hard cutoff guidance */}
+          {isInsideHardCutoff && (
+            <div className="space-y-2">
+              <div className="text-[11px] text-amber-200 bg-amber-900/20 border border-amber-700/40 rounded-md p-2">
+                Bookings must be made at least {cutoffHours} hours in advance.
+                If you are inside the cutoff window, please ask the on-site team
+                to handle it. Admins can proceed only when it is truly necessary
+                and must record a reason.
+              </div>
+            </div>
+          )}
+
           {/* Submit button */}
           <div className="pt-2">
             <button
               type="submit"
               disabled={
                 submitting ||
-                (!capacityValidation.isValid && !capacityValidation.isLoading)
+                (!capacityValidation.isValid &&
+                  !capacityValidation.isLoading) ||
+                (isInsideHardCutoff && !isAdminRole(role))
               }
               className={clsx(
                 'w-full inline-flex items-center justify-center rounded-md py-1.5 text-xs font-medium',
@@ -373,16 +482,75 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
           {submitMessage && (
             <p className="text-[11px] text-emerald-400 mt-1">{submitMessage}</p>
           )}
-          {submitError && (
+          {(inlineError || submitError) && (
             <div className="mt-2 p-3 bg-red-900/20 border border-red-700/50 rounded-md">
               <p className="text-sm text-red-300 font-medium mb-1">Error</p>
               <pre className="text-xs text-red-400 whitespace-pre-wrap font-sans">
-                {submitError}
+                {inlineError || submitError}
               </pre>
             </div>
           )}
         </div>
       </form>
+
+      {/* Emergency reason modal (admin inside cutoff) */}
+      {overrideModalOpen && isAdminRole(role) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 w-full max-w-lg space-y-3">
+            <h3 className="text-sm font-semibold text-slate-100">
+              Confirm emergency booking
+            </h3>
+            <p className="text-xs text-slate-300">
+              This booking is inside the {cutoffHours}-hour cutoff. Please
+              record why this needs to proceed now.
+            </p>
+            <textarea
+              className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
+              rows={4}
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.target.value)}
+              placeholder="Reason for booking inside the cutoff window"
+            />
+            {overrideReasonError && (
+              <p className="text-xs text-red-400">{overrideReasonError}</p>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs rounded-md bg-slate-800 text-slate-200 hover:bg-slate-700"
+                onClick={() => {
+                  setOverrideModalOpen(false);
+                  setOverrideReason('');
+                  setOverrideReasonError(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs rounded-md bg-indigo-600 text-white hover:bg-indigo-500"
+                onClick={() => {
+                  const reason = overrideReason.trim();
+                  if (!reason) {
+                    setOverrideReasonError(
+                      'Please provide a reason to proceed.'
+                    );
+                    return;
+                  }
+                  form.setValue('emergencyReason', reason, {
+                    shouldValidate: false,
+                  });
+                  setOverrideReasonError(null);
+                  setOverrideModalOpen(false);
+                  handleSubmitWithCutoff();
+                }}
+              >
+                Confirm booking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
