@@ -7,6 +7,7 @@ import sys
 import time
 import uuid
 import urllib.request
+import urllib.parse
 
 STATE_PATH = os.path.expanduser("~/.facilityos/player-agent.json")
 KIOSK_CONFIG_PATH = os.path.expanduser("~/.facilityos/kiosk.conf")
@@ -179,6 +180,44 @@ def fetch_player_config(supabase_url, supabase_key):
     return data
 
 
+def fetch_commands(supabase_url, supabase_key):
+    state = load_state()
+    device_id = state.get("device_id")
+    device_token = state.get("device_token")
+    if not device_id or not device_token:
+        raise RuntimeError("Device not paired. Run 'pair' first.")
+
+    query = urllib.parse.urlencode(
+        {
+            "device_id": device_id,
+            "device_token": device_token,
+        }
+    )
+    endpoint = f"{supabase_url}/functions/v1/player-commands?{query}"
+    request = urllib.request.Request(
+        endpoint,
+        headers={
+            "Authorization": f"Bearer {supabase_key}",
+        },
+        method="GET",
+    )
+
+    try:
+        with urllib.request.urlopen(request) as response:
+            body = response.read().decode("utf-8")
+            data = json.loads(body)
+    except urllib.error.HTTPError as error:
+        error_body = error.read().decode("utf-8") if error.fp else ""
+        raise RuntimeError(
+            f"Command poll failed (HTTP {error.code}): {error_body or error.reason}"
+        ) from error
+
+    commands = data.get("commands", [])
+    if not isinstance(commands, list):
+        return []
+    return commands
+
+
 def update_kiosk_config(desired_url):
     os.makedirs(os.path.dirname(KIOSK_CONFIG_PATH), exist_ok=True)
     target_url = desired_url or DEFAULT_KIOSK_URL
@@ -207,9 +246,13 @@ def heartbeat_loop(supabase_url, supabase_key, interval_seconds):
         send_heartbeat(supabase_url, supabase_key)
         config = fetch_player_config(supabase_url, supabase_key)
         changed = update_kiosk_config(config.get("desired_url"))
+        commands = fetch_commands(supabase_url, supabase_key)
         if changed:
             restart_kiosk()
             print("Kiosk URL updated; Chromium restarting.")
+        if commands:
+            command_ids = [command.get("id") for command in commands]
+            print(f"Received commands: {command_ids}")
         else:
             print("Heartbeat sent.")
         time.sleep(interval_seconds)
