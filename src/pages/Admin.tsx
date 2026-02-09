@@ -10,6 +10,7 @@ import { InvitationManagement } from '../components/admin/invitations/Invitation
 import { AuditLog } from '../components/admin/audit/AuditLog';
 import { ActivityLog } from '../components/admin/activity/ActivityLog';
 import { AnnouncementManagement } from '../components/admin/announcements/AnnouncementManagement';
+import { PlayerManagement } from '../components/admin/players/PlayerManagement';
 import { Clock } from '../components/Clock';
 import {
   usePermission,
@@ -46,6 +47,11 @@ export function Admin() {
       crumb: 'Period Capacity',
       title: 'Period Capacity',
       subtitle: 'Set defaults and overrides for period capacity.',
+    },
+    players: {
+      crumb: 'Players',
+      title: 'Player Management',
+      subtitle: 'Create and manage kiosk players.',
     },
     'notification-settings': {
       crumb: 'Notification Settings',
@@ -250,6 +256,7 @@ export function Admin() {
         >
           {view === 'capacity-schedule' && <CapacityManagement />}
           {view === 'period-capacity' && <PeriodTypeCapacityManagement />}
+          {view === 'players' && <PlayerManagement />}
           {view === 'notification-settings' && (
             <NotificationSettings
               onUnsavedChangesChange={setHasUnsavedNotificationChanges}

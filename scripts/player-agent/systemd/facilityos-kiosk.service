@@ -1,0 +1,16 @@
+[Unit]
+Description=FacilityOS Kiosk (Chromium)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=greghandsley
+WorkingDirectory=/home/greghandsley
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/startx /home/greghandsley/kiosk.sh -- :0
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

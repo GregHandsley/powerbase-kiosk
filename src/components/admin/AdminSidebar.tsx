@@ -30,6 +30,10 @@ export function AdminSidebar({
       label: 'Period Capacity',
     },
     {
+      path: '/admin?view=players',
+      label: 'Players',
+    },
+    {
       path: '/admin?view=notification-settings',
       label: 'Notification Settings',
     },
