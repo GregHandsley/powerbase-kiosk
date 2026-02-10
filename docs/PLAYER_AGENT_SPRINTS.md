@@ -120,7 +120,7 @@ Key docs:
 **Acceptance Criteria**
 - Power cycle → unpaired screen appears. -->
 
-## Sprint 2.2 — Kiosk runtime + watchdog
+<!-- ## Sprint 2.2 — Kiosk runtime + watchdog
 
 **Goal:** Chromium starts in kiosk mode and self-recovers.
 
@@ -135,9 +135,9 @@ Key docs:
 **Acceptance Criteria**
 
 - Chromium crash → auto-restart via systemd.
-- Boot to kiosk within target window (e.g., <90s).
+- Boot to kiosk within target window (e.g., <90s). -->
 
-## Sprint 3.1 — Command queue + polling
+<!-- ## Sprint 3.1 — Command queue + polling
 
 **Goal:** Device can receive commands via polling.
 
@@ -149,9 +149,9 @@ Key docs:
 
 **Acceptance Criteria**
 
-- Commands delivered once and tracked.
+- Commands delivered once and tracked. -->
 
-## Sprint 3.2 — Command execution + ACK
+<!-- ## Sprint 3.2 — Command execution + ACK
 
 **Goal:** Device executes commands and reports results.
 
@@ -164,9 +164,9 @@ Key docs:
 **Acceptance Criteria**
 
 - Failures include error text.
-- Admin UI shows per-player command history.
+- Admin UI shows per-player command history. -->
 
-## Sprint 4.1 — Power state commands
+<!-- ## Sprint 4.1 — Power state commands
 
 **Goal:** Turn screens on/off centrally.
 
@@ -177,7 +177,7 @@ Key docs:
 
 **Acceptance Criteria**
 
-- CEC works where supported.
+- CEC works where supported. -->
 
 ## Sprint 4.2 — Schedules + fallback
 

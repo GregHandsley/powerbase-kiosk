@@ -5,6 +5,7 @@ import { useOrganizations } from '../../../hooks/useOrganizations';
 import { useSites } from '../../../hooks/useSites';
 import { usePlayers } from '../../../hooks/usePlayers';
 import { usePrimaryOrganizationId } from '../../../hooks/usePermissions';
+import { supabase } from '../../../lib/supabaseClient';
 
 export function PlayerManagement() {
   const { organizations, isLoading: orgsLoading } = useOrganizations();
@@ -45,6 +46,10 @@ export function PlayerManagement() {
   const [editLocation, setEditLocation] = useState('');
   const [editDesiredUrl, setEditDesiredUrl] = useState('');
   const [editPowerState, setEditPowerState] = useState<'on' | 'off'>('on');
+  const [commandLoading, setCommandLoading] = useState<{
+    playerId: number;
+    type: string;
+  } | null>(null);
 
   const canSubmit =
     !!activeOrgId && name.trim().length > 0 && !createPlayerLoading;
@@ -142,6 +147,36 @@ export function PlayerManagement() {
       toast.error(
         error instanceof Error ? error.message : 'Failed to update player'
       );
+    }
+  };
+
+  const handleSendCommand = async (
+    playerId: number,
+    type: string,
+    payload?: Record<string, unknown>
+  ) => {
+    try {
+      setCommandLoading({ playerId, type });
+      const { error } = await supabase.functions.invoke(
+        'admin-player-commands',
+        {
+          body: {
+            player_id: playerId,
+            type,
+            payload: payload ?? {},
+          },
+        }
+      );
+      if (error) {
+        throw error;
+      }
+      toast.success(`Command sent: ${type}`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to send command'
+      );
+    } finally {
+      setCommandLoading(null);
     }
   };
 
@@ -502,21 +537,64 @@ export function PlayerManagement() {
                             </button>
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              startEdit({
-                                id: player.id,
-                                name: player.name,
-                                location: player.location,
-                                desired_url: player.desired_url,
-                                desired_power_state: player.desired_power_state,
-                              })
-                            }
-                            className="px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 hover:underline"
-                          >
-                            Edit
-                          </button>
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSendCommand(player.id, 'display_on')
+                              }
+                              disabled={commandLoading?.playerId === player.id}
+                              className="px-2 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded disabled:opacity-50"
+                            >
+                              Display On
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSendCommand(player.id, 'display_off')
+                              }
+                              disabled={commandLoading?.playerId === player.id}
+                              className="px-2 py-1 text-xs bg-slate-600 hover:bg-slate-500 text-white rounded disabled:opacity-50"
+                            >
+                              Display Off
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSendCommand(player.id, 'reload')
+                              }
+                              disabled={commandLoading?.playerId === player.id}
+                              className="px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
+                            >
+                              Reload
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSendCommand(player.id, 'restart_kiosk')
+                              }
+                              disabled={commandLoading?.playerId === player.id}
+                              className="px-2 py-1 text-xs bg-indigo-700 hover:bg-indigo-600 text-white rounded disabled:opacity-50"
+                            >
+                              Restart Kiosk
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                startEdit({
+                                  id: player.id,
+                                  name: player.name,
+                                  location: player.location,
+                                  desired_url: player.desired_url,
+                                  desired_power_state:
+                                    player.desired_power_state,
+                                })
+                              }
+                              className="px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 hover:underline"
+                            >
+                              Edit
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
