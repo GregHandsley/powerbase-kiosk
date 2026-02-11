@@ -124,39 +124,38 @@ body {
   font-family: 'SF Pro Display', 'Inter', system-ui, sans-serif;
   letter-spacing: 0.01em;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   padding: var(--kiosk-outer-gutter);
   box-sizing: border-box;
   --kiosk-gutter: 2rem;
-  --kiosk-outer-gutter: 0.5rem;
+  --kiosk-outer-gutter: 1.5rem;
 }
 
 .kiosk-frame {
-  /* Flexible scaling: fill viewport while maintaining close to 16:9 */
-  /* Uses whichever dimension is more constrained to prevent cutoff */
-  width: min(
-    calc(100vw - (var(--kiosk-outer-gutter) * 2)),
-    calc((100vh - (var(--kiosk-outer-gutter) * 2)) * 16 / 9)
-  );
-  height: min(
-    calc(100vh - (var(--kiosk-outer-gutter) * 2)),
-    calc((100vw - (var(--kiosk-outer-gutter) * 2)) * 9 / 16)
-  );
-  /* Removed strict aspect-ratio to allow slight deviation when needed */
-  max-width: 100vw;
-  max-height: 100vh;
+  /* Fill the padded screen area; ignore aspect ratio. */
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .kiosk-frame-inner {
   height: 100%;
   width: 100%;
-  padding: var(--kiosk-gutter);
+  padding: 0;
   box-sizing: border-box;
 }
 
 .kiosk-grid {
   gap: var(--kiosk-gutter);
+  grid-template-columns: 3fr 2fr;
+  grid-template-rows: 3fr 7fr;
+  width: 100%;
+  height: 100%;
 }
 
 .kiosk-zone {
