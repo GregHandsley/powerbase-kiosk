@@ -54,6 +54,22 @@ export type PlayerConfigResponse = {
   ok: true;
   player_id: number;
   desired_url: string | null;
+  capacity_schedules: CapacityScheduleRow[];
+};
+
+export type CapacityScheduleRow = {
+  id: number;
+  side_id: number;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  capacity: number;
+  period_type: string;
+  recurrence_type: string;
+  start_date: string;
+  end_date: string | null;
+  excluded_dates: string[] | string | null;
+  platforms: number[] | null;
 };
 
 export type CommandPayload = Record<string, unknown>;

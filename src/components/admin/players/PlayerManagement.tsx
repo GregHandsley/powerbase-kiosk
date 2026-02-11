@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { useOrganizations } from '../../../hooks/useOrganizations';
@@ -12,6 +13,7 @@ export function PlayerManagement() {
   const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
   const [formOrganizationId, setFormOrganizationId] = useState<number | ''>('');
   const [formSiteId, setFormSiteId] = useState<number | ''>('');
+  const [sideKey, setSideKey] = useState<'Base' | 'Power'>('Base');
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [desiredUrl, setDesiredUrl] = useState('');
@@ -46,6 +48,7 @@ export function PlayerManagement() {
   const [editLocation, setEditLocation] = useState('');
   const [editDesiredUrl, setEditDesiredUrl] = useState('');
   const [editPowerState, setEditPowerState] = useState<'on' | 'off'>('on');
+  const [editSideKey, setEditSideKey] = useState<'Base' | 'Power'>('Base');
   const [commandLoading, setCommandLoading] = useState<{
     playerId: number;
     type: string;
@@ -72,6 +75,7 @@ export function PlayerManagement() {
       await createPlayer({
         organization_id: activeOrgId,
         site_id: formSiteId ? (formSiteId as number) : null,
+        side_key: sideKey,
         name,
         location: location.trim() || null,
         desired_url: desiredUrl.trim() || null,
@@ -82,6 +86,7 @@ export function PlayerManagement() {
       setLocation('');
       setDesiredUrl('');
       setPowerState('on');
+      setSideKey('Base');
       setFormSiteId('');
     } catch (error) {
       toast.error(
@@ -115,12 +120,14 @@ export function PlayerManagement() {
     location: string | null;
     desired_url: string | null;
     desired_power_state: 'on' | 'off';
+    side_key: 'Base' | 'Power' | null;
   }) => {
     setEditingPlayerId(player.id);
     setEditName(player.name);
     setEditLocation(player.location ?? '');
     setEditDesiredUrl(player.desired_url ?? '');
     setEditPowerState(player.desired_power_state);
+    setEditSideKey(player.side_key ?? 'Base');
   };
 
   const cancelEdit = () => {
@@ -129,6 +136,7 @@ export function PlayerManagement() {
     setEditLocation('');
     setEditDesiredUrl('');
     setEditPowerState('on');
+    setEditSideKey('Base');
   };
 
   const handleSaveEdit = async () => {
@@ -140,6 +148,7 @@ export function PlayerManagement() {
         location: editLocation,
         desired_url: editDesiredUrl,
         desired_power_state: editPowerState,
+        side_key: editSideKey,
       });
       toast.success('Player updated.');
       cancelEdit();
@@ -147,6 +156,25 @@ export function PlayerManagement() {
       toast.error(
         error instanceof Error ? error.message : 'Failed to update player'
       );
+    }
+  };
+
+  const getCommandLabel = (commandType: string) => {
+    switch (commandType) {
+      case 'display_on':
+        return 'Display on';
+      case 'display_off':
+        return 'Display off';
+      case 'reload':
+        return 'Reload';
+      case 'restart_kiosk':
+        return 'Restart kiosk';
+      case 'set_url':
+        return 'Set URL';
+      case 'reboot':
+        return 'Reboot';
+      default:
+        return commandType.replace(/_/g, ' ');
     }
   };
 
@@ -170,7 +198,7 @@ export function PlayerManagement() {
       if (error) {
         throw error;
       }
-      toast.success(`Command sent: ${type}`);
+      toast.success(`Command sent: ${getCommandLabel(type)}`);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to send command'
@@ -250,6 +278,20 @@ export function PlayerManagement() {
                 Loading sites...
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+              Side
+            </label>
+            <select
+              value={sideKey}
+              onChange={(e) => setSideKey(e.target.value as 'Base' | 'Power')}
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="Base">Base</option>
+              <option value="Power">Power</option>
+            </select>
           </div>
 
           <div>
@@ -340,6 +382,9 @@ export function PlayerManagement() {
                     Site
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
+                    Side
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
@@ -347,6 +392,9 @@ export function PlayerManagement() {
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
                     Desired URL
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
+                    Schedule
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
                     Power
@@ -363,7 +411,7 @@ export function PlayerManagement() {
                 {playersLoading ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={11}
                       className="px-4 py-8 text-center text-sm text-slate-400"
                     >
                       Loading players...
@@ -372,7 +420,7 @@ export function PlayerManagement() {
                 ) : players.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={11}
                       className="px-4 py-8 text-center text-sm text-slate-400"
                     >
                       {activeOrgId
@@ -431,6 +479,24 @@ export function PlayerManagement() {
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
                         {player.site_name || 'All sites'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-300">
+                        {editingPlayerId === player.id ? (
+                          <select
+                            value={editSideKey}
+                            onChange={(event) =>
+                              setEditSideKey(
+                                event.target.value as 'Base' | 'Power'
+                              )
+                            }
+                            className="w-full px-2 py-1 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
+                          >
+                            <option value="Base">Base</option>
+                            <option value="Power">Power</option>
+                          </select>
+                        ) : (
+                          player.side_key || '—'
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
                         {player.last_seen_at ? (
@@ -494,6 +560,20 @@ export function PlayerManagement() {
                           />
                         ) : (
                           player.desired_url || '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-400">
+                        {player.site_id && player.side_key ? (
+                          <Link
+                            to={`/admin?view=capacity-schedule&side=${player.side_key}`}
+                            className="text-xs text-indigo-300 hover:text-indigo-200"
+                          >
+                            View schedule
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-slate-500">
+                            Set site &amp; side
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
@@ -588,6 +668,7 @@ export function PlayerManagement() {
                                   desired_url: player.desired_url,
                                   desired_power_state:
                                     player.desired_power_state,
+                                  side_key: player.side_key,
                                 })
                               }
                               className="px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 hover:underline"

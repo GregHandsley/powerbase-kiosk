@@ -6,6 +6,7 @@ export type Player = {
   id: number;
   organization_id: number;
   site_id: number | null;
+  side_key: 'Base' | 'Power' | null;
   name: string;
   location: string | null;
   desired_url: string | null;
@@ -20,6 +21,7 @@ export type Player = {
 export type CreatePlayerParams = {
   organization_id: number;
   site_id?: number | null;
+  side_key?: 'Base' | 'Power' | null;
   name: string;
   location?: string | null;
   desired_url?: string | null;
@@ -32,6 +34,7 @@ export type UpdatePlayerParams = {
   location?: string | null;
   desired_url?: string | null;
   desired_power_state?: 'on' | 'off';
+  side_key?: 'Base' | 'Power' | null;
 };
 
 type CreatePairingCodeParams = {
@@ -71,6 +74,7 @@ export function usePlayers(organizationId: number | null) {
           id,
           organization_id,
           site_id,
+          side_key,
           name,
           location,
           desired_url,
@@ -141,6 +145,7 @@ export function usePlayers(organizationId: number | null) {
         .insert({
           organization_id: params.organization_id,
           site_id: params.site_id ?? null,
+          side_key: params.side_key ?? null,
           name: params.name.trim(),
           location: params.location?.trim() || null,
           desired_url: params.desired_url?.trim() || null,
@@ -172,6 +177,9 @@ export function usePlayers(organizationId: number | null) {
       }
       if (params.desired_power_state !== undefined) {
         updates.desired_power_state = params.desired_power_state;
+      }
+      if (params.side_key !== undefined) {
+        updates.side_key = params.side_key;
       }
 
       const { error: updateError } = await supabase

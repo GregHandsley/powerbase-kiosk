@@ -78,7 +78,7 @@ serve(async (req) => {
 
   const { data: player, error: playerError } = await supabaseAdmin
     .from('players')
-    .select('id, desired_url')
+    .select('id, desired_url, site_id, side_key')
     .eq('id', device.player_id)
     .maybeSingle();
 
@@ -89,10 +89,53 @@ serve(async (req) => {
     });
   }
 
+  let capacitySchedules: Record<string, unknown>[] = [];
+  if (player.site_id && player.side_key) {
+    const { data: side } = await supabaseAdmin
+      .from('sides')
+      .select('id')
+      .eq('key', player.side_key)
+      .maybeSingle();
+
+    if (side?.id) {
+      const now = new Date();
+      const dayOfWeek = now.getUTCDay();
+      const weekStart = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() - dayOfWeek
+        )
+      );
+      const weekEnd = new Date(
+        Date.UTC(
+          weekStart.getUTCFullYear(),
+          weekStart.getUTCMonth(),
+          weekStart.getUTCDate() + 6
+        )
+      );
+      const weekStartStr = weekStart.toISOString().slice(0, 10);
+      const weekEndStr = weekEnd.toISOString().slice(0, 10);
+
+      const { data: schedules } = await supabaseAdmin
+        .from('capacity_schedules')
+        .select(
+          'id, side_id, day_of_week, start_time, end_time, capacity, period_type, recurrence_type, start_date, end_date, excluded_dates, platforms'
+        )
+        .eq('side_id', side.id)
+        .eq('site_id', player.site_id)
+        .lte('start_date', weekEndStr)
+        .or(`end_date.is.null,end_date.gte.${weekStartStr}`);
+
+      capacitySchedules = (schedules ?? []) as Record<string, unknown>[];
+    }
+  }
+
   const response: PlayerConfigResponse = {
     ok: true,
     player_id: player.id,
     desired_url: player.desired_url ?? null,
+    capacity_schedules: capacitySchedules,
   };
 
   return new Response(JSON.stringify(response), {

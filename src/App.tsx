@@ -9,6 +9,7 @@ import { KioskWayfinding } from './pages/KioskWayfinding';
 import { KioskWayfindingStatic } from './pages/KioskWayfindingStatic';
 import { KioskBaseStatic } from './pages/KioskBaseStatic';
 import { KioskUnpaired } from './pages/KioskUnpaired';
+import { KioskBlank } from './pages/KioskBlank';
 import { FloorplanTest } from './pages/FloorplanTest';
 import { LiveView } from './pages/LiveView';
 import { Schedule } from './pages/Schedule';
@@ -143,6 +144,14 @@ export default function App() {
             </ErrorBoundary>
           }
         />
+        <Route
+          path="/kiosk/blank"
+          element={
+            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+              <KioskBlank />
+            </ErrorBoundary>
+          }
+        />
         <Route path="/kiosk/unpaired" element={<KioskUnpaired />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
@@ -252,6 +261,14 @@ export default function App() {
             element={
               <ErrorBoundary FallbackComponent={KioskErrorScreen}>
                 <KioskWayfindingStatic />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/kiosk/blank"
+            element={
+              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
+                <KioskBlank />
               </ErrorBoundary>
             }
           />

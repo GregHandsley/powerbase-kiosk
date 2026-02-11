@@ -5,6 +5,11 @@ import os
 import socket
 import sys
 import time
+from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
 import uuid
 import urllib.request
 import urllib.parse
@@ -13,6 +18,9 @@ import shutil
 STATE_PATH = os.path.expanduser("~/.facilityos/player-agent.json")
 KIOSK_CONFIG_PATH = os.path.expanduser("~/.facilityos/kiosk.conf")
 DEFAULT_KIOSK_URL = "https://facilityos.co.uk/kiosk/unpaired"
+BLANK_SCREEN_PATH = "/kiosk/blank"
+SCHEDULE_TOLERANCE_SECONDS = 120
+COMMAND_POLL_SECONDS = 5
 
 
 def load_state():
@@ -310,7 +318,339 @@ def execute_cec_command(power_state):
     raise RuntimeError(f"Unknown power state: {power_state}")
 
 
-def execute_command(command):
+def derive_blank_url(desired_url, schedule):
+    if isinstance(schedule, dict):
+        schedule_blank = schedule.get("blank_url")
+        if isinstance(schedule_blank, str) and schedule_blank.strip():
+            return schedule_blank.strip()
+    if desired_url:
+        parsed = urllib.parse.urlparse(desired_url)
+        if parsed.scheme and parsed.netloc:
+            return urllib.parse.urlunparse(
+                (parsed.scheme, parsed.netloc, BLANK_SCREEN_PATH, "", "", "")
+            )
+    return "about:blank"
+
+
+def parse_time_to_minutes(value):
+    if not isinstance(value, str):
+        return None
+    parts = value.strip().split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        hours = int(parts[0])
+        minutes = int(parts[1])
+    except ValueError:
+        return None
+    if hours < 0 or hours > 23 or minutes < 0 or minutes > 59:
+        return None
+    return hours * 60 + minutes
+
+
+def normalize_day(value):
+    if isinstance(value, int):
+        if 0 <= value <= 6:
+            return value
+        return None
+    if not isinstance(value, str):
+        return None
+    lookup = {
+        "mon": 0,
+        "monday": 0,
+        "tue": 1,
+        "tues": 1,
+        "tuesday": 1,
+        "wed": 2,
+        "wednesday": 2,
+        "thu": 3,
+        "thurs": 3,
+        "thursday": 3,
+        "fri": 4,
+        "friday": 4,
+        "sat": 5,
+        "saturday": 5,
+        "sun": 6,
+        "sunday": 6,
+    }
+    return lookup.get(value.strip().lower())
+
+
+def parse_excluded_dates(value):
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed]
+        except json.JSONDecodeError:
+            return []
+    return []
+
+
+def normalize_time_str(value):
+    if not isinstance(value, str):
+        return None
+    parts = value.split(":")
+    if len(parts) < 2:
+        return None
+    return f"{parts[0].zfill(2)}:{parts[1].zfill(2)}"
+
+
+def compare_times(time1, time2):
+    t1 = normalize_time_str(time1)
+    t2 = normalize_time_str(time2)
+    if t1 is None or t2 is None:
+        return None
+    if t1 < t2:
+        return -1
+    if t1 > t2:
+        return 1
+    return 0
+
+
+def does_capacity_schedule_apply(schedule, day_of_week, date_str, time_str):
+    start_time = parse_time_to_minutes(schedule.get("start_time"))
+    end_time = parse_time_to_minutes(schedule.get("end_time"))
+    now_min = parse_time_to_minutes(time_str)
+    if start_time is None or end_time is None or now_min is None:
+        return False
+
+    tolerance_min = max(0, int(SCHEDULE_TOLERANCE_SECONDS / 60))
+    if not within_window(now_min, start_time, end_time, tolerance_min):
+        return False
+
+    excluded = parse_excluded_dates(schedule.get("excluded_dates"))
+    if date_str in excluded:
+        return False
+
+    recurrence_type = schedule.get("recurrence_type")
+    schedule_day = schedule.get("day_of_week")
+    start_date = schedule.get("start_date")
+    end_date = schedule.get("end_date")
+
+    if isinstance(end_date, str) and date_str > end_date:
+        return False
+
+    if recurrence_type == "single":
+        return schedule_day == day_of_week and start_date == date_str
+    if recurrence_type == "weekday":
+        return (
+            schedule_day == day_of_week
+            and 1 <= day_of_week <= 5
+            and isinstance(start_date, str)
+            and start_date <= date_str
+        )
+    if recurrence_type == "weekend":
+        return (
+            schedule_day == day_of_week
+            and (day_of_week == 0 or day_of_week == 6)
+            and isinstance(start_date, str)
+            and start_date <= date_str
+        )
+    if recurrence_type in {"weekly", "all_future"}:
+        return (
+            schedule_day == day_of_week
+            and isinstance(start_date, str)
+            and start_date <= date_str
+        )
+    return False
+
+
+def apply_capacity_schedule(capacity_schedules, config, supabase_url, supabase_key):
+    now_dt = datetime.now()
+    day_of_week = (now_dt.weekday() + 1) % 7
+    date_str = now_dt.strftime("%Y-%m-%d")
+    time_str = now_dt.strftime("%H:%M")
+
+    applicable = [
+        schedule
+        for schedule in capacity_schedules
+        if isinstance(schedule, dict)
+        and does_capacity_schedule_apply(schedule, day_of_week, date_str, time_str)
+    ]
+    if not applicable:
+        return None
+
+    target_state = (
+        "off"
+        if any(schedule.get("period_type") == "Closed" for schedule in applicable)
+        else "on"
+    )
+    state = load_state()
+    if (
+        state.get("scheduled_power_state") == target_state
+        and state.get("scheduled_source") == "capacity"
+    ):
+        return target_state
+
+    apply_power_state(
+        target_state,
+        config.get("desired_url"),
+        {},
+        supabase_url,
+        supabase_key,
+        "capacity",
+    )
+    state["scheduled_power_state"] = target_state
+    state["scheduled_source"] = "capacity"
+    save_state(state)
+    log_message(
+        supabase_url,
+        supabase_key,
+        "info",
+        "Capacity schedule applied",
+        {"state": target_state},
+    )
+    return target_state
+
+
+def parse_power_schedule(schedule):
+    if not isinstance(schedule, dict):
+        return None, "Schedule must be a JSON object."
+    periods = schedule.get("periods")
+    if periods is None:
+        return None, "Missing 'periods' array."
+    if not isinstance(periods, list):
+        return None, "'periods' must be an array."
+
+    parsed_periods = []
+    for index, period in enumerate(periods):
+        if not isinstance(period, dict):
+            return None, f"Period {index + 1} must be an object."
+        days_value = period.get("days", [])
+        if not isinstance(days_value, list) or not days_value:
+            return None, f"Period {index + 1} must include 'days' array."
+        days = set()
+        for day in days_value:
+            normalized = normalize_day(day)
+            if normalized is None:
+                return None, f"Period {index + 1} has invalid day: {day}"
+            days.add(normalized)
+        start = parse_time_to_minutes(period.get("start"))
+        end = parse_time_to_minutes(period.get("end"))
+        if start is None or end is None:
+            return None, f"Period {index + 1} must include valid start/end times."
+        state = period.get("state", "on")
+        if state not in {"on", "off"}:
+            return None, f"Period {index + 1} has invalid state: {state}"
+        parsed_periods.append(
+            {
+                "days": days,
+                "start": start,
+                "end": end,
+                "state": state,
+            }
+        )
+
+    default_state = schedule.get("default_state", "off")
+    if default_state not in {"on", "off"}:
+        return None, f"Invalid default_state: {default_state}"
+    return (
+        {
+            "timezone": schedule.get("timezone"),
+            "default_state": default_state,
+            "periods": parsed_periods,
+        },
+        None,
+    )
+
+
+def resolve_schedule_now(timezone_name):
+    if timezone_name and ZoneInfo is not None:
+        try:
+            return datetime.now(tz=ZoneInfo(timezone_name))
+        except Exception:
+            return datetime.now()
+    return datetime.now()
+
+
+def within_window(now_min, start_min, end_min, tolerance_min):
+    if start_min == end_min:
+        return True
+    start_adj = (start_min - tolerance_min) % 1440
+    end_adj = (end_min + tolerance_min) % 1440
+    if start_adj <= end_adj:
+        return start_adj <= now_min <= end_adj
+    return now_min >= start_adj or now_min <= end_adj
+
+
+def period_matches(now_dt, period, tolerance_min):
+    now_min = now_dt.hour * 60 + now_dt.minute
+    start = period["start"]
+    end = period["end"]
+    days = period["days"]
+    if end > start:
+        if now_dt.weekday() not in days:
+            return False
+        return within_window(now_min, start, end, tolerance_min)
+    if now_min >= start:
+        if now_dt.weekday() not in days:
+            return False
+        return within_window(now_min, start, end, tolerance_min)
+    previous_day = (now_dt.weekday() - 1) % 7
+    if previous_day not in days:
+        return False
+    return within_window(now_min, start, end, tolerance_min)
+
+
+def get_scheduled_power_state(schedule):
+    now_dt = resolve_schedule_now(schedule.get("timezone"))
+    tolerance_min = max(0, int(SCHEDULE_TOLERANCE_SECONDS / 60))
+    for period in schedule["periods"]:
+        if period_matches(now_dt, period, tolerance_min):
+            return period["state"]
+    return schedule["default_state"]
+
+
+def apply_power_state(
+    target_state, desired_url, schedule, supabase_url, supabase_key, source="schedule"
+):
+    changed = False
+    if target_state == "off":
+        try:
+            execute_cec_command("off")
+            log_message(
+                supabase_url,
+                supabase_key,
+                "info",
+                "Display powered off via CEC",
+                {"source": source},
+            )
+            return False
+        except Exception as exc:
+            blank_url = derive_blank_url(desired_url, schedule)
+            changed = update_kiosk_config(blank_url)
+            if changed:
+                restart_kiosk()
+            log_message(
+                supabase_url,
+                supabase_key,
+                "warn",
+                "CEC unavailable; fallback to blank screen",
+                {"source": source, "error": str(exc), "blank_url": blank_url},
+            )
+            return changed
+
+    try:
+        execute_cec_command("on")
+    except Exception as exc:
+        log_message(
+            supabase_url,
+            supabase_key,
+            "warn",
+            "CEC unavailable; ensuring kiosk content is visible",
+            {"source": source, "error": str(exc)},
+        )
+
+    changed = update_kiosk_config(desired_url)
+    if changed:
+        restart_kiosk()
+    return changed
+
+
+def execute_command(command, supabase_url=None, supabase_key=None, desired_url=None):
     command_type = command.get("type")
     payload = command.get("payload") or {}
     if command_type == "set_url":
@@ -327,28 +667,91 @@ def execute_command(command):
         os.system("sudo reboot")
         return
     if command_type == "display_on":
-        execute_cec_command("on")
+        cec_error = None
+        try:
+            execute_cec_command("on")
+        except Exception as exc:
+            cec_error = exc
+            if supabase_url and supabase_key:
+                log_message(
+                    supabase_url,
+                    supabase_key,
+                    "warn",
+                    "CEC unavailable; attempting to show kiosk content",
+                    {"source": "command", "error": str(exc)},
+                )
+        if desired_url:
+            if update_kiosk_config(desired_url):
+                restart_kiosk()
+        if cec_error:
+            raise cec_error
         return
     if command_type == "display_off":
-        execute_cec_command("off")
+        try:
+            execute_cec_command("off")
+            return
+        except Exception as exc:
+            if supabase_url and supabase_key:
+                blank_url = derive_blank_url(desired_url, {})
+                if update_kiosk_config(blank_url):
+                    restart_kiosk()
+                log_message(
+                    supabase_url,
+                    supabase_key,
+                    "warn",
+                    "CEC unavailable; fallback to blank screen",
+                    {"source": "command", "error": str(exc), "blank_url": blank_url},
+                )
+                return
+            raise
         return
     raise RuntimeError(f"Unknown command type: {command_type}")
 
 
+def apply_schedule(config, supabase_url, supabase_key):
+    capacity_schedules = config.get("capacity_schedules")
+    if not isinstance(capacity_schedules, list) or not capacity_schedules:
+        log_message(
+            supabase_url,
+            supabase_key,
+            "warn",
+            "No capacity schedules returned for player",
+            {},
+        )
+        return None
+    return apply_capacity_schedule(capacity_schedules, config, supabase_url, supabase_key)
+
+
 def heartbeat_loop(supabase_url, supabase_key, interval_seconds):
+    next_heartbeat = 0
+    last_config = {}
     while True:
-        send_heartbeat(supabase_url, supabase_key)
-        config = fetch_player_config(supabase_url, supabase_key)
-        changed = update_kiosk_config(config.get("desired_url"))
+        now = time.time()
+        if now >= next_heartbeat:
+            send_heartbeat(supabase_url, supabase_key)
+            last_config = fetch_player_config(supabase_url, supabase_key)
+            schedule_state = apply_schedule(last_config, supabase_url, supabase_key)
+            changed = False
+            if schedule_state != "off":
+                changed = update_kiosk_config(last_config.get("desired_url"))
+            if changed:
+                restart_kiosk()
+                print("Kiosk URL updated; Chromium restarting.")
+            else:
+                print("Heartbeat sent.")
+            next_heartbeat = now + interval_seconds
+
         commands = fetch_commands(supabase_url, supabase_key)
-        if changed:
-            restart_kiosk()
-            print("Kiosk URL updated; Chromium restarting.")
         if commands:
             for command in commands:
                 command_id = command.get("id")
                 try:
-                    execute_command(command)
+                    execute_command(
+                        command,
+                        supabase_url,
+                        supabase_key,
+                        last_config.get("desired_url"),
+                    )
                     ack_command(supabase_url, supabase_key, command_id, "success")
                     log_message(
                         supabase_url,
@@ -369,9 +772,8 @@ def heartbeat_loop(supabase_url, supabase_key, interval_seconds):
                         f"Command {command.get('type')} failed",
                         {"command_id": command_id, "error": error_text},
                     )
-        else:
-            print("Heartbeat sent.")
-        time.sleep(interval_seconds)
+
+        time.sleep(COMMAND_POLL_SECONDS)
 
 
 def show_state():
