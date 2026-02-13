@@ -1,6 +1,6 @@
 [Unit]
 Description=FacilityOS Kiosk (Chromium)
-After=network-online.target
+After=network-online.target facilityos-agent.service
 Wants=network-online.target
 
 [Service]
@@ -9,9 +9,11 @@ Type=simple
 User=greghandsley
 WorkingDirectory=/home/greghandsley
 Environment=DISPLAY=:0
+# Wait for display/GPU to be ready at boot
+ExecStartPre=/bin/sleep 10
 ExecStart=/usr/bin/startx /home/greghandsley/kiosk.sh -- :0
 Restart=always
-RestartSec=2
+RestartSec=5
 
 # Note: No hardening here - kiosk needs full X/Chromium access (display, GPU, etc.)
 

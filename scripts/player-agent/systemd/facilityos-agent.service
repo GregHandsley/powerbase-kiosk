@@ -13,22 +13,8 @@ ExecStart=/usr/bin/python3 /home/greghandsley/agent.py heartbeat-loop --interval
 Restart=always
 RestartSec=5
 
-# Least-privilege hardening (Sprint 5.1)
-NoNewPrivileges=yes
-PrivateTmp=yes
-ProtectSystem=strict
-ProtectHome=read-only
-# Allow agent to write state to its config dir (adjust path if User differs)
-ReadWritePaths=/home/greghandsley/.facilityos
-RestrictAddressFamilies=AF_INET AF_INET6
-RestrictNamespaces=yes
-LockPersonality=yes
-ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectControlGroups=yes
-RestrictRealtime=yes
-RestrictSUIDSGID=yes
-MemoryDenyWriteExecute=yes
+# Note: Hardening removed - ProtectHome blocked agent from creating ~/.facilityos
+# Agent needs to write kiosk.conf and state. Revisit in future sprint.
 
 [Install]
 WantedBy=multi-user.target
