@@ -179,7 +179,7 @@ Key docs:
 
 - CEC works where supported. -->
 
-## Sprint 4.2 — Schedules + fallback
+<!-- ## Sprint 4.2 — Schedules + fallback
 
 **Goal:** Automate screen on/off with fallback.
 
@@ -191,7 +191,7 @@ Key docs:
 **Acceptance Criteria**
 
 - CEC unsupported → fallback used and logged.
-- Schedule tolerance within ±2 min.
+- Schedule tolerance within ±2 min. -->
 
 ## Sprint 5.1 — Security hardening
 

@@ -1206,7 +1206,7 @@ Add expiry if you want (expires_at) -->
 
 ---
 
-## 📺 **Phase 4: Kiosk Enhancements**
+<!-- ## 📺 **Phase 4: Kiosk Enhancements**
 
 ### 4.1 Kiosk Capacity Display
 
@@ -1224,7 +1224,7 @@ Add expiry if you want (expires_at) -->
 - Show: "X / Y athletes" with color coding
 - Update in real-time (every 20 seconds)
 
----
+--- -->
 
 ### 4.2 Kiosk Visual Improvements
 

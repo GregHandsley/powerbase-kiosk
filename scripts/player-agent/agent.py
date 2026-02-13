@@ -5,6 +5,7 @@ import os
 import socket
 import sys
 import time
+import subprocess
 from datetime import datetime
 try:
     from zoneinfo import ZoneInfo
@@ -20,7 +21,8 @@ KIOSK_CONFIG_PATH = os.path.expanduser("~/.facilityos/kiosk.conf")
 DEFAULT_KIOSK_URL = "https://facilityos.co.uk/kiosk/unpaired"
 BLANK_SCREEN_PATH = "/kiosk/blank"
 SCHEDULE_TOLERANCE_SECONDS = 120
-COMMAND_POLL_SECONDS = 5
+COMMAND_POLL_SECONDS = 1
+CEC_DEVICE = os.environ.get("CEC_DEVICE", "/dev/cec0")
 
 
 def load_state():
@@ -309,13 +311,26 @@ def execute_cec_command(power_state):
     if not shutil.which("cec-client"):
         raise RuntimeError("cec-client not installed")
 
-    if power_state == "on":
-        os.system('echo "on 0" | cec-client -s -d 1')
-        return
-    if power_state == "off":
-        os.system('echo "standby 0" | cec-client -s -d 1')
-        return
-    raise RuntimeError(f"Unknown power state: {power_state}")
+    if power_state not in {"on", "off"}:
+        raise RuntimeError(f"Unknown power state: {power_state}")
+
+    command = "on 0" if power_state == "on" else "standby 0"
+    result = subprocess.run(
+        ["cec-client", "-s", CEC_DEVICE],
+        input=f"{command}\n",
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    output = {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }
+    if result.returncode != 0:
+        raise RuntimeError(f"cec-client failed: {output}")
+    return output
+
 
 
 def derive_blank_url(desired_url, schedule):
@@ -669,7 +684,15 @@ def execute_command(command, supabase_url=None, supabase_key=None, desired_url=N
     if command_type == "display_on":
         cec_error = None
         try:
-            execute_cec_command("on")
+            cec_output = execute_cec_command("on")
+            if supabase_url and supabase_key:
+                log_message(
+                    supabase_url,
+                    supabase_key,
+                    "info",
+                    "CEC display on command sent",
+                    {"source": "command", "cec": cec_output},
+                )
         except Exception as exc:
             cec_error = exc
             if supabase_url and supabase_key:
@@ -688,7 +711,15 @@ def execute_command(command, supabase_url=None, supabase_key=None, desired_url=N
         return
     if command_type == "display_off":
         try:
-            execute_cec_command("off")
+            cec_output = execute_cec_command("off")
+            if supabase_url and supabase_key:
+                log_message(
+                    supabase_url,
+                    supabase_key,
+                    "info",
+                    "CEC display off command sent",
+                    {"source": "command", "cec": cec_output},
+                )
             return
         except Exception as exc:
             if supabase_url and supabase_key:
