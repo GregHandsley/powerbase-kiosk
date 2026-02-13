@@ -25,4 +25,3 @@ VITE_ORG_OVERRIDE=
 - `SUPABASE_URL` – Supabase project URL
 - `SUPABASE_ANON_KEY` – Supabase anon key
 - `KIOSK_APP_BASE` – (optional) App base URL for unpaired screen, e.g. `https://facilityos.co.uk`
-- `FACILITYOS_PAIRING_PORT` – (optional) Local pairing server port, default `38473`

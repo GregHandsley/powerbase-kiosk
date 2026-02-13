@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
@@ -33,18 +33,18 @@ export function PlayerManagement() {
     isLoading: playersLoading,
     createPlayer,
     createPlayerLoading,
-    createPairingCode,
-    createPairingCodeLoading,
     updatePlayer,
     updatePlayerLoading,
     revokeDevice,
-    // revokeDeviceLoading,
+    pairDevice,
+    pairDeviceLoading,
   } = usePlayers(activeOrgId);
-  const [latestPairing, setLatestPairing] = useState<{
-    playerId: number;
-    code: string;
-    expiresAt: string;
-  } | null>(null);
+  const [pairCode, setPairCode] = useState('');
+  const [pairPlayerId, setPairPlayerId] = useState<number | ''>('');
+  const [pairingAfterCreate, setPairingAfterCreate] = useState<number | null>(
+    null
+  );
+  const pairSectionRef = useRef<HTMLDivElement>(null);
   const [editingPlayerId, setEditingPlayerId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [editLocation, setEditLocation] = useState('');
@@ -75,7 +75,7 @@ export function PlayerManagement() {
     }
 
     try {
-      await createPlayer({
+      const result = await createPlayer({
         organization_id: activeOrgId,
         site_id: formSiteId ? (formSiteId as number) : null,
         side_key: sideKey,
@@ -84,7 +84,12 @@ export function PlayerManagement() {
         desired_url: desiredUrl.trim() || null,
         desired_power_state: powerState,
       });
-      toast.success('Player created successfully.');
+      toast.success(
+        'Player created. Enter the code from the kiosk to connect.'
+      );
+      setPairingAfterCreate(result.id);
+      setPairPlayerId(result.id);
+      setPairCode('');
       setName('');
       setLocation('');
       setDesiredUrl('');
@@ -98,21 +103,21 @@ export function PlayerManagement() {
     }
   };
 
-  const handleGeneratePairingCode = async (playerId: number) => {
+  const handlePairDevice = async () => {
+    const playerId = pairPlayerId === '' ? null : (pairPlayerId as number);
+    if (!playerId || !pairCode.trim()) {
+      toast.error('Enter the code and select a player.');
+      return;
+    }
     try {
-      const result = await createPairingCode({ player_id: playerId });
-      setLatestPairing({
-        playerId,
-        code: result.code,
-        expiresAt: result.expires_at,
-      });
-      await navigator.clipboard.writeText(result.code);
-      toast.success('Pairing code generated and copied.');
+      await pairDevice({ player_id: playerId, code: pairCode.trim() });
+      toast.success('Device paired. The kiosk will connect shortly.');
+      setPairCode('');
+      setPairPlayerId('');
+      setPairingAfterCreate(null);
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Failed to generate pairing code'
+        error instanceof Error ? error.message : 'Failed to pair device'
       );
     }
   };
@@ -389,6 +394,86 @@ export function PlayerManagement() {
         </form>
       </div>
 
+      {/* Pair device - enter code from kiosk */}
+      {activeOrgId && players.length > 0 && (
+        <div
+          ref={pairSectionRef}
+          className={`rounded-lg border p-4 ${
+            pairingAfterCreate
+              ? 'border-indigo-500 bg-indigo-950/30'
+              : 'border-slate-700 bg-slate-900/50'
+          }`}
+        >
+          <h3 className="text-sm font-medium text-slate-200 mb-2">
+            {pairingAfterCreate
+              ? 'Connect a device to this player'
+              : 'Pair device'}
+          </h3>
+          <p className="text-xs text-slate-400 mb-3">
+            Enter the code shown on the kiosk display (e.g. ABC-123-45)
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[140px]">
+              <input
+                type="text"
+                value={pairCode}
+                onChange={(e) =>
+                  setPairCode(
+                    e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '')
+                  )
+                }
+                placeholder="ABC-123-45"
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm font-mono text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+                maxLength={12}
+              />
+            </div>
+            <div className="min-w-[160px]">
+              <select
+                value={pairPlayerId}
+                onChange={(e) =>
+                  setPairPlayerId(e.target.value ? Number(e.target.value) : '')
+                }
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select player...</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+                {pairingAfterCreate &&
+                  !players.some((p) => p.id === pairingAfterCreate) && (
+                    <option value={pairingAfterCreate}>
+                      (new player – refreshing...)
+                    </option>
+                  )}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={handlePairDevice}
+              disabled={!pairCode.trim() || !pairPlayerId || pairDeviceLoading}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded disabled:opacity-50"
+            >
+              {pairDeviceLoading ? 'Pairing...' : 'Pair'}
+            </button>
+            {pairingAfterCreate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPairingAfterCreate(null);
+                  setPairCode('');
+                  setPairPlayerId('');
+                }}
+                className="text-xs text-slate-400 hover:text-slate-300"
+              >
+                Skip
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Players List */}
       <div className="flex-1 min-h-0">
         <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
@@ -473,33 +558,20 @@ export function PlayerManagement() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
-                        <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleGeneratePairingCode(player.id)}
-                            disabled={createPairingCodeLoading}
-                            className="inline-flex items-center justify-center px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
-                          >
-                            {createPairingCodeLoading
-                              ? 'Generating...'
-                              : 'Generate code'}
-                          </button>
-                          {latestPairing?.playerId === player.id && (
-                            <div className="text-xs text-slate-400">
-                              Code:{' '}
-                              <span className="font-mono">
-                                {latestPairing.code}
-                              </span>
-                              <div>
-                                Expires:{' '}
-                                {format(
-                                  parseISO(latestPairing.expiresAt),
-                                  'HH:mm'
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPairPlayerId(player.id);
+                            setPairingAfterCreate(null);
+                            pairSectionRef.current?.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'nearest',
+                            });
+                          }}
+                          className="inline-flex items-center justify-center px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
+                        >
+                          Pair device
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
                         {player.site_name || 'All sites'}

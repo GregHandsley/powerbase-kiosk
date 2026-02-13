@@ -255,6 +255,27 @@ export function usePlayers(organizationId: number | null) {
     },
   });
 
+  const pairDeviceMutation = useMutation({
+    mutationFn: async ({
+      player_id,
+      code,
+    }: {
+      player_id: number;
+      code: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke(
+        'admin-pair-device',
+        { body: { player_id, code: code.trim() } }
+      );
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['players', organizationId] });
+    },
+  });
+
   return {
     players,
     isLoading,
@@ -267,6 +288,8 @@ export function usePlayers(organizationId: number | null) {
     updatePlayerLoading: updatePlayerMutation.isPending,
     revokeDevice: revokeDeviceMutation.mutateAsync,
     revokeDeviceLoading: revokeDeviceMutation.isPending,
+    pairDevice: pairDeviceMutation.mutateAsync,
+    pairDeviceLoading: pairDeviceMutation.isPending,
   };
 }
 

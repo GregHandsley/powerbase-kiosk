@@ -2,13 +2,13 @@
 import argparse
 import json
 import os
+import random
 import socket
+import string
 import sys
-import threading
 import time
 import subprocess
 from datetime import datetime
-from http.server import BaseHTTPRequestHandler, HTTPServer
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -22,8 +22,8 @@ import shutil
 STATE_PATH = os.path.expanduser("~/.facilityos/player-agent.json")
 KIOSK_CONFIG_PATH = os.path.expanduser("~/.facilityos/kiosk.conf")
 DEFAULT_KIOSK_URL = "https://facilityos.co.uk/kiosk/unpaired"
-PAIRING_SERVER_PORT = int(os.environ.get("FACILITYOS_PAIRING_PORT", "38473"))
 BLANK_SCREEN_PATH = "/kiosk/blank"
+PAIRING_POLL_INTERVAL = 5
 SCHEDULE_TOLERANCE_SECONDS = 120
 COMMAND_POLL_SECONDS = 1
 CEC_DEVICE = os.environ.get("CEC_DEVICE", "/dev/cec0")
@@ -50,6 +50,26 @@ def ensure_device_id(state):
     state["device_id"] = device_id
     save_state(state)
     return device_id
+
+
+def ensure_device_secret(state):
+    secret = state.get("device_secret")
+    if secret:
+        return secret
+    alphabet = string.ascii_letters + string.digits
+    secret = "".join(random.choice(alphabet) for _ in range(32))
+    state["device_secret"] = secret
+    save_state(state)
+    return secret
+
+
+def generate_pairing_code():
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "".join(random.choice(alphabet) for _ in range(8))
+
+
+def format_pairing_code(code):
+    return f"{code[:3]}-{code[3:6]}-{code[6:]}"
 
 
 def resolve_supabase_url(arg_value):
@@ -750,77 +770,75 @@ def execute_command(command, supabase_url=None, supabase_key=None, desired_url=N
     raise RuntimeError(f"Unknown command type: {command_type}")
 
 
-def build_unpaired_url(device_id):
+def build_unpaired_url(device_id, code):
     base = os.environ.get("KIOSK_APP_BASE", "https://facilityos.co.uk")
-    return f"{base.rstrip('/')}/kiosk/unpaired?device_id={device_id}"
+    params = urllib.parse.urlencode({"device_id": device_id, "code": code})
+    return f"{base.rstrip('/')}/kiosk/unpaired?{params}"
+
+
+def register_pairing_code(device_id, device_secret, code, supabase_url, supabase_key):
+    endpoint = f"{supabase_url}/functions/v1/device-pairing-request"
+    payload = {
+        "device_id": device_id,
+        "device_secret": device_secret,
+        "code": code,
+    }
+    req = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    return data.get("code", code)
+
+
+def poll_pairing_complete(device_id, device_secret, supabase_url, supabase_key):
+    params = urllib.parse.urlencode({
+        "device_id": device_id,
+        "device_secret": device_secret,
+    })
+    endpoint = f"{supabase_url}/functions/v1/pairing-complete?{params}"
+    req = urllib.request.Request(endpoint, headers={"Authorization": f"Bearer {supabase_key}"})
+    with urllib.request.urlopen(req) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    return data
 
 
 def run_unpaired_mode(supabase_url, supabase_key):
-    """Show unpaired screen and run local server for pairing code entry. Blocks until paired."""
+    """Show pairing code on kiosk, poll for admin pairing. Blocks until paired."""
     state = load_state()
     device_id = ensure_device_id(state)
-    unpaired_url = build_unpaired_url(device_id)
+    device_secret = ensure_device_secret(state)
+    code = generate_pairing_code()
+    formatted = format_pairing_code(code)
+
+    try:
+        register_pairing_code(device_id, device_secret, code, supabase_url, supabase_key)
+    except Exception as exc:
+        print(f"Failed to register pairing code: {exc}", file=sys.stderr)
+        formatted = code  # fallback to unformatted
+
+    unpaired_url = build_unpaired_url(device_id, formatted)
     update_kiosk_config(unpaired_url)
     restart_kiosk()
 
-    server_ref = [None]  # mutable to capture server in handler
-
-    class PairingHandler(BaseHTTPRequestHandler):
-        def log_message(self, format, *args):
-            pass  # suppress default logging
-
-        def send_cors(self):
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
-
-        def do_OPTIONS(self):
-            self.send_response(200)
-            self.send_cors()
-            self.end_headers()
-
-        def do_POST(self):
-            if self.path != "/pair":
-                self.send_response(404)
-                self.send_cors()
-                self.end_headers()
-                return
-            content_length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(content_length).decode("utf-8") if content_length else "{}"
-            try:
-                data = json.loads(body)
-                code = (data.get("code") or "").strip()
-            except json.JSONDecodeError:
-                code = ""
-            if not code:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.send_cors()
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Missing pairing code"}).encode())
-                return
-            try:
-                pair_device(code, supabase_url, supabase_key)
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_cors()
-                self.end_headers()
-                self.wfile.write(json.dumps({"ok": True, "message": "Paired successfully"}).encode())
-            except Exception as exc:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.send_cors()
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps({"error": str(exc)}).encode()
-                )
-            finally:
-                if server_ref[0]:
-                    server_ref[0].shutdown()
-
-    server = HTTPServer(("127.0.0.1", PAIRING_SERVER_PORT), PairingHandler)
-    server_ref[0] = server
-    server.serve_forever()
+    while True:
+        time.sleep(PAIRING_POLL_INTERVAL)
+        try:
+            result = poll_pairing_complete(device_id, device_secret, supabase_url, supabase_key)
+        except Exception:
+            continue
+        if result.get("paired") and result.get("device_token") and result.get("player_id"):
+            state = load_state()
+            state["device_token"] = result["device_token"]
+            state["player_id"] = result["player_id"]
+            save_state(state)
+            return
 
 
 def apply_schedule(config, supabase_url, supabase_key):
