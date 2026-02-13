@@ -22,6 +22,7 @@ const allowedTypes = new Set([
   'reload',
   'reboot',
   'restart_kiosk',
+  'agent_update',
   'display_on',
   'display_off',
 ]);

@@ -8,6 +8,7 @@ export type PlayerCommandType =
   | 'reload'
   | 'reboot'
   | 'restart_kiosk'
+  | 'agent_update'
   | 'display_on'
   | 'display_off';
 
@@ -27,6 +28,10 @@ export type DeviceMetadata = {
   memory_percent?: number;
   chromium_running?: boolean;
   chromium_pid_count?: number;
+  agent_version?: string;
+  agent_update_status?: string;
+  agent_update_last_error?: string | null;
+  agent_update_last_success_at?: string | null;
   [key: string]: unknown;
 };
 
@@ -61,6 +66,7 @@ export type PlayerConfigResponse = {
   ok: true;
   player_id: number;
   desired_url: string | null;
+  kiosk_app_base: string | null;
   capacity_schedules: CapacityScheduleRow[];
 };
 

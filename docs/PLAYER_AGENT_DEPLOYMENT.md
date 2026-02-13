@@ -100,3 +100,33 @@ This shows the **current URL** displayed by Chromium.
 
 - Keep keys in `/etc/facilityos-agent.env` (not in shell history).
 - If the Pi must be fully locked down, schedule a maintenance window for updates.
+
+## 6) Sprint 5.3 self-update controls
+
+Player agent updates can now be controlled from Admin -> Players -> Advanced.
+
+- Queue updates per device from row Actions -> `Update agent`.
+- Use bulk controls in Advanced:
+  - `Update selected`
+  - `Update all filtered`
+- Optional `manifest_url` can be supplied from the Admin advanced panel.
+- Fallback manifest env on Pi: `PLAYER_AGENT_UPDATE_MANIFEST_URL`.
+
+### Manifest JSON format
+
+```
+{
+  "version": "2026.02.13.1",
+  "agent_url": "https://raw.githubusercontent.com/<org>/<repo>/<ref>/scripts/player-agent/agent.py",
+  "agent_sha256": "<optional sha256 hex>"
+}
+```
+
+### Observability
+
+Heartbeat now reports:
+
+- `agent_version`
+- `agent_update_status`
+- `agent_update_last_error`
+- `agent_update_last_success_at`

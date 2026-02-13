@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -31,6 +32,7 @@ SCHEDULE_TOLERANCE_SECONDS = 120
 COMMAND_POLL_SECONDS = 1
 CEC_DEVICE = os.environ.get("CEC_DEVICE", "/dev/cec0")
 _LAST_CPU_SAMPLE = None
+AGENT_VERSION = os.environ.get("FACILITYOS_AGENT_VERSION", "0.0.0-dev")
 
 
 def load_state():
@@ -188,7 +190,7 @@ def _read_chromium_status():
         return False, 0
 
 
-def collect_device_metrics():
+def collect_device_metrics(extra=None):
     used_mb, total_mb, memory_percent = _read_memory_stats()
     chromium_running, chromium_pid_count = _read_chromium_status()
     metrics = {
@@ -202,6 +204,8 @@ def collect_device_metrics():
         "chromium_running": chromium_running,
         "chromium_pid_count": chromium_pid_count,
     }
+    if isinstance(extra, dict):
+        metrics.update(extra)
     return {key: value for key, value in metrics.items() if value is not None}
 
 
@@ -260,10 +264,19 @@ def send_heartbeat(supabase_url, supabase_key):
     if not device_id or not device_token:
         raise RuntimeError("Device not paired. Run 'pair' first.")
 
+    installed_agent_version = state.get("installed_agent_version") or AGENT_VERSION
+
     payload = {
         "device_id": device_id,
         "device_token": device_token,
-        "meta": collect_device_metrics(),
+        "meta": collect_device_metrics(
+            {
+                "agent_version": installed_agent_version,
+                "agent_update_status": state.get("agent_update_status"),
+                "agent_update_last_error": state.get("agent_update_last_error"),
+                "agent_update_last_success_at": state.get("agent_update_last_success_at"),
+            }
+        ),
     }
 
     endpoint = f"{supabase_url}/functions/v1/player-heartbeat"
@@ -826,10 +839,10 @@ def execute_command(command, supabase_url=None, supabase_key=None, desired_url=N
         return
     if command_type in {"reload", "restart_kiosk"}:
         restart_kiosk()
-        return
+        return None
     if command_type == "reboot":
         os.system("sudo reboot")
-        return
+        return None
     if command_type == "display_on":
         cec_error = None
         try:
@@ -857,7 +870,7 @@ def execute_command(command, supabase_url=None, supabase_key=None, desired_url=N
                 restart_kiosk()
         if cec_error:
             raise cec_error
-        return
+        return None
     if command_type == "display_off":
         try:
             cec_output = execute_cec_command("off")
@@ -884,12 +897,137 @@ def execute_command(command, supabase_url=None, supabase_key=None, desired_url=N
                 )
                 return
             raise
-        return
+        return None
+    if command_type == "agent_update":
+        manifest_url = payload.get("manifest_url") or os.environ.get(
+            "PLAYER_AGENT_UPDATE_MANIFEST_URL"
+        )
+        target_version = payload.get("target_version")
+        if not isinstance(manifest_url, str) or not manifest_url.strip():
+            raise RuntimeError(
+                "Missing manifest_url payload and PLAYER_AGENT_UPDATE_MANIFEST_URL env"
+            )
+        if target_version is not None and not isinstance(target_version, str):
+            raise RuntimeError("target_version must be a string when provided")
+        if not supabase_url or not supabase_key:
+            raise RuntimeError("supabase_url and supabase_key are required")
+        apply_agent_update(
+            manifest_url.strip(), target_version, supabase_url, supabase_key
+        )
+        return "restart_agent"
     raise RuntimeError(f"Unknown command type: {command_type}")
 
 
+def fetch_update_manifest(manifest_url):
+    request = urllib.request.Request(manifest_url, method="GET")
+    with urllib.request.urlopen(request, timeout=15) as response:
+        body = response.read().decode("utf-8")
+    data = json.loads(body)
+    if not isinstance(data, dict):
+        raise RuntimeError("Update manifest is not a JSON object")
+    return data
+
+
+def download_text(url):
+    request = urllib.request.Request(url, method="GET")
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return response.read().decode("utf-8")
+
+
+def apply_agent_update(manifest_url, target_version, supabase_url, supabase_key):
+    state = load_state()
+    current_version = state.get("installed_agent_version") or AGENT_VERSION
+
+    try:
+        manifest = fetch_update_manifest(manifest_url.strip())
+        manifest_version = manifest.get("version")
+        agent_url = manifest.get("agent_url")
+        expected_sha256 = manifest.get("agent_sha256")
+
+        if not isinstance(manifest_version, str) or not manifest_version.strip():
+            raise RuntimeError("Manifest missing string field: version")
+        if not isinstance(agent_url, str) or not agent_url.strip():
+            raise RuntimeError("Manifest missing string field: agent_url")
+
+        if (
+            isinstance(target_version, str)
+            and target_version.strip()
+            and manifest_version.strip() != target_version.strip()
+        ):
+            raise RuntimeError(
+                f"Manifest version {manifest_version.strip()} does not match target version {target_version.strip()}"
+            )
+
+        if manifest_version.strip() == current_version:
+            state["agent_update_status"] = "up_to_date"
+            save_state(state)
+            return {"status": "up_to_date", "version": current_version}
+
+        new_script = download_text(agent_url.strip())
+        if not new_script.strip():
+            raise RuntimeError("Downloaded agent script is empty")
+
+        if isinstance(expected_sha256, str) and expected_sha256.strip():
+            actual_sha = hashlib.sha256(new_script.encode("utf-8")).hexdigest()
+            if actual_sha.lower() != expected_sha256.strip().lower():
+                raise RuntimeError(
+                    f"agent_sha256 mismatch: expected {expected_sha256}, got {actual_sha}"
+                )
+
+        tmp_path = f"{__file__}.next"
+        with open(tmp_path, "w", encoding="utf-8") as handle:
+            handle.write(new_script)
+        os.chmod(tmp_path, 0o755)
+        os.replace(tmp_path, __file__)
+
+        state["installed_agent_version"] = manifest_version.strip()
+        state["agent_update_status"] = "success"
+        state["agent_update_last_error"] = None
+        state["agent_update_last_success_at"] = datetime.utcnow().isoformat() + "Z"
+        save_state(state)
+
+        log_message(
+            supabase_url,
+            supabase_key,
+            "info",
+            "Agent self-update applied",
+            {
+                "from_version": current_version,
+                "to_version": manifest_version.strip(),
+                "manifest_url": manifest_url,
+            },
+        )
+
+        return {
+            "status": "updated",
+            "from_version": current_version,
+            "to_version": manifest_version.strip(),
+        }
+    except Exception as exc:
+        state = load_state()
+        state["agent_update_status"] = "failed"
+        state["agent_update_last_error"] = str(exc)
+        save_state(state)
+        try:
+            log_message(
+                supabase_url,
+                supabase_key,
+                "warn",
+                "Agent self-update failed",
+                {"error": str(exc), "manifest_url": manifest_url},
+            )
+        except Exception:
+            pass
+        raise
+
+
 def build_unpaired_url(device_id, code):
-    base = os.environ.get("KIOSK_APP_BASE", "https://facilityos.co.uk")
+    state = load_state()
+    base = (
+        state.get("kiosk_app_base")
+        or os.environ.get("KIOSK_APP_BASE")
+        or "https://facilityos.co.uk"
+    )
     params = urllib.parse.urlencode({"device_id": device_id, "code": code})
     return f"{base.rstrip('/')}/kiosk/unpaired?{params}"
 
@@ -1006,6 +1144,12 @@ def heartbeat_loop(supabase_url, supabase_key, interval_seconds):
         if now >= next_heartbeat:
             send_heartbeat(supabase_url, supabase_key)
             last_config = fetch_player_config(supabase_url, supabase_key)
+            state = load_state()
+            kiosk_app_base = last_config.get("kiosk_app_base")
+            if isinstance(kiosk_app_base, str) and kiosk_app_base.strip():
+                if state.get("kiosk_app_base") != kiosk_app_base.strip():
+                    state["kiosk_app_base"] = kiosk_app_base.strip()
+                    save_state(state)
             schedule_state = apply_schedule(last_config, supabase_url, supabase_key)
             changed = False
             if schedule_state != "off":
@@ -1022,7 +1166,7 @@ def heartbeat_loop(supabase_url, supabase_key, interval_seconds):
             for command in commands:
                 command_id = command.get("id")
                 try:
-                    execute_command(
+                    action = execute_command(
                         command,
                         supabase_url,
                         supabase_key,
@@ -1036,6 +1180,8 @@ def heartbeat_loop(supabase_url, supabase_key, interval_seconds):
                         f"Command {command.get('type')} executed",
                         {"command_id": command_id},
                     )
+                    if action == "restart_agent":
+                        os.execv(sys.executable, [sys.executable] + sys.argv)
                 except Exception as exc:
                     error_text = str(exc)
                     ack_command(

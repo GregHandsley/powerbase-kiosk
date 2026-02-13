@@ -79,7 +79,18 @@ serve(async (req) => {
 
   const { data: player, error: playerError } = await supabaseAdmin
     .from('players')
-    .select('id, desired_url, site_id, side_key')
+    .select(
+      `
+      id,
+      desired_url,
+      site_id,
+      side_key,
+      organization_id,
+      organization:organizations (
+        settings
+      )
+    `
+    )
     .eq('id', device.player_id)
     .maybeSingle();
 
@@ -132,10 +143,20 @@ serve(async (req) => {
     }
   }
 
+  const organizationSettings = (
+    player.organization as { settings?: Record<string, unknown> } | null
+  )?.settings;
+  const kioskAppBase =
+    organizationSettings &&
+    typeof organizationSettings.kiosk_app_base === 'string'
+      ? organizationSettings.kiosk_app_base
+      : null;
+
   const response: PlayerConfigResponse = {
     ok: true,
     player_id: player.id,
     desired_url: player.desired_url ?? null,
+    kiosk_app_base: kioskAppBase,
     capacity_schedules: capacitySchedules,
   };
 
