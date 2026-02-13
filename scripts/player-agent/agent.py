@@ -6,9 +6,11 @@ import random
 import socket
 import string
 import sys
+import threading
 import time
 import subprocess
 from datetime import datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -24,6 +26,7 @@ KIOSK_CONFIG_PATH = os.path.expanduser("~/.facilityos/kiosk.conf")
 DEFAULT_KIOSK_URL = "https://facilityos.co.uk/kiosk/unpaired"
 BLANK_SCREEN_PATH = "/kiosk/blank"
 PAIRING_POLL_INTERVAL = 5
+PAIRING_STATUS_PORT = 38473
 SCHEDULE_TOLERANCE_SECONDS = 120
 COMMAND_POLL_SECONDS = 1
 CEC_DEVICE = os.environ.get("CEC_DEVICE", "/dev/cec0")
@@ -823,6 +826,31 @@ def run_unpaired_mode(supabase_url, supabase_key):
     except Exception as exc:
         print(f"Failed to register pairing code: {exc}", file=sys.stderr)
         formatted = code  # fallback to unformatted
+
+    # Shared state for status server
+    pairing_info = {"device_id": device_id, "code": formatted}
+
+    class StatusHandler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass
+
+        def do_GET(self):
+            if self.path == "/status":
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(pairing_info).encode())
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+    def run_server():
+        server = HTTPServer(("127.0.0.1", PAIRING_STATUS_PORT), StatusHandler)
+        server.serve_forever()
+
+    server_thread = threading.Thread(target=run_server, daemon=True)
+    server_thread.start()
 
     unpaired_url = build_unpaired_url(device_id, formatted)
     update_kiosk_config(unpaired_url)

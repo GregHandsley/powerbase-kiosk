@@ -1,16 +1,50 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+
+const AGENT_STATUS_URL = 'http://127.0.0.1:38473';
 
 export function KioskUnpaired() {
   const [searchParams] = useSearchParams();
-  const deviceId = useMemo(
+  const urlDeviceId = useMemo(
     () => searchParams.get('device_id')?.trim() || null,
     [searchParams]
   );
-  const code = useMemo(
+  const urlCode = useMemo(
     () => searchParams.get('code')?.trim() || null,
     [searchParams]
   );
+
+  const [fetched, setFetched] = useState<{
+    device_id: string | null;
+    code: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (urlDeviceId && urlCode) return;
+    const load = async () => {
+      try {
+        const res = await fetch(`${AGENT_STATUS_URL}/status`);
+        if (res.ok) {
+          const data = (await res.json()) as {
+            device_id?: string;
+            code?: string;
+          };
+          setFetched({
+            device_id: data.device_id ?? null,
+            code: data.code ?? null,
+          });
+        }
+      } catch {
+        setFetched({ device_id: null, code: null });
+      }
+    };
+    load();
+    const t = setInterval(load, 3000);
+    return () => clearInterval(t);
+  }, [urlDeviceId, urlCode]);
+
+  const deviceId = urlDeviceId ?? fetched?.device_id ?? null;
+  const code = urlCode ?? fetched?.code ?? null;
 
   return (
     <div className="h-screen w-screen bg-slate-950 text-slate-50 flex flex-col items-center justify-center px-8">
