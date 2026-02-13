@@ -14,10 +14,10 @@ Restart=always
 RestartSec=2
 
 # Least-privilege hardening (Sprint 5.1)
-# Kiosk needs X/display access - fewer restrictions than agent
+# Kiosk needs X/display (AF_UNIX) and network - fewer restrictions than agent
 NoNewPrivileges=yes
 PrivateTmp=yes
-RestrictAddressFamilies=AF_INET AF_INET6
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 RestrictSUIDSGID=yes
 
 [Install]
