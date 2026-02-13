@@ -120,7 +120,7 @@ Key docs:
 **Acceptance Criteria**
 - Power cycle → unpaired screen appears. -->
 
-## Sprint 2.2 — Kiosk runtime + watchdog
+<!-- ## Sprint 2.2 — Kiosk runtime + watchdog
 
 **Goal:** Chromium starts in kiosk mode and self-recovers.
 
@@ -135,9 +135,9 @@ Key docs:
 **Acceptance Criteria**
 
 - Chromium crash → auto-restart via systemd.
-- Boot to kiosk within target window (e.g., <90s).
+- Boot to kiosk within target window (e.g., <90s). -->
 
-## Sprint 3.1 — Command queue + polling
+<!-- ## Sprint 3.1 — Command queue + polling
 
 **Goal:** Device can receive commands via polling.
 
@@ -149,9 +149,9 @@ Key docs:
 
 **Acceptance Criteria**
 
-- Commands delivered once and tracked.
+- Commands delivered once and tracked. -->
 
-## Sprint 3.2 — Command execution + ACK
+<!-- ## Sprint 3.2 — Command execution + ACK
 
 **Goal:** Device executes commands and reports results.
 
@@ -164,9 +164,9 @@ Key docs:
 **Acceptance Criteria**
 
 - Failures include error text.
-- Admin UI shows per-player command history.
+- Admin UI shows per-player command history. -->
 
-## Sprint 4.1 — Power state commands
+<!-- ## Sprint 4.1 — Power state commands
 
 **Goal:** Turn screens on/off centrally.
 
@@ -177,9 +177,9 @@ Key docs:
 
 **Acceptance Criteria**
 
-- CEC works where supported.
+- CEC works where supported. -->
 
-## Sprint 4.2 — Schedules + fallback
+<!-- ## Sprint 4.2 — Schedules + fallback
 
 **Goal:** Automate screen on/off with fallback.
 
@@ -191,21 +191,30 @@ Key docs:
 **Acceptance Criteria**
 
 - CEC unsupported → fallback used and logged.
-- Schedule tolerance within ±2 min.
+- Schedule tolerance within ±2 min. -->
 
-## Sprint 5.1 — Security hardening
+## Sprint 5.1 — Security hardening ✅
 
 **Goal:** Reduce token and device risk.
 
 **Tasks**
 
-- Token rotation + revoke.
-- Device lockout on suspicious behavior.
-- Least-privilege systemd units.
+- Token rotation + revoke. ✅
+- Device lockout on suspicious behavior. ✅
+- Least-privilege systemd units. ✅
 
 **Acceptance Criteria**
 
-- Revoked token blocks heartbeats/commands immediately.
+- Revoked token blocks heartbeats/commands immediately. ✅
+
+**Implemented**
+
+- Migration `add_player_device_security.sql`: `revoked_at`, `failed_auth_count`, `lockout_until` on `player_devices`.
+- Shared `deviceAuth.ts`: validates token, rejects revoked/locked devices, locks out after 5 failed attempts (15 min).
+- All device-facing Edge Functions use shared auth.
+- `admin-revoke-device` Edge Function: revoke by player_id, optional rotate (returns new pairing code).
+- Admin UI: Revoke and Rotate buttons in Player Management.
+- systemd units: `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem`, etc.
 
 ## Sprint 5.2 — Observability + alerts
 

@@ -5,12 +5,16 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# Replace with your kiosk user (e.g. facilityos, kiosk, or your username)
 User=greghandsley
 WorkingDirectory=/home/greghandsley
 EnvironmentFile=/etc/facilityos-agent.env
-ExecStart=/usr/bin/python3 /home/greghandsley/agent.py heartbeat-loop --interval 25
+ExecStart=/usr/bin/python3 /home/greghandsley/facilityos/agent.py run --interval 25
 Restart=always
 RestartSec=5
+
+# Note: Hardening removed - ProtectHome blocked agent from creating ~/.facilityos
+# Agent needs to write kiosk.conf and state. Revisit in future sprint.
 
 [Install]
 WantedBy=multi-user.target

@@ -41,4 +41,5 @@ exec "${CHROME_BIN}" \
   --incognito \
   --user-data-dir="${PROFILE_DIR}" \
   --autoplay-policy=no-user-gesture-required \
+  --password-store=basic \
   "${KIOSK_URL}"

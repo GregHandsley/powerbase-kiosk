@@ -6,6 +6,7 @@ export type Player = {
   id: number;
   organization_id: number;
   site_id: number | null;
+  side_key: 'Base' | 'Power' | null;
   name: string;
   location: string | null;
   desired_url: string | null;
@@ -14,11 +15,14 @@ export type Player = {
   updated_at: string;
   site_name?: string | null;
   last_seen_at?: string | null;
+  online_since?: string | null;
+  has_revoked_device?: boolean;
 };
 
 export type CreatePlayerParams = {
   organization_id: number;
   site_id?: number | null;
+  side_key?: 'Base' | 'Power' | null;
   name: string;
   location?: string | null;
   desired_url?: string | null;
@@ -31,6 +35,7 @@ export type UpdatePlayerParams = {
   location?: string | null;
   desired_url?: string | null;
   desired_power_state?: 'on' | 'off';
+  side_key?: 'Base' | 'Power' | null;
 };
 
 type CreatePairingCodeParams = {
@@ -43,12 +48,17 @@ export type PairingCodeResult = {
   expires_at: string;
 };
 
+type PlayerDevice = {
+  id: number;
+  device_id: string;
+  last_seen_at: string | null;
+  online_since: string | null;
+  revoked_at: string | null;
+};
+
 type PlayerWithSite = Player & {
   site: { id: number; name: string } | { id: number; name: string }[] | null;
-  devices:
-    | { last_seen_at: string | null }
-    | { last_seen_at: string | null }[]
-    | null;
+  devices: PlayerDevice | PlayerDevice[] | null;
 };
 
 export function usePlayers(organizationId: number | null) {
@@ -70,6 +80,7 @@ export function usePlayers(organizationId: number | null) {
           id,
           organization_id,
           site_id,
+          side_key,
           name,
           location,
           desired_url,
@@ -81,7 +92,11 @@ export function usePlayers(organizationId: number | null) {
             name
           ),
           devices:player_devices (
-            last_seen_at
+            id,
+            device_id,
+            last_seen_at,
+            online_since,
+            revoked_at
           )
         `
         )
@@ -104,6 +119,7 @@ export function usePlayers(organizationId: number | null) {
           : devices
             ? [devices]
             : [];
+        const hasRevokedDevice = deviceList.some((d) => d?.revoked_at != null);
         const lastSeenAt = deviceList.reduce<string | null>(
           (latest, device) => {
             if (!device?.last_seen_at) return latest;
@@ -112,12 +128,22 @@ export function usePlayers(organizationId: number | null) {
           },
           null
         );
+        const onlineSince = deviceList.reduce<string | null>(
+          (latest, device) => {
+            if (!device?.online_since) return latest;
+            if (!latest) return device.online_since;
+            return device.online_since > latest ? device.online_since : latest;
+          },
+          null
+        );
 
         return {
           ...row,
           site_name: siteName,
           last_seen_at: lastSeenAt,
-        } as Player;
+          online_since: onlineSince,
+          has_revoked_device: hasRevokedDevice,
+        } as Player & { has_revoked_device?: boolean };
       });
     },
     enabled: !!organizationId,
@@ -130,6 +156,7 @@ export function usePlayers(organizationId: number | null) {
         .insert({
           organization_id: params.organization_id,
           site_id: params.site_id ?? null,
+          side_key: params.side_key ?? null,
           name: params.name.trim(),
           location: params.location?.trim() || null,
           desired_url: params.desired_url?.trim() || null,
@@ -161,6 +188,9 @@ export function usePlayers(organizationId: number | null) {
       }
       if (params.desired_power_state !== undefined) {
         updates.desired_power_state = params.desired_power_state;
+      }
+      if (params.side_key !== undefined) {
+        updates.side_key = params.side_key;
       }
 
       const { error: updateError } = await supabase
@@ -204,6 +234,48 @@ export function usePlayers(organizationId: number | null) {
     },
   });
 
+  const revokeDeviceMutation = useMutation({
+    mutationFn: async ({
+      player_id,
+      rotate,
+    }: {
+      player_id: number;
+      rotate?: boolean;
+    }) => {
+      const { data, error } = await supabase.functions.invoke(
+        'admin-revoke-device',
+        { body: { player_id, rotate } }
+      );
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['players', organizationId] });
+    },
+  });
+
+  const pairDeviceMutation = useMutation({
+    mutationFn: async ({
+      player_id,
+      code,
+    }: {
+      player_id: number;
+      code: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke(
+        'admin-pair-device',
+        { body: { player_id, code: code.trim() } }
+      );
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['players', organizationId] });
+    },
+  });
+
   return {
     players,
     isLoading,
@@ -214,6 +286,10 @@ export function usePlayers(organizationId: number | null) {
     createPairingCodeLoading: createPairingCodeMutation.isPending,
     updatePlayer: updatePlayerMutation.mutateAsync,
     updatePlayerLoading: updatePlayerMutation.isPending,
+    revokeDevice: revokeDeviceMutation.mutateAsync,
+    revokeDeviceLoading: revokeDeviceMutation.isPending,
+    pairDevice: pairDeviceMutation.mutateAsync,
+    pairDeviceLoading: pairDeviceMutation.isPending,
   };
 }
 

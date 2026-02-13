@@ -13,6 +13,7 @@ import type {
   PlayerConfigRequest,
   PlayerConfigResponse,
 } from '../_shared/playerAgentTypes.ts';
+import { validateDeviceAuth } from '../_shared/deviceAuth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -61,24 +62,24 @@ serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const tokenHash = await sha256(body.device_token);
+  const authResult = await validateDeviceAuth(
+    body.device_id,
+    body.device_token,
+    supabaseAdmin
+  );
 
-  const { data: device, error: deviceError } = await supabaseAdmin
-    .from('player_devices')
-    .select('player_id, token_hash')
-    .eq('device_id', body.device_id)
-    .maybeSingle();
-
-  if (deviceError || !device || device.token_hash !== tokenHash) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
+  if (!authResult.ok) {
+    return new Response(JSON.stringify(authResult.body), {
+      status: authResult.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
+  const device = authResult.device;
+
   const { data: player, error: playerError } = await supabaseAdmin
     .from('players')
-    .select('id, desired_url')
+    .select('id, desired_url, site_id, side_key')
     .eq('id', device.player_id)
     .maybeSingle();
 
@@ -89,10 +90,53 @@ serve(async (req) => {
     });
   }
 
+  let capacitySchedules: Record<string, unknown>[] = [];
+  if (player.site_id && player.side_key) {
+    const { data: side } = await supabaseAdmin
+      .from('sides')
+      .select('id')
+      .eq('key', player.side_key)
+      .maybeSingle();
+
+    if (side?.id) {
+      const now = new Date();
+      const dayOfWeek = now.getUTCDay();
+      const weekStart = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() - dayOfWeek
+        )
+      );
+      const weekEnd = new Date(
+        Date.UTC(
+          weekStart.getUTCFullYear(),
+          weekStart.getUTCMonth(),
+          weekStart.getUTCDate() + 6
+        )
+      );
+      const weekStartStr = weekStart.toISOString().slice(0, 10);
+      const weekEndStr = weekEnd.toISOString().slice(0, 10);
+
+      const { data: schedules } = await supabaseAdmin
+        .from('capacity_schedules')
+        .select(
+          'id, side_id, day_of_week, start_time, end_time, capacity, period_type, recurrence_type, start_date, end_date, excluded_dates, platforms'
+        )
+        .eq('side_id', side.id)
+        .eq('site_id', player.site_id)
+        .lte('start_date', weekEndStr)
+        .or(`end_date.is.null,end_date.gte.${weekStartStr}`);
+
+      capacitySchedules = (schedules ?? []) as Record<string, unknown>[];
+    }
+  }
+
   const response: PlayerConfigResponse = {
     ok: true,
     player_id: player.id,
     desired_url: player.desired_url ?? null,
+    capacity_schedules: capacitySchedules,
   };
 
   return new Response(JSON.stringify(response), {
@@ -100,11 +144,3 @@ serve(async (req) => {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
-
-async function sha256(value: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(value);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}

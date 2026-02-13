@@ -19,3 +19,9 @@ VITE_ORG_OVERRIDE=
 - `VITE_ORG_OVERRIDE` is optional for local dev.
 - Supabase Edge Functions receive `SUPABASE_URL` and `SUPABASE_ANON_KEY`
   automatically at runtime.
+
+## Pi agent env (`/etc/facilityos-agent.env`)
+
+- `SUPABASE_URL` – Supabase project URL
+- `SUPABASE_ANON_KEY` – Supabase anon key
+- `KIOSK_APP_BASE` – (optional) App base URL for unpaired screen, e.g. `https://facilityos.co.uk`

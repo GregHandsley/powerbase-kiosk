@@ -13,6 +13,7 @@ import type {
   HeartbeatRequest,
   HeartbeatResponse,
 } from '../_shared/playerAgentTypes.ts';
+import { validateDeviceAuth } from '../_shared/deviceAuth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,25 +60,43 @@ serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const tokenHash = await sha256(body.device_token);
+  const authResult = await validateDeviceAuth(
+    body.device_id,
+    body.device_token,
+    supabaseAdmin
+  );
 
-  const { data: device, error: deviceError } = await supabaseAdmin
-    .from('player_devices')
-    .select('id, player_id, token_hash')
-    .eq('device_id', body.device_id)
-    .maybeSingle();
-
-  if (deviceError || !device || device.token_hash !== tokenHash) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
+  if (!authResult.ok) {
+    return new Response(JSON.stringify(authResult.body), {
+      status: authResult.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
+  const device = authResult.device;
+
+  const { data: fullDevice } = await supabaseAdmin
+    .from('player_devices')
+    .select('last_seen_at, online_since')
+    .eq('id', device.id)
+    .maybeSingle();
+
+  const now = new Date();
+  const lastSeenAt = fullDevice?.last_seen_at
+    ? new Date(fullDevice.last_seen_at)
+    : null;
+  const wasOffline =
+    !lastSeenAt || now.getTime() - lastSeenAt.getTime() > 2 * 60 * 1000;
+  const onlineSince =
+    fullDevice?.online_since && !wasOffline
+      ? fullDevice.online_since
+      : now.toISOString();
+
   const { error: updateError } = await supabaseAdmin
     .from('player_devices')
     .update({
-      last_seen_at: new Date().toISOString(),
+      last_seen_at: now.toISOString(),
+      online_since: onlineSince,
       meta_json: body.meta ?? {},
     })
     .eq('id', device.id);
@@ -99,11 +118,3 @@ serve(async (req) => {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
-
-async function sha256(value: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(value);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}

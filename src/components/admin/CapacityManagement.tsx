@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { addDays } from 'date-fns';
 import { getSideIdByKeyNode, type SideKey } from '../../nodes/data/sidesNodes';
 import { CapacityEditModal } from './CapacityEditModal';
@@ -29,8 +30,15 @@ export function CapacityManagement() {
     'capacity.manage'
   );
 
+  const location = useLocation();
+  const urlSide = useMemo(() => {
+    const sideParam = new URLSearchParams(location.search).get('side');
+    return sideParam === 'Base' || sideParam === 'Power' ? sideParam : null;
+  }, [location.search]);
   const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [selectedSide, setSelectedSide] = useState<'Power' | 'Base'>('Power');
+  const [selectedSide, setSelectedSide] = useState<'Power' | 'Base'>(
+    urlSide ?? 'Power'
+  );
   const [sideId, setSideId] = useState<number | null>(null);
   const [editingCell, setEditingCell] = useState<{
     date: Date;
@@ -40,6 +48,12 @@ export function CapacityManagement() {
   const timeSlots = generateTimeSlots();
 
   // Fetch side ID
+  useEffect(() => {
+    if (urlSide && urlSide !== selectedSide) {
+      setSelectedSide(urlSide);
+    }
+  }, [urlSide, selectedSide]);
+
   useEffect(() => {
     getSideIdByKeyNode(selectedSide as SideKey)
       .then(setSideId)

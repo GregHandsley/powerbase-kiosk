@@ -1,16 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { useOrganizations } from '../../../hooks/useOrganizations';
 import { useSites } from '../../../hooks/useSites';
 import { usePlayers } from '../../../hooks/usePlayers';
 import { usePrimaryOrganizationId } from '../../../hooks/usePermissions';
+import { supabase } from '../../../lib/supabaseClient';
 
 export function PlayerManagement() {
   const { organizations, isLoading: orgsLoading } = useOrganizations();
   const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
   const [formOrganizationId, setFormOrganizationId] = useState<number | ''>('');
   const [formSiteId, setFormSiteId] = useState<number | ''>('');
+  const [sideKey, setSideKey] = useState<'Base' | 'Power'>('Base');
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [desiredUrl, setDesiredUrl] = useState('');
@@ -30,21 +33,29 @@ export function PlayerManagement() {
     isLoading: playersLoading,
     createPlayer,
     createPlayerLoading,
-    createPairingCode,
-    createPairingCodeLoading,
     updatePlayer,
     updatePlayerLoading,
+    revokeDevice,
+    pairDevice,
+    pairDeviceLoading,
   } = usePlayers(activeOrgId);
-  const [latestPairing, setLatestPairing] = useState<{
-    playerId: number;
-    code: string;
-    expiresAt: string;
-  } | null>(null);
+  const [pairCode, setPairCode] = useState('');
+  const [pairPlayerId, setPairPlayerId] = useState<number | ''>('');
+  const [pairingAfterCreate, setPairingAfterCreate] = useState<number | null>(
+    null
+  );
+  const pairSectionRef = useRef<HTMLDivElement>(null);
   const [editingPlayerId, setEditingPlayerId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [editDesiredUrl, setEditDesiredUrl] = useState('');
   const [editPowerState, setEditPowerState] = useState<'on' | 'off'>('on');
+  const [editSideKey, setEditSideKey] = useState<'Base' | 'Power'>('Base');
+  const [commandLoading, setCommandLoading] = useState<{
+    playerId: number;
+    type: string;
+  } | null>(null);
+  const [revokingPlayerId, setRevokingPlayerId] = useState<number | null>(null);
 
   const canSubmit =
     !!activeOrgId && name.trim().length > 0 && !createPlayerLoading;
@@ -64,19 +75,26 @@ export function PlayerManagement() {
     }
 
     try {
-      await createPlayer({
+      const result = await createPlayer({
         organization_id: activeOrgId,
         site_id: formSiteId ? (formSiteId as number) : null,
+        side_key: sideKey,
         name,
         location: location.trim() || null,
         desired_url: desiredUrl.trim() || null,
         desired_power_state: powerState,
       });
-      toast.success('Player created successfully.');
+      toast.success(
+        'Player created. Enter the code from the kiosk to connect.'
+      );
+      setPairingAfterCreate(result.id);
+      setPairPlayerId(result.id);
+      setPairCode('');
       setName('');
       setLocation('');
       setDesiredUrl('');
       setPowerState('on');
+      setSideKey('Base');
       setFormSiteId('');
     } catch (error) {
       toast.error(
@@ -85,21 +103,21 @@ export function PlayerManagement() {
     }
   };
 
-  const handleGeneratePairingCode = async (playerId: number) => {
+  const handlePairDevice = async () => {
+    const playerId = pairPlayerId === '' ? null : (pairPlayerId as number);
+    if (!playerId || !pairCode.trim()) {
+      toast.error('Enter the code and select a player.');
+      return;
+    }
     try {
-      const result = await createPairingCode({ player_id: playerId });
-      setLatestPairing({
-        playerId,
-        code: result.code,
-        expiresAt: result.expires_at,
-      });
-      await navigator.clipboard.writeText(result.code);
-      toast.success('Pairing code generated and copied.');
+      await pairDevice({ player_id: playerId, code: pairCode.trim() });
+      toast.success('Device paired. The kiosk will connect shortly.');
+      setPairCode('');
+      setPairPlayerId('');
+      setPairingAfterCreate(null);
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Failed to generate pairing code'
+        error instanceof Error ? error.message : 'Failed to pair device'
       );
     }
   };
@@ -110,12 +128,14 @@ export function PlayerManagement() {
     location: string | null;
     desired_url: string | null;
     desired_power_state: 'on' | 'off';
+    side_key: 'Base' | 'Power' | null;
   }) => {
     setEditingPlayerId(player.id);
     setEditName(player.name);
     setEditLocation(player.location ?? '');
     setEditDesiredUrl(player.desired_url ?? '');
     setEditPowerState(player.desired_power_state);
+    setEditSideKey(player.side_key ?? 'Base');
   };
 
   const cancelEdit = () => {
@@ -124,6 +144,7 @@ export function PlayerManagement() {
     setEditLocation('');
     setEditDesiredUrl('');
     setEditPowerState('on');
+    setEditSideKey('Base');
   };
 
   const handleSaveEdit = async () => {
@@ -135,6 +156,7 @@ export function PlayerManagement() {
         location: editLocation,
         desired_url: editDesiredUrl,
         desired_power_state: editPowerState,
+        side_key: editSideKey,
       });
       toast.success('Player updated.');
       cancelEdit();
@@ -142,6 +164,76 @@ export function PlayerManagement() {
       toast.error(
         error instanceof Error ? error.message : 'Failed to update player'
       );
+    }
+  };
+
+  const getCommandLabel = (commandType: string) => {
+    switch (commandType) {
+      case 'display_on':
+        return 'Display on';
+      case 'display_off':
+        return 'Display off';
+      case 'reload':
+        return 'Reload';
+      case 'restart_kiosk':
+        return 'Restart kiosk';
+      case 'set_url':
+        return 'Set URL';
+      case 'reboot':
+        return 'Reboot';
+      default:
+        return commandType.replace(/_/g, ' ');
+    }
+  };
+
+  const handleRevoke = async (playerId: number, rotate: boolean) => {
+    try {
+      setRevokingPlayerId(playerId);
+      const result = await revokeDevice({ player_id: playerId, rotate });
+      if (rotate && result?.pairing_code) {
+        await navigator.clipboard.writeText(result.pairing_code);
+        toast.success(
+          `Device revoked. New pairing code copied (expires ${format(parseISO(result.expires_at), 'HH:mm')}).`
+        );
+      } else {
+        toast.success(result?.message ?? 'Device revoked.');
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to revoke device'
+      );
+    } finally {
+      setRevokingPlayerId(null);
+    }
+  };
+
+  const handleSendCommand = async (
+    playerId: number,
+    type: string,
+    payload?: Record<string, unknown>
+  ) => {
+    try {
+      setCommandLoading({ playerId, type });
+      const { error } = await supabase.functions.invoke(
+        'admin-player-commands',
+        {
+          body: {
+            player_id: playerId,
+            type,
+            payload: payload ?? {},
+          },
+        }
+      );
+      if (error) {
+        throw error;
+      }
+      toast.success(`Command sent: ${getCommandLabel(type)}`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to send command'
+      );
+    } finally {
+      setCommandLoading(null);
     }
   };
 
@@ -219,6 +311,20 @@ export function PlayerManagement() {
 
           <div>
             <label className="block text-xs font-medium text-slate-300 mb-1.5">
+              Side
+            </label>
+            <select
+              value={sideKey}
+              onChange={(e) => setSideKey(e.target.value as 'Base' | 'Power')}
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="Base">Base</option>
+              <option value="Power">Power</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">
               Player Name *
             </label>
             <input
@@ -288,6 +394,86 @@ export function PlayerManagement() {
         </form>
       </div>
 
+      {/* Pair device - enter code from kiosk */}
+      {activeOrgId && players.length > 0 && (
+        <div
+          ref={pairSectionRef}
+          className={`rounded-lg border p-4 ${
+            pairingAfterCreate
+              ? 'border-indigo-500 bg-indigo-950/30'
+              : 'border-slate-700 bg-slate-900/50'
+          }`}
+        >
+          <h3 className="text-sm font-medium text-slate-200 mb-2">
+            {pairingAfterCreate
+              ? 'Connect a device to this player'
+              : 'Pair device'}
+          </h3>
+          <p className="text-xs text-slate-400 mb-3">
+            Enter the code shown on the kiosk display (e.g. ABC-123-45)
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[140px]">
+              <input
+                type="text"
+                value={pairCode}
+                onChange={(e) =>
+                  setPairCode(
+                    e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '')
+                  )
+                }
+                placeholder="ABC-123-45"
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm font-mono text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+                maxLength={12}
+              />
+            </div>
+            <div className="min-w-[160px]">
+              <select
+                value={pairPlayerId}
+                onChange={(e) =>
+                  setPairPlayerId(e.target.value ? Number(e.target.value) : '')
+                }
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select player...</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+                {pairingAfterCreate &&
+                  !players.some((p) => p.id === pairingAfterCreate) && (
+                    <option value={pairingAfterCreate}>
+                      (new player – refreshing...)
+                    </option>
+                  )}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={handlePairDevice}
+              disabled={!pairCode.trim() || !pairPlayerId || pairDeviceLoading}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded disabled:opacity-50"
+            >
+              {pairDeviceLoading ? 'Pairing...' : 'Pair'}
+            </button>
+            {pairingAfterCreate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPairingAfterCreate(null);
+                  setPairCode('');
+                  setPairPlayerId('');
+                }}
+                className="text-xs text-slate-400 hover:text-slate-300"
+              >
+                Skip
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Players List */}
       <div className="flex-1 min-h-0">
         <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
@@ -305,6 +491,9 @@ export function PlayerManagement() {
                     Site
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
+                    Side
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
@@ -312,6 +501,9 @@ export function PlayerManagement() {
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
                     Desired URL
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
+                    Schedule
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
                     Power
@@ -328,7 +520,7 @@ export function PlayerManagement() {
                 {playersLoading ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={11}
                       className="px-4 py-8 text-center text-sm text-slate-400"
                     >
                       Loading players...
@@ -337,7 +529,7 @@ export function PlayerManagement() {
                 ) : players.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={11}
                       className="px-4 py-8 text-center text-sm text-slate-400"
                     >
                       {activeOrgId
@@ -366,44 +558,62 @@ export function PlayerManagement() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
-                        <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleGeneratePairingCode(player.id)}
-                            disabled={createPairingCodeLoading}
-                            className="inline-flex items-center justify-center px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
-                          >
-                            {createPairingCodeLoading
-                              ? 'Generating...'
-                              : 'Generate code'}
-                          </button>
-                          {latestPairing?.playerId === player.id && (
-                            <div className="text-xs text-slate-400">
-                              Code:{' '}
-                              <span className="font-mono">
-                                {latestPairing.code}
-                              </span>
-                              <div>
-                                Expires:{' '}
-                                {format(
-                                  parseISO(latestPairing.expiresAt),
-                                  'HH:mm'
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPairPlayerId(player.id);
+                            setPairingAfterCreate(null);
+                            pairSectionRef.current?.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'nearest',
+                            });
+                          }}
+                          className="inline-flex items-center justify-center px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
+                        >
+                          Pair device
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
                         {player.site_name || 'All sites'}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
+                        {editingPlayerId === player.id ? (
+                          <select
+                            value={editSideKey}
+                            onChange={(event) =>
+                              setEditSideKey(
+                                event.target.value as 'Base' | 'Power'
+                              )
+                            }
+                            className="w-full px-2 py-1 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
+                          >
+                            <option value="Base">Base</option>
+                            <option value="Power">Power</option>
+                          </select>
+                        ) : (
+                          player.side_key || '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-300">
+                        {player.has_revoked_device && (
+                          <span className="mr-2 inline-block rounded bg-amber-900/50 px-1.5 py-0.5 text-xs text-amber-400">
+                            Revoked
+                          </span>
+                        )}
                         {player.last_seen_at ? (
                           (() => {
                             const lastSeenDate = parseISO(player.last_seen_at);
                             const isOnline =
                               Date.now() - lastSeenDate.getTime() <
                               ONLINE_THRESHOLD_MS;
+                            const onlineSince = player.online_since
+                              ? parseISO(player.online_since)
+                              : null;
+                            const durationLabel = isOnline
+                              ? onlineSince
+                                ? `Up for ${formatDistanceToNow(onlineSince)}`
+                                : 'Up for just now'
+                              : `Down for ${formatDistanceToNow(lastSeenDate)}`;
                             return (
                               <div className="flex flex-col">
                                 <span
@@ -416,15 +626,13 @@ export function PlayerManagement() {
                                   {isOnline ? 'Online' : 'Offline'}
                                 </span>
                                 <span className="text-xs text-slate-400">
-                                  {formatDistanceToNow(lastSeenDate, {
-                                    addSuffix: true,
-                                  })}
+                                  {durationLabel}
                                 </span>
                               </div>
                             );
                           })()
                         ) : (
-                          <span className="text-slate-500">Offline</span>
+                          <span className="text-slate-500">Down (no data)</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-400">
@@ -453,6 +661,20 @@ export function PlayerManagement() {
                           />
                         ) : (
                           player.desired_url || '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-400">
+                        {player.site_id && player.side_key ? (
+                          <Link
+                            to={`/admin?view=capacity-schedule&side=${player.side_key}`}
+                            className="text-xs text-indigo-300 hover:text-indigo-200"
+                          >
+                            View schedule
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-slate-500">
+                            Set site &amp; side
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
@@ -496,21 +718,83 @@ export function PlayerManagement() {
                             </button>
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              startEdit({
-                                id: player.id,
-                                name: player.name,
-                                location: player.location,
-                                desired_url: player.desired_url,
-                                desired_power_state: player.desired_power_state,
-                              })
-                            }
-                            className="px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 hover:underline"
-                          >
-                            Edit
-                          </button>
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => handleRevoke(player.id, false)}
+                              disabled={revokingPlayerId === player.id}
+                              className="px-2 py-1 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded disabled:opacity-50"
+                            >
+                              {revokingPlayerId === player.id
+                                ? 'Revoking...'
+                                : 'Revoke'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRevoke(player.id, true)}
+                              disabled={revokingPlayerId === player.id}
+                              className="px-2 py-1 text-xs bg-amber-600 hover:bg-amber-500 text-white rounded disabled:opacity-50"
+                            >
+                              Rotate
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSendCommand(player.id, 'display_on')
+                              }
+                              disabled={commandLoading?.playerId === player.id}
+                              className="px-2 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded disabled:opacity-50"
+                            >
+                              Display On
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSendCommand(player.id, 'display_off')
+                              }
+                              disabled={commandLoading?.playerId === player.id}
+                              className="px-2 py-1 text-xs bg-slate-600 hover:bg-slate-500 text-white rounded disabled:opacity-50"
+                            >
+                              Display Off
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSendCommand(player.id, 'reload')
+                              }
+                              disabled={commandLoading?.playerId === player.id}
+                              className="px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
+                            >
+                              Reload
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSendCommand(player.id, 'restart_kiosk')
+                              }
+                              disabled={commandLoading?.playerId === player.id}
+                              className="px-2 py-1 text-xs bg-indigo-700 hover:bg-indigo-600 text-white rounded disabled:opacity-50"
+                            >
+                              Restart Kiosk
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                startEdit({
+                                  id: player.id,
+                                  name: player.name,
+                                  location: player.location,
+                                  desired_url: player.desired_url,
+                                  desired_power_state:
+                                    player.desired_power_state,
+                                  side_key: player.side_key,
+                                })
+                              }
+                              className="px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 hover:underline"
+                            >
+                              Edit
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

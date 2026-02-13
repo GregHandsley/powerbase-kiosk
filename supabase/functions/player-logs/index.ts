@@ -1,13 +1,16 @@
-// Edge Function: Player logs (stub)
-// declare const Deno: {
-//   env: {
-//     get(key: string): string | undefined;
-//   };
-// };
+// Edge Function: Player logs
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
 // @ts-expect-error: Remote Deno std import is resolved at runtime/deploy time
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+// @ts-expect-error: Remote Supabase client import is resolved at runtime/deploy time
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import type { LogRequest, LogResponse } from '../_shared/playerAgentTypes.ts';
+import { validateDeviceAuth } from '../_shared/deviceAuth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,10 +40,58 @@ serve(async (req) => {
     });
   }
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return new Response(
+      JSON.stringify({ error: 'Missing Supabase configuration' }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const authResult = await validateDeviceAuth(
+    body.device_id,
+    body.device_token,
+    supabaseAdmin
+  );
+
+  if (!authResult.ok) {
+    return new Response(JSON.stringify(authResult.body), {
+      status: authResult.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const device = authResult.device;
+
+  const { error: insertError } = await supabaseAdmin
+    .from('player_logs')
+    .insert({
+      player_id: device.player_id,
+      level: body.level,
+      message: body.message,
+      meta_json: body.meta ?? {},
+    });
+
+  if (insertError) {
+    return new Response(JSON.stringify({ error: 'Failed to write log' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   const response: LogResponse = { ok: true };
 
   return new Response(JSON.stringify(response), {
-    status: 501,
+    status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
