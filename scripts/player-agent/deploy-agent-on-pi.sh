@@ -1,26 +1,25 @@
 #!/bin/bash
-# Run this ON the Pi after pulling the repo from GitHub.
-# Copies agent.py to home and restarts facilityos-agent.
+# Deploy agent to Pi. Uses curl to fetch from GitHub (no local repo required).
 #
 # Usage (on the Pi):
-#   cd ~/powerbase-kiosk
-#   git pull origin test-preview
+#   curl -sL https://raw.githubusercontent.com/GregHandsley/powerbase-kiosk/test-preview/scripts/player-agent/deploy-agent-on-pi.sh | bash
+#
+# Or run directly:
 #   ./scripts/player-agent/deploy-agent-on-pi.sh
 
 set -e
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-AGENT_SRC="${SCRIPT_DIR}/agent.py"
+BASE="https://raw.githubusercontent.com/GregHandsley/powerbase-kiosk/test-preview/scripts/player-agent"
 
-if [ ! -f "${AGENT_SRC}" ]; then
-  echo "Error: agent.py not found at ${AGENT_SRC}"
-  exit 1
+mkdir -p ~/facilityos
+curl -L -o ~/facilityos/agent.py \
+  "${BASE}/agent.py"
+chmod +x ~/facilityos/agent.py
+echo "Deployed agent.py to ~/facilityos/agent.py"
+
+sudo systemctl restart facilityos-agent 2>/dev/null || true
+echo "Restarted facilityos-agent (or start it if not yet configured)"
+
+if systemctl is-active --quiet facilityos-agent 2>/dev/null; then
+  sudo systemctl status facilityos-agent --no-pager
 fi
-
-cp "${AGENT_SRC}" ~/agent.py
-echo "Copied agent.py to ~/agent.py"
-
-sudo systemctl restart facilityos-agent
-echo "Restarted facilityos-agent"
-
-sudo systemctl status facilityos-agent --no-pager
 echo "Done."

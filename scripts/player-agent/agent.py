@@ -4,9 +4,11 @@ import json
 import os
 import socket
 import sys
+import threading
 import time
 import subprocess
 from datetime import datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -14,11 +16,13 @@ except ImportError:
 import uuid
 import urllib.request
 import urllib.parse
+import urllib.error
 import shutil
 
 STATE_PATH = os.path.expanduser("~/.facilityos/player-agent.json")
 KIOSK_CONFIG_PATH = os.path.expanduser("~/.facilityos/kiosk.conf")
 DEFAULT_KIOSK_URL = "https://facilityos.co.uk/kiosk/unpaired"
+PAIRING_SERVER_PORT = int(os.environ.get("FACILITYOS_PAIRING_PORT", "38473"))
 BLANK_SCREEN_PATH = "/kiosk/blank"
 SCHEDULE_TOLERANCE_SECONDS = 120
 COMMAND_POLL_SECONDS = 1
@@ -739,6 +743,79 @@ def execute_command(command, supabase_url=None, supabase_key=None, desired_url=N
     raise RuntimeError(f"Unknown command type: {command_type}")
 
 
+def build_unpaired_url(device_id):
+    base = os.environ.get("KIOSK_APP_BASE", "https://facilityos.co.uk")
+    return f"{base.rstrip('/')}/kiosk/unpaired?device_id={device_id}"
+
+
+def run_unpaired_mode(supabase_url, supabase_key):
+    """Show unpaired screen and run local server for pairing code entry. Blocks until paired."""
+    state = load_state()
+    device_id = ensure_device_id(state)
+    unpaired_url = build_unpaired_url(device_id)
+    update_kiosk_config(unpaired_url)
+    restart_kiosk()
+
+    server_ref = [None]  # mutable to capture server in handler
+
+    class PairingHandler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass  # suppress default logging
+
+        def send_cors(self):
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+        def do_OPTIONS(self):
+            self.send_response(200)
+            self.send_cors()
+            self.end_headers()
+
+        def do_POST(self):
+            if self.path != "/pair":
+                self.send_response(404)
+                self.send_cors()
+                self.end_headers()
+                return
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8") if content_length else "{}"
+            try:
+                data = json.loads(body)
+                code = (data.get("code") or "").strip()
+            except json.JSONDecodeError:
+                code = ""
+            if not code:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.send_cors()
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Missing pairing code"}).encode())
+                return
+            try:
+                pair_device(code, supabase_url, supabase_key)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_cors()
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": True, "message": "Paired successfully"}).encode())
+            except Exception as exc:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.send_cors()
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": str(exc)}).encode()
+                )
+            finally:
+                if server_ref[0]:
+                    server_ref[0].shutdown()
+
+    server = HTTPServer(("127.0.0.1", PAIRING_SERVER_PORT), PairingHandler)
+    server_ref[0] = server
+    server.serve_forever()
+
+
 def apply_schedule(config, supabase_url, supabase_key):
     capacity_schedules = config.get("capacity_schedules")
     if not isinstance(capacity_schedules, list) or not capacity_schedules:
@@ -837,6 +914,17 @@ def main():
         help="Heartbeat interval in seconds (default: 25)",
     )
 
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Main loop: unpaired mode or heartbeat. Handles 401/revoked by switching to pairing.",
+    )
+    run_parser.add_argument(
+        "--interval",
+        type=int,
+        default=25,
+        help="Heartbeat interval in seconds (default: 25)",
+    )
+
     pair_parser = subparsers.add_parser("pair", help="Pair device with a code")
     pair_parser.add_argument("code", help="Pairing code from admin UI")
     pair_parser.add_argument("--url", help="Supabase URL (defaults to SUPABASE_URL)")
@@ -868,6 +956,26 @@ def main():
             url = resolve_supabase_url(None)
             key = resolve_supabase_key(None)
             heartbeat_loop(url, key, args.interval)
+        elif args.command == "run":
+            url = resolve_supabase_url(None)
+            key = resolve_supabase_key(None)
+            interval = getattr(args, "interval", 25)
+            while True:
+                state = load_state()
+                if not state.get("device_token"):
+                    run_unpaired_mode(url, key)
+                    continue
+                try:
+                    heartbeat_loop(url, key, interval)
+                except urllib.error.HTTPError as e:
+                    if e.code == 401:
+                        state = load_state()
+                        state.pop("device_token", None)
+                        state.pop("player_id", None)
+                        save_state(state)
+                        run_unpaired_mode(url, key)
+                        continue
+                    raise
         elif args.command == "pair":
             url = resolve_supabase_url(args.url)
             key = resolve_supabase_key(args.key)

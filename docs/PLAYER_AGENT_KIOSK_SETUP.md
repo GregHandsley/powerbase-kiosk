@@ -39,3 +39,42 @@ sudo systemctl status facilityos-agent
 ```
 
 After reboot, the kiosk starts when the desktop loads. The agent updates the URL and restarts Chromium when you change it in Admin → Players.
+
+## Update agent only (curl)
+
+To update just the agent after setup:
+
+```bash
+curl -L -o ~/facilityos/agent.py \
+  https://raw.githubusercontent.com/GregHandsley/powerbase-kiosk/test-preview/scripts/player-agent/agent.py
+chmod +x ~/facilityos/agent.py
+sudo systemctl restart facilityos-agent
+```
+
+Or run the deploy script:
+
+```bash
+curl -sL https://raw.githubusercontent.com/GregHandsley/powerbase-kiosk/test-preview/scripts/player-agent/deploy-agent-on-pi.sh | bash
+```
+
+## Update systemd services only
+
+```bash
+curl -L -o ~/facilityos-agent.service \
+  https://raw.githubusercontent.com/GregHandsley/powerbase-kiosk/test-preview/scripts/player-agent/systemd/facilityos-agent.service
+curl -L -o ~/facilityos-kiosk.service \
+  https://raw.githubusercontent.com/GregHandsley/powerbase-kiosk/test-preview/scripts/player-agent/systemd/facilityos-kiosk.service
+sudo cp ~/facilityos-agent.service ~/facilityos-kiosk.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl restart facilityos-agent facilityos-kiosk
+```
+
+## Pairing (new or revoked devices)
+
+When the device is not paired or has been revoked, the kiosk shows a pairing screen:
+
+1. Open Admin → Players.
+2. Create or select a Player and click "Generate code" (or "Rotate" after revoking).
+3. Enter the code on the kiosk screen and click Pair.
+
+No command line required.
