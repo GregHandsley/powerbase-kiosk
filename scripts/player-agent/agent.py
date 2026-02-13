@@ -288,22 +288,29 @@ def log_message(supabase_url, supabase_key, level, message, meta=None):
         return
 
 
+def _normalize_url(url):
+    """Normalize URL for comparison (strip quotes, whitespace)."""
+    if not url or not isinstance(url, str):
+        return ""
+    return url.strip().strip('"\'')
+
+
 def update_kiosk_config(desired_url):
     os.makedirs(os.path.dirname(KIOSK_CONFIG_PATH), exist_ok=True)
-    target_url = desired_url or DEFAULT_KIOSK_URL
-    existing_url = None
+    target_url = _normalize_url(desired_url or DEFAULT_KIOSK_URL)
+    existing_url = ""
     if os.path.exists(KIOSK_CONFIG_PATH):
         with open(KIOSK_CONFIG_PATH, "r", encoding="utf-8") as handle:
             for line in handle.readlines():
                 if line.startswith("KIOSK_URL="):
-                    existing_url = line.split("=", 1)[1].strip()
+                    existing_url = _normalize_url(line.split("=", 1)[1])
                     break
 
     if existing_url == target_url:
         return False
 
     with open(KIOSK_CONFIG_PATH, "w", encoding="utf-8") as handle:
-        handle.write(f"KIOSK_URL={target_url}\n")
+        handle.write(f"KIOSK_URL={desired_url or DEFAULT_KIOSK_URL}\n")
     return True
 
 
@@ -968,7 +975,8 @@ def main():
                 try:
                     heartbeat_loop(url, key, interval)
                 except urllib.error.HTTPError as e:
-                    if e.code == 401:
+                    # 401: device revoked/not found; 404: player deleted
+                    if e.code in (401, 404):
                         state = load_state()
                         state.pop("device_token", None)
                         state.pop("player_id", None)
