@@ -37,6 +37,8 @@ export function PlayerManagement() {
     createPairingCodeLoading,
     updatePlayer,
     updatePlayerLoading,
+    revokeDevice,
+    // revokeDeviceLoading,
   } = usePlayers(activeOrgId);
   const [latestPairing, setLatestPairing] = useState<{
     playerId: number;
@@ -53,6 +55,7 @@ export function PlayerManagement() {
     playerId: number;
     type: string;
   } | null>(null);
+  const [revokingPlayerId, setRevokingPlayerId] = useState<number | null>(null);
 
   const canSubmit =
     !!activeOrgId && name.trim().length > 0 && !createPlayerLoading;
@@ -175,6 +178,27 @@ export function PlayerManagement() {
         return 'Reboot';
       default:
         return commandType.replace(/_/g, ' ');
+    }
+  };
+
+  const handleRevoke = async (playerId: number, rotate: boolean) => {
+    try {
+      setRevokingPlayerId(playerId);
+      const result = await revokeDevice({ player_id: playerId, rotate });
+      if (rotate && result?.pairing_code) {
+        await navigator.clipboard.writeText(result.pairing_code);
+        toast.success(
+          `Device revoked. New pairing code copied (expires ${format(parseISO(result.expires_at), 'HH:mm')}).`
+        );
+      } else {
+        toast.success(result?.message ?? 'Device revoked.');
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to revoke device'
+      );
+    } finally {
+      setRevokingPlayerId(null);
     }
   };
 
@@ -499,6 +523,11 @@ export function PlayerManagement() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
+                        {player.has_revoked_device && (
+                          <span className="mr-2 inline-block rounded bg-amber-900/50 px-1.5 py-0.5 text-xs text-amber-400">
+                            Revoked
+                          </span>
+                        )}
                         {player.last_seen_at ? (
                           (() => {
                             const lastSeenDate = parseISO(player.last_seen_at);
@@ -618,6 +647,24 @@ export function PlayerManagement() {
                           </div>
                         ) : (
                           <div className="flex items-center justify-end gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => handleRevoke(player.id, false)}
+                              disabled={revokingPlayerId === player.id}
+                              className="px-2 py-1 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded disabled:opacity-50"
+                            >
+                              {revokingPlayerId === player.id
+                                ? 'Revoking...'
+                                : 'Revoke'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRevoke(player.id, true)}
+                              disabled={revokingPlayerId === player.id}
+                              className="px-2 py-1 text-xs bg-amber-600 hover:bg-amber-500 text-white rounded disabled:opacity-50"
+                            >
+                              Rotate
+                            </button>
                             <button
                               type="button"
                               onClick={() =>

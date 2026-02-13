@@ -5,12 +5,20 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# Replace with your kiosk user (must match facilityos-agent.service)
 User=greghandsley
 WorkingDirectory=/home/greghandsley
 Environment=DISPLAY=:0
 ExecStart=/usr/bin/startx /home/greghandsley/kiosk.sh -- :0
 Restart=always
 RestartSec=2
+
+# Least-privilege hardening (Sprint 5.1)
+# Kiosk needs X/display access - fewer restrictions than agent
+NoNewPrivileges=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictSUIDSGID=yes
 
 [Install]
 WantedBy=multi-user.target

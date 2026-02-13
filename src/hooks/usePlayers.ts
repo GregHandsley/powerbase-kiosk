@@ -16,6 +16,7 @@ export type Player = {
   site_name?: string | null;
   last_seen_at?: string | null;
   online_since?: string | null;
+  has_revoked_device?: boolean;
 };
 
 export type CreatePlayerParams = {
@@ -47,12 +48,17 @@ export type PairingCodeResult = {
   expires_at: string;
 };
 
+type PlayerDevice = {
+  id: number;
+  device_id: string;
+  last_seen_at: string | null;
+  online_since: string | null;
+  revoked_at: string | null;
+};
+
 type PlayerWithSite = Player & {
   site: { id: number; name: string } | { id: number; name: string }[] | null;
-  devices:
-    | { last_seen_at: string | null; online_since: string | null }
-    | { last_seen_at: string | null; online_since: string | null }[]
-    | null;
+  devices: PlayerDevice | PlayerDevice[] | null;
 };
 
 export function usePlayers(organizationId: number | null) {
@@ -86,8 +92,11 @@ export function usePlayers(organizationId: number | null) {
             name
           ),
           devices:player_devices (
+            id,
+            device_id,
             last_seen_at,
-            online_since
+            online_since,
+            revoked_at
           )
         `
         )
@@ -110,6 +119,7 @@ export function usePlayers(organizationId: number | null) {
           : devices
             ? [devices]
             : [];
+        const hasRevokedDevice = deviceList.some((d) => d?.revoked_at != null);
         const lastSeenAt = deviceList.reduce<string | null>(
           (latest, device) => {
             if (!device?.last_seen_at) return latest;
@@ -132,7 +142,8 @@ export function usePlayers(organizationId: number | null) {
           site_name: siteName,
           last_seen_at: lastSeenAt,
           online_since: onlineSince,
-        } as Player;
+          has_revoked_device: hasRevokedDevice,
+        } as Player & { has_revoked_device?: boolean };
       });
     },
     enabled: !!organizationId,
@@ -223,6 +234,27 @@ export function usePlayers(organizationId: number | null) {
     },
   });
 
+  const revokeDeviceMutation = useMutation({
+    mutationFn: async ({
+      player_id,
+      rotate,
+    }: {
+      player_id: number;
+      rotate?: boolean;
+    }) => {
+      const { data, error } = await supabase.functions.invoke(
+        'admin-revoke-device',
+        { body: { player_id, rotate } }
+      );
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['players', organizationId] });
+    },
+  });
+
   return {
     players,
     isLoading,
@@ -233,6 +265,8 @@ export function usePlayers(organizationId: number | null) {
     createPairingCodeLoading: createPairingCodeMutation.isPending,
     updatePlayer: updatePlayerMutation.mutateAsync,
     updatePlayerLoading: updatePlayerMutation.isPending,
+    revokeDevice: revokeDeviceMutation.mutateAsync,
+    revokeDeviceLoading: revokeDeviceMutation.isPending,
   };
 }
 

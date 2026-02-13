@@ -13,6 +13,7 @@ import type {
   PlayerConfigRequest,
   PlayerConfigResponse,
 } from '../_shared/playerAgentTypes.ts';
+import { validateDeviceAuth } from '../_shared/deviceAuth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -61,20 +62,20 @@ serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const tokenHash = await sha256(body.device_token);
+  const authResult = await validateDeviceAuth(
+    body.device_id,
+    body.device_token,
+    supabaseAdmin
+  );
 
-  const { data: device, error: deviceError } = await supabaseAdmin
-    .from('player_devices')
-    .select('player_id, token_hash')
-    .eq('device_id', body.device_id)
-    .maybeSingle();
-
-  if (deviceError || !device || device.token_hash !== tokenHash) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
+  if (!authResult.ok) {
+    return new Response(JSON.stringify(authResult.body), {
+      status: authResult.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  const device = authResult.device;
 
   const { data: player, error: playerError } = await supabaseAdmin
     .from('players')
@@ -143,11 +144,3 @@ serve(async (req) => {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
-
-async function sha256(value: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(value);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}

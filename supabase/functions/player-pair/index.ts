@@ -99,6 +99,9 @@ serve(async (req) => {
         token_hash: tokenHash,
         last_seen_at: now.toISOString(),
         meta_json: body.meta ?? {},
+        revoked_at: null,
+        failed_auth_count: 0,
+        lockout_until: null,
       },
       { onConflict: 'device_id' }
     );

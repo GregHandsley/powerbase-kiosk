@@ -111,7 +111,7 @@ SUPABASE_ANON_KEY=<anon-key>
 EOF
 ```
 
-4. Create the agent service:
+4. Create the agent service (replace `greghandsley` with your username if different):
 
 ```
 sudo tee /etc/systemd/system/facilityos-agent.service > /dev/null <<'EOF'
@@ -129,6 +129,22 @@ ExecStart=/usr/bin/python3 /home/greghandsley/agent.py heartbeat-loop --interval
 Restart=always
 RestartSec=5
 
+# Least-privilege hardening (Sprint 5.1)
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/greghandsley/.facilityos
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+MemoryDenyWriteExecute=yes
+
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -137,7 +153,7 @@ EOF
 5. Kiosk URL will be managed automatically.
    The agent writes `~/.facilityos/kiosk.conf` based on the Player's desired URL.
 
-6. Create the kiosk service:
+6. Create the kiosk service (replace `greghandsley` with your username if different):
 
 ```
 sudo tee /etc/systemd/system/facilityos-kiosk.service > /dev/null <<'EOF'
@@ -154,6 +170,12 @@ Environment=DISPLAY=:0
 ExecStart=/usr/bin/startx /home/greghandsley/kiosk.sh -- :0
 Restart=always
 RestartSec=2
+
+# Least-privilege hardening (Sprint 5.1)
+NoNewPrivileges=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictSUIDSGID=yes
 
 [Install]
 WantedBy=multi-user.target

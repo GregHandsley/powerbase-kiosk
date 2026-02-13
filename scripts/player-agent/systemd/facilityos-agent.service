@@ -5,12 +5,30 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# Replace with your kiosk user (e.g. facilityos, kiosk, or your username)
 User=greghandsley
 WorkingDirectory=/home/greghandsley
 EnvironmentFile=/etc/facilityos-agent.env
 ExecStart=/usr/bin/python3 /home/greghandsley/agent.py heartbeat-loop --interval 25
 Restart=always
 RestartSec=5
+
+# Least-privilege hardening (Sprint 5.1)
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+# Allow agent to write state to its config dir (adjust path if User differs)
+ReadWritePaths=/home/greghandsley/.facilityos
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+MemoryDenyWriteExecute=yes
 
 [Install]
 WantedBy=multi-user.target

@@ -193,19 +193,28 @@ Key docs:
 - CEC unsupported → fallback used and logged.
 - Schedule tolerance within ±2 min. -->
 
-## Sprint 5.1 — Security hardening
+## Sprint 5.1 — Security hardening ✅
 
 **Goal:** Reduce token and device risk.
 
 **Tasks**
 
-- Token rotation + revoke.
-- Device lockout on suspicious behavior.
-- Least-privilege systemd units.
+- Token rotation + revoke. ✅
+- Device lockout on suspicious behavior. ✅
+- Least-privilege systemd units. ✅
 
 **Acceptance Criteria**
 
-- Revoked token blocks heartbeats/commands immediately.
+- Revoked token blocks heartbeats/commands immediately. ✅
+
+**Implemented**
+
+- Migration `add_player_device_security.sql`: `revoked_at`, `failed_auth_count`, `lockout_until` on `player_devices`.
+- Shared `deviceAuth.ts`: validates token, rejects revoked/locked devices, locks out after 5 failed attempts (15 min).
+- All device-facing Edge Functions use shared auth.
+- `admin-revoke-device` Edge Function: revoke by player_id, optional rotate (returns new pairing code).
+- Admin UI: Revoke and Rotate buttons in Player Management.
+- systemd units: `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem`, etc.
 
 ## Sprint 5.2 — Observability + alerts
 
