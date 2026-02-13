@@ -19,7 +19,14 @@ export type DeviceMetadata = {
   hostname?: string;
   ip?: string;
   model?: string;
+  uptime_seconds?: number;
+  cpu_percent?: number;
   temp_c?: number;
+  memory_used_mb?: number;
+  memory_total_mb?: number;
+  memory_percent?: number;
+  chromium_running?: boolean;
+  chromium_pid_count?: number;
   [key: string]: unknown;
 };
 

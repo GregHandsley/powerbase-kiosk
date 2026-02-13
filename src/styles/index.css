@@ -275,6 +275,12 @@ body.kiosk-mode .kiosk-platform-card::before {
   transition: none;
 }
 
+/* Hide mouse pointer in kiosk mode routes. */
+body.kiosk-mode,
+body.kiosk-mode * {
+  cursor: none !important;
+}
+
 /* Subtle hover effect for interactivity (even if not clickable, provides depth) */
 .kiosk-platform-card::before {
   content: '';

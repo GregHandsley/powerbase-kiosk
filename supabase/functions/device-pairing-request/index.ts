@@ -71,6 +71,12 @@ serve(async (req) => {
 
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
+  // Ensure one active request per device to avoid ambiguous maybeSingle lookups.
+  await supabaseAdmin
+    .from('device_pairing_requests')
+    .delete()
+    .eq('device_id', body.device_id);
+
   const { error } = await supabaseAdmin.from('device_pairing_requests').upsert(
     {
       code: formattedCode,

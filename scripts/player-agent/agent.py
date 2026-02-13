@@ -30,6 +30,7 @@ PAIRING_STATUS_PORT = 38473
 SCHEDULE_TOLERANCE_SECONDS = 120
 COMMAND_POLL_SECONDS = 1
 CEC_DEVICE = os.environ.get("CEC_DEVICE", "/dev/cec0")
+_LAST_CPU_SAMPLE = None
 
 
 def load_state():
@@ -87,6 +88,121 @@ def resolve_supabase_key(arg_value):
     if not key:
         raise ValueError("SUPABASE_ANON_KEY is required (env or --key).")
     return key
+
+
+def _read_uptime_seconds():
+    try:
+        with open("/proc/uptime", "r", encoding="utf-8") as handle:
+            value = handle.read().strip().split()[0]
+        return float(value)
+    except Exception:
+        return None
+
+
+def _read_cpu_percent():
+    global _LAST_CPU_SAMPLE
+    try:
+        with open("/proc/stat", "r", encoding="utf-8") as handle:
+            first_line = handle.readline().strip()
+        parts = first_line.split()
+        if len(parts) < 8 or parts[0] != "cpu":
+            return None
+        fields = [int(value) for value in parts[1:]]
+        idle = fields[3] + fields[4]
+        total = sum(fields)
+        if _LAST_CPU_SAMPLE is None:
+            _LAST_CPU_SAMPLE = (total, idle)
+            return None
+        previous_total, previous_idle = _LAST_CPU_SAMPLE
+        total_delta = total - previous_total
+        idle_delta = idle - previous_idle
+        _LAST_CPU_SAMPLE = (total, idle)
+        if total_delta <= 0:
+            return None
+        used_delta = total_delta - idle_delta
+        return round(max(0.0, min(100.0, (used_delta / total_delta) * 100.0)), 1)
+    except Exception:
+        return None
+
+
+def _read_temperature_c():
+    try:
+        if shutil.which("vcgencmd"):
+            result = subprocess.run(
+                ["vcgencmd", "measure_temp"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0 and result.stdout:
+                # Example: temp=52.8'C
+                temp_value = result.stdout.strip().split("=")[1].split("'")[0]
+                return round(float(temp_value), 1)
+    except Exception:
+        pass
+
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp", "r", encoding="utf-8") as handle:
+            raw_value = handle.read().strip()
+        return round(float(raw_value) / 1000.0, 1)
+    except Exception:
+        return None
+
+
+def _read_memory_stats():
+    try:
+        values = {}
+        with open("/proc/meminfo", "r", encoding="utf-8") as handle:
+            for line in handle:
+                if ":" not in line:
+                    continue
+                key, raw = line.split(":", 1)
+                number = raw.strip().split()[0]
+                values[key] = int(number)  # kB
+        total_kb = values.get("MemTotal")
+        available_kb = values.get("MemAvailable")
+        if not total_kb or available_kb is None:
+            return None, None, None
+        used_kb = total_kb - available_kb
+        used_mb = round(used_kb / 1024.0, 1)
+        total_mb = round(total_kb / 1024.0, 1)
+        percent = round((used_kb / total_kb) * 100.0, 1) if total_kb > 0 else None
+        return used_mb, total_mb, percent
+    except Exception:
+        return None, None, None
+
+
+def _read_chromium_status():
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "chromium"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            pids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+            return True, len(pids)
+        return False, 0
+    except Exception:
+        return False, 0
+
+
+def collect_device_metrics():
+    used_mb, total_mb, memory_percent = _read_memory_stats()
+    chromium_running, chromium_pid_count = _read_chromium_status()
+    metrics = {
+        "hostname": socket.gethostname(),
+        "uptime_seconds": _read_uptime_seconds(),
+        "cpu_percent": _read_cpu_percent(),
+        "temp_c": _read_temperature_c(),
+        "memory_used_mb": used_mb,
+        "memory_total_mb": total_mb,
+        "memory_percent": memory_percent,
+        "chromium_running": chromium_running,
+        "chromium_pid_count": chromium_pid_count,
+    }
+    return {key: value for key, value in metrics.items() if value is not None}
 
 
 def pair_device(code, supabase_url, supabase_key):
@@ -147,9 +263,7 @@ def send_heartbeat(supabase_url, supabase_key):
     payload = {
         "device_id": device_id,
         "device_token": device_token,
-        "meta": {
-            "hostname": socket.gethostname(),
-        },
+        "meta": collect_device_metrics(),
     }
 
     endpoint = f"{supabase_url}/functions/v1/player-heartbeat"

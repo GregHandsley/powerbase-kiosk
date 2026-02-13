@@ -26,6 +26,12 @@ else
 fi
 
 mkdir -p "${PROFILE_DIR}"
+
+# Hide Raspberry Pi desktop UI elements before Chromium starts.
+pkill -f wf-panel-pi >/dev/null 2>&1 || true
+pkill -f lxpanel >/dev/null 2>&1 || true
+pkill -f pcmanfm >/dev/null 2>&1 || true
+
 pkill -f chromium >/dev/null 2>&1 || true
 sleep 1
 

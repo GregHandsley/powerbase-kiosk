@@ -13,6 +13,13 @@ export function KioskUnpaired() {
   const [fetchedCode, setFetchedCode] = useState<string | null>(null);
 
   useEffect(() => {
+    document.body.classList.add('kiosk-mode');
+    return () => {
+      document.body.classList.remove('kiosk-mode');
+    };
+  }, []);
+
+  useEffect(() => {
     if (urlCode) return;
     const load = async () => {
       try {

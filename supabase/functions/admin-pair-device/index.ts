@@ -162,11 +162,6 @@ serve(async (req) => {
     { onConflict: 'device_id' }
   );
 
-  await supabaseAdmin
-    .from('device_pairing_requests')
-    .delete()
-    .eq('code', formattedCode);
-
   return new Response(
     JSON.stringify({
       ok: true,

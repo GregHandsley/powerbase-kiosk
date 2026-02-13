@@ -35,16 +35,10 @@ export function PlayerManagement() {
     createPlayerLoading,
     updatePlayer,
     updatePlayerLoading,
-    revokeDevice,
+    deletePlayer,
+    deletePlayerLoading,
     pairDevice,
-    pairDeviceLoading,
   } = usePlayers(activeOrgId);
-  const [pairCode, setPairCode] = useState('');
-  const [pairPlayerId, setPairPlayerId] = useState<number | ''>('');
-  const [pairingAfterCreate, setPairingAfterCreate] = useState<number | null>(
-    null
-  );
-  const pairSectionRef = useRef<HTMLDivElement>(null);
   const [editingPlayerId, setEditingPlayerId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [editLocation, setEditLocation] = useState('');
@@ -55,7 +49,20 @@ export function PlayerManagement() {
     playerId: number;
     type: string;
   } | null>(null);
-  const [revokingPlayerId, setRevokingPlayerId] = useState<number | null>(null);
+  const [deletingPlayerId, setDeletingPlayerId] = useState<number | null>(null);
+  const [menuOpenPlayerId, setMenuOpenPlayerId] = useState<number | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const [menuPlacement, setMenuPlacement] = useState<'above' | 'below'>(
+    'below'
+  );
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+  const actionTriggerRefs = useRef<Record<number, HTMLButtonElement | null>>(
+    {}
+  );
 
   const canSubmit =
     !!activeOrgId && name.trim().length > 0 && !createPlayerLoading;
@@ -75,7 +82,7 @@ export function PlayerManagement() {
     }
 
     try {
-      const result = await createPlayer({
+      await createPlayer({
         organization_id: activeOrgId,
         site_id: formSiteId ? (formSiteId as number) : null,
         side_key: sideKey,
@@ -85,17 +92,15 @@ export function PlayerManagement() {
         desired_power_state: powerState,
       });
       toast.success(
-        'Player created. Enter the code from the kiosk to connect.'
+        'Player created. Use the row Actions menu to pair a kiosk code.'
       );
-      setPairingAfterCreate(result.id);
-      setPairPlayerId(result.id);
-      setPairCode('');
       setName('');
       setLocation('');
       setDesiredUrl('');
       setPowerState('on');
       setSideKey('Base');
       setFormSiteId('');
+      setIsCreateModalOpen(false);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to create player'
@@ -103,18 +108,16 @@ export function PlayerManagement() {
     }
   };
 
-  const handlePairDevice = async () => {
-    const playerId = pairPlayerId === '' ? null : (pairPlayerId as number);
-    if (!playerId || !pairCode.trim()) {
-      toast.error('Enter the code and select a player.');
-      return;
-    }
+  const handleQuickPair = async (playerId: number) => {
+    const input = window.prompt(
+      'Enter the pairing code shown on the kiosk (e.g. ABC-123-45):'
+    );
+    if (!input || !input.trim()) return;
+
     try {
-      await pairDevice({ player_id: playerId, code: pairCode.trim() });
+      await pairDevice({ player_id: playerId, code: input.trim() });
       toast.success('Device paired. The kiosk will connect shortly.');
-      setPairCode('');
-      setPairPlayerId('');
-      setPairingAfterCreate(null);
+      setMenuOpenPlayerId(null);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to pair device'
@@ -186,24 +189,24 @@ export function PlayerManagement() {
     }
   };
 
-  const handleRevoke = async (playerId: number, rotate: boolean) => {
+  const handleDeletePlayer = async (playerId: number, playerName: string) => {
+    const confirmed = window.confirm(
+      `Delete player "${playerName}"?\n\nThis removes the player and related pairing/device records.`
+    );
+    if (!confirmed) return;
+
     try {
-      setRevokingPlayerId(playerId);
-      const result = await revokeDevice({ player_id: playerId, rotate });
-      if (rotate && result?.pairing_code) {
-        await navigator.clipboard.writeText(result.pairing_code);
-        toast.success(
-          `Device revoked. New pairing code copied (expires ${format(parseISO(result.expires_at), 'HH:mm')}).`
-        );
-      } else {
-        toast.success(result?.message ?? 'Device revoked.');
-      }
+      setDeletingPlayerId(playerId);
+      await deletePlayer({ id: playerId });
+      toast.success('Player deleted.');
+      setMenuOpenPlayerId(null);
+      setMenuPosition(null);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Failed to revoke device'
+        error instanceof Error ? error.message : 'Failed to delete player'
       );
     } finally {
-      setRevokingPlayerId(null);
+      setDeletingPlayerId(null);
     }
   };
 
@@ -227,6 +230,12 @@ export function PlayerManagement() {
       if (error) {
         throw error;
       }
+      if (type === 'display_on' || type === 'display_off') {
+        await updatePlayer({
+          id: playerId,
+          desired_power_state: type === 'display_on' ? 'on' : 'off',
+        });
+      }
       toast.success(`Command sent: ${getCommandLabel(type)}`);
     } catch (error) {
       toast.error(
@@ -237,6 +246,133 @@ export function PlayerManagement() {
     }
   };
 
+  const ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
+  const formatUptime = (uptimeSeconds: number) => {
+    const total = Math.max(0, Math.floor(uptimeSeconds));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+  const getHealthSummary = (
+    meta: Record<string, unknown> | null | undefined
+  ) => {
+    if (!meta) return null;
+
+    const parts: string[] = [];
+    const cpu = meta.cpu_percent;
+    const temp = meta.temp_c;
+    const memory = meta.memory_percent;
+    const chromiumRunning = meta.chromium_running;
+    const uptime = meta.uptime_seconds;
+
+    if (typeof cpu === 'number') {
+      parts.push(`CPU ${Math.round(cpu)}%`);
+    }
+    if (typeof temp === 'number') {
+      parts.push(`${Math.round(temp)}C`);
+    }
+    if (typeof memory === 'number') {
+      parts.push(`Mem ${Math.round(memory)}%`);
+    }
+    if (typeof chromiumRunning === 'boolean') {
+      parts.push(chromiumRunning ? 'Chromium on' : 'Chromium off');
+    }
+    if (typeof uptime === 'number') {
+      parts.push(`Up ${formatUptime(uptime)}`);
+    }
+
+    return parts.length > 0 ? parts.join(' • ') : null;
+  };
+  const activeMenuPlayer = useMemo(
+    () => players.find((player) => player.id === menuOpenPlayerId) ?? null,
+    [players, menuOpenPlayerId]
+  );
+  const closeActionMenu = () => {
+    setMenuOpenPlayerId(null);
+    setMenuPosition(null);
+  };
+
+  const openActionMenu = (
+    playerId: number,
+    triggerButton: HTMLButtonElement | null
+  ) => {
+    if (!triggerButton) return;
+
+    if (menuOpenPlayerId === playerId) {
+      closeActionMenu();
+      return;
+    }
+
+    const rect = triggerButton.getBoundingClientRect();
+    const menuWidth = 208;
+    const estimatedMenuHeight = 280;
+    let top = rect.bottom + 10;
+    let placement: 'above' | 'below' = 'below';
+    if (top + estimatedMenuHeight > window.innerHeight - 12) {
+      top = Math.max(12, rect.top - estimatedMenuHeight - 10);
+      placement = 'above';
+    }
+    const left = Math.min(
+      Math.max(12, rect.right - menuWidth),
+      window.innerWidth - menuWidth - 12
+    );
+
+    setMenuPlacement(placement);
+    setMenuPosition({ top, left });
+    setMenuOpenPlayerId(playerId);
+  };
+
+  useEffect(() => {
+    if (!menuOpenPlayerId) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const trigger = actionTriggerRefs.current[menuOpenPlayerId];
+      const clickedMenu = actionMenuRef.current?.contains(target) ?? false;
+      const clickedTrigger = trigger?.contains(target) ?? false;
+      if (!clickedMenu && !clickedTrigger) {
+        closeActionMenu();
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeActionMenu();
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleEscape);
+    window.addEventListener('resize', closeActionMenu);
+    window.addEventListener('scroll', closeActionMenu, true);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('resize', closeActionMenu);
+      window.removeEventListener('scroll', closeActionMenu, true);
+    };
+  }, [menuOpenPlayerId]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsCreateModalOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isCreateModalOpen]);
+
   if (orgsLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -245,234 +381,74 @@ export function PlayerManagement() {
     );
   }
 
-  const ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
-
   return (
     <div className="h-full flex flex-col space-y-6 overflow-y-auto min-h-0">
-      {/* Create Form */}
-      <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 shrink-0">
-        <h3 className="text-sm font-semibold text-slate-200 mb-4">
-          Create Player
-        </h3>
-        <form onSubmit={handleCreatePlayer} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Organization *
-            </label>
-            <select
-              value={formOrganizationId}
-              onChange={(e) => {
-                const orgId = e.target.value ? Number(e.target.value) : '';
-                setFormOrganizationId(orgId);
-                setFormSiteId('');
-              }}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              required
-            >
-              <option value="">Select organization...</option>
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Site
-            </label>
-            {activeOrgId ? (
+      <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 shrink-0">
+        <div className="flex flex-wrap items-end gap-4 justify-between">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[220px]">
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                Organization
+              </label>
               <select
-                value={formSiteId}
-                onChange={(e) =>
-                  setFormSiteId(e.target.value ? Number(e.target.value) : '')
-                }
+                value={formOrganizationId}
+                onChange={(e) => {
+                  const orgId = e.target.value ? Number(e.target.value) : '';
+                  setFormOrganizationId(orgId);
+                  setFormSiteId('');
+                }}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
-                <option value="">All sites</option>
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.name}
+                <option value="">Select organization...</option>
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
                   </option>
                 ))}
               </select>
-            ) : (
-              <div className="text-xs text-slate-500">
-                Select an organization to choose a site.
-              </div>
-            )}
-            {sitesLoading && activeOrgId && (
-              <div className="text-xs text-slate-500 mt-1">
-                Loading sites...
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Side
-            </label>
-            <select
-              value={sideKey}
-              onChange={(e) => setSideKey(e.target.value as 'Base' | 'Power')}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="Base">Base</option>
-              <option value="Power">Power</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Player Name *
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Powerbase Kiosk 1"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Location
-            </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Zone A, North wall"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Desired URL
-            </label>
-            <input
-              type="url"
-              value={desiredUrl}
-              onChange={(e) => setDesiredUrl(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="https://facilityos.co.uk/kiosk"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Desired Power State
-            </label>
-            <select
-              value={powerState}
-              onChange={(e) => setPowerState(e.target.value as 'on' | 'off')}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="on">On</option>
-              <option value="off">Off</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded transition-colors disabled:opacity-50"
-            >
-              {createPlayerLoading ? 'Creating...' : 'Create Player'}
-            </button>
-            <div className="text-xs text-slate-400">
-              {activeOrgId
-                ? `Targeting ${selectedSiteLabel}`
-                : 'Select an organization to continue.'}
             </div>
-          </div>
-        </form>
-      </div>
 
-      {/* Pair device - enter code from kiosk */}
-      {activeOrgId && players.length > 0 && (
-        <div
-          ref={pairSectionRef}
-          className={`rounded-lg border p-4 ${
-            pairingAfterCreate
-              ? 'border-indigo-500 bg-indigo-950/30'
-              : 'border-slate-700 bg-slate-900/50'
-          }`}
-        >
-          <h3 className="text-sm font-medium text-slate-200 mb-2">
-            {pairingAfterCreate
-              ? 'Connect a device to this player'
-              : 'Pair device'}
-          </h3>
-          <p className="text-xs text-slate-400 mb-3">
-            Enter the code shown on the kiosk display (e.g. ABC-123-45)
-          </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[140px]">
-              <input
-                type="text"
-                value={pairCode}
-                onChange={(e) =>
-                  setPairCode(
-                    e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '')
-                  )
-                }
-                placeholder="ABC-123-45"
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm font-mono text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
-                maxLength={12}
-              />
-            </div>
-            <div className="min-w-[160px]">
-              <select
-                value={pairPlayerId}
-                onChange={(e) =>
-                  setPairPlayerId(e.target.value ? Number(e.target.value) : '')
-                }
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Select player...</option>
-                {players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-                {pairingAfterCreate &&
-                  !players.some((p) => p.id === pairingAfterCreate) && (
-                    <option value={pairingAfterCreate}>
-                      (new player – refreshing...)
+            <div className="min-w-[200px]">
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                Site filter
+              </label>
+              {activeOrgId ? (
+                <select
+                  value={formSiteId}
+                  onChange={(e) =>
+                    setFormSiteId(e.target.value ? Number(e.target.value) : '')
+                  }
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="">All sites</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name}
                     </option>
-                  )}
-              </select>
+                  ))}
+                </select>
+              ) : (
+                <div className="text-xs text-slate-500 py-2">
+                  Select an organization first.
+                </div>
+              )}
             </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {sitesLoading && activeOrgId && (
+              <span className="text-xs text-slate-500">Loading sites...</span>
+            )}
             <button
               type="button"
-              onClick={handlePairDevice}
-              disabled={!pairCode.trim() || !pairPlayerId || pairDeviceLoading}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded disabled:opacity-50"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded transition-colors"
             >
-              {pairDeviceLoading ? 'Pairing...' : 'Pair'}
+              Create player
             </button>
-            {pairingAfterCreate && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPairingAfterCreate(null);
-                  setPairCode('');
-                  setPairPlayerId('');
-                }}
-                className="text-xs text-slate-400 hover:text-slate-300"
-              >
-                Skip
-              </button>
-            )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Players List */}
       <div className="flex-1 min-h-0">
@@ -558,20 +534,11 @@ export function PlayerManagement() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPairPlayerId(player.id);
-                            setPairingAfterCreate(null);
-                            pairSectionRef.current?.scrollIntoView({
-                              behavior: 'smooth',
-                              block: 'nearest',
-                            });
-                          }}
-                          className="inline-flex items-center justify-center px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
-                        >
-                          Pair device
-                        </button>
+                        {player.has_revoked_device
+                          ? 'Revoked'
+                          : player.last_seen_at || player.online_since
+                            ? 'Paired'
+                            : 'Not paired'}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
                         {player.site_name || 'All sites'}
@@ -614,6 +581,12 @@ export function PlayerManagement() {
                                 ? `Up for ${formatDistanceToNow(onlineSince)}`
                                 : 'Up for just now'
                               : `Down for ${formatDistanceToNow(lastSeenDate)}`;
+                            const healthSummary = getHealthSummary(
+                              player.device_meta as Record<
+                                string,
+                                unknown
+                              > | null
+                            );
                             return (
                               <div className="flex flex-col">
                                 <span
@@ -628,6 +601,11 @@ export function PlayerManagement() {
                                 <span className="text-xs text-slate-400">
                                   {durationLabel}
                                 </span>
+                                {healthSummary && (
+                                  <span className="text-xs text-slate-500">
+                                    {healthSummary}
+                                  </span>
+                                )}
                               </div>
                             );
                           })()
@@ -691,8 +669,10 @@ export function PlayerManagement() {
                             <option value="on">On</option>
                             <option value="off">Off</option>
                           </select>
+                        ) : player.desired_power_state === 'on' ? (
+                          'On'
                         ) : (
-                          player.desired_power_state
+                          'Off'
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-400">
@@ -718,81 +698,22 @@ export function PlayerManagement() {
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                          <div className="inline-flex justify-end">
                             <button
                               type="button"
-                              onClick={() => handleRevoke(player.id, false)}
-                              disabled={revokingPlayerId === player.id}
-                              className="px-2 py-1 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded disabled:opacity-50"
-                            >
-                              {revokingPlayerId === player.id
-                                ? 'Revoking...'
-                                : 'Revoke'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRevoke(player.id, true)}
-                              disabled={revokingPlayerId === player.id}
-                              className="px-2 py-1 text-xs bg-amber-600 hover:bg-amber-500 text-white rounded disabled:opacity-50"
-                            >
-                              Rotate
-                            </button>
-                            <button
-                              type="button"
+                              ref={(element) => {
+                                actionTriggerRefs.current[player.id] = element;
+                              }}
                               onClick={() =>
-                                handleSendCommand(player.id, 'display_on')
+                                openActionMenu(
+                                  player.id,
+                                  actionTriggerRefs.current[player.id]
+                                )
                               }
-                              disabled={commandLoading?.playerId === player.id}
-                              className="px-2 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded disabled:opacity-50"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-slate-100"
+                              aria-label={`Actions for ${player.name}`}
                             >
-                              Display On
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleSendCommand(player.id, 'display_off')
-                              }
-                              disabled={commandLoading?.playerId === player.id}
-                              className="px-2 py-1 text-xs bg-slate-600 hover:bg-slate-500 text-white rounded disabled:opacity-50"
-                            >
-                              Display Off
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleSendCommand(player.id, 'reload')
-                              }
-                              disabled={commandLoading?.playerId === player.id}
-                              className="px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
-                            >
-                              Reload
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleSendCommand(player.id, 'restart_kiosk')
-                              }
-                              disabled={commandLoading?.playerId === player.id}
-                              className="px-2 py-1 text-xs bg-indigo-700 hover:bg-indigo-600 text-white rounded disabled:opacity-50"
-                            >
-                              Restart Kiosk
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                startEdit({
-                                  id: player.id,
-                                  name: player.name,
-                                  location: player.location,
-                                  desired_url: player.desired_url,
-                                  desired_power_state:
-                                    player.desired_power_state,
-                                  side_key: player.side_key,
-                                })
-                              }
-                              className="px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 hover:underline"
-                            >
-                              Edit
+                              ⋮
                             </button>
                           </div>
                         )}
@@ -805,6 +726,270 @@ export function PlayerManagement() {
           </div>
         </div>
       </div>
+
+      {menuOpenPlayerId && menuPosition && activeMenuPlayer && (
+        <div
+          ref={actionMenuRef}
+          className="fixed z-50 w-52 rounded-lg border border-slate-700 bg-slate-900 p-1 shadow-2xl"
+          style={{ top: menuPosition.top, left: menuPosition.left }}
+        >
+          <div
+            className={`absolute h-2 w-2 rotate-45 bg-slate-900 ${
+              menuPlacement === 'below'
+                ? '-top-1 right-4 border-l border-t border-slate-700'
+                : '-bottom-1 right-4 border-r border-b border-slate-700'
+            }`}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              startEdit({
+                id: activeMenuPlayer.id,
+                name: activeMenuPlayer.name,
+                location: activeMenuPlayer.location,
+                desired_url: activeMenuPlayer.desired_url,
+                desired_power_state: activeMenuPlayer.desired_power_state,
+                side_key: activeMenuPlayer.side_key,
+              });
+              closeActionMenu();
+            }}
+            className="w-full rounded px-2 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-800"
+          >
+            Edit player
+          </button>
+          <button
+            type="button"
+            onClick={() => handleQuickPair(activeMenuPlayer.id)}
+            className="w-full rounded px-2 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-800"
+          >
+            Pair device
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              closeActionMenu();
+              handleSendCommand(activeMenuPlayer.id, 'display_on');
+            }}
+            disabled={commandLoading?.playerId === activeMenuPlayer.id}
+            className="w-full rounded px-2 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+          >
+            Display on
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              closeActionMenu();
+              handleSendCommand(activeMenuPlayer.id, 'display_off');
+            }}
+            disabled={commandLoading?.playerId === activeMenuPlayer.id}
+            className="w-full rounded px-2 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+          >
+            Display off
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              closeActionMenu();
+              handleSendCommand(activeMenuPlayer.id, 'reload');
+            }}
+            disabled={commandLoading?.playerId === activeMenuPlayer.id}
+            className="w-full rounded px-2 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+          >
+            Reload
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              closeActionMenu();
+              handleSendCommand(activeMenuPlayer.id, 'restart_kiosk');
+            }}
+            disabled={commandLoading?.playerId === activeMenuPlayer.id}
+            className="w-full rounded px-2 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+          >
+            Restart kiosk
+          </button>
+          <div className="my-1 border-t border-slate-700" />
+          <button
+            type="button"
+            onClick={() =>
+              handleDeletePlayer(activeMenuPlayer.id, activeMenuPlayer.name)
+            }
+            disabled={
+              deletingPlayerId === activeMenuPlayer.id || deletePlayerLoading
+            }
+            className="w-full rounded px-2 py-1.5 text-left text-xs text-red-300 hover:bg-red-950/40 disabled:opacity-50"
+          >
+            {deletingPlayerId === activeMenuPlayer.id
+              ? 'Deleting...'
+              : 'Delete player'}
+          </button>
+        </div>
+      )}
+
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 p-4">
+          <div
+            className="absolute inset-0"
+            onClick={() => setIsCreateModalOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-2xl rounded-lg border border-slate-700 bg-slate-900 p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-200">
+                Create Player
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-sm text-slate-400 hover:text-slate-200"
+              >
+                Close
+              </button>
+            </div>
+            <form onSubmit={handleCreatePlayer} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                    Organization *
+                  </label>
+                  <select
+                    value={formOrganizationId}
+                    onChange={(e) => {
+                      const orgId = e.target.value
+                        ? Number(e.target.value)
+                        : '';
+                      setFormOrganizationId(orgId);
+                      setFormSiteId('');
+                    }}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    required
+                  >
+                    <option value="">Select organization...</option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                    Site
+                  </label>
+                  {activeOrgId ? (
+                    <select
+                      value={formSiteId}
+                      onChange={(e) =>
+                        setFormSiteId(
+                          e.target.value ? Number(e.target.value) : ''
+                        )
+                      }
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="">All sites</option>
+                      {sites.map((site) => (
+                        <option key={site.id} value={site.id}>
+                          {site.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="text-xs text-slate-500 py-2">
+                      Select an organization to choose a site.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Side
+                </label>
+                <select
+                  value={sideKey}
+                  onChange={(e) =>
+                    setSideKey(e.target.value as 'Base' | 'Power')
+                  }
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="Base">Base</option>
+                  <option value="Power">Power</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Player Name *
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Powerbase Kiosk 1"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Location
+                </label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Zone A, North wall"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Desired URL
+                </label>
+                <input
+                  type="url"
+                  value={desiredUrl}
+                  onChange={(e) => setDesiredUrl(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="https://facilityos.co.uk/kiosk"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Desired Power State
+                </label>
+                <select
+                  value={powerState}
+                  onChange={(e) =>
+                    setPowerState(e.target.value as 'on' | 'off')
+                  }
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="on">On</option>
+                  <option value="off">Off</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded transition-colors disabled:opacity-50"
+                >
+                  {createPlayerLoading ? 'Creating...' : 'Create Player'}
+                </button>
+                <div className="text-xs text-slate-400">
+                  {activeOrgId
+                    ? `Targeting ${selectedSiteLabel}`
+                    : 'Select an organization to continue.'}
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

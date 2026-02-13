@@ -19,6 +19,8 @@ const EVENT_TYPES = [
   'booking.cancellation_confirmed',
   'booking.cancelled',
   'booking.deleted',
+  'player.offline_alert',
+  'player.offline_recovered',
 ];
 
 // Convert event type to plain English
@@ -32,6 +34,8 @@ function formatEventType(eventType: string): string {
     'booking.cancellation_confirmed': 'Cancellation Confirmed',
     'booking.cancelled': 'Booking Cancelled',
     'booking.deleted': 'Booking Deleted',
+    'player.offline_alert': 'Player Offline Alert',
+    'player.offline_recovered': 'Player Recovered',
   };
 
   // If we have a mapping, use it; otherwise format the event type nicely
@@ -49,6 +53,7 @@ function formatEventType(eventType: string): string {
 function formatEntityType(entityType: string): string {
   const entityMap: Record<string, string> = {
     booking: 'Booking',
+    player: 'Player',
     task: 'Task',
     notification: 'Notification',
   };

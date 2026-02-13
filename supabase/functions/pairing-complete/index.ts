@@ -86,6 +86,12 @@ serve(async (req) => {
     .delete()
     .eq('device_id', deviceId);
 
+  // Cleanup request row after successful handoff.
+  await supabaseAdmin
+    .from('device_pairing_requests')
+    .delete()
+    .eq('device_id', deviceId);
+
   return new Response(
     JSON.stringify({
       paired: true,
