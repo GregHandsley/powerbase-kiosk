@@ -9,9 +9,10 @@ Type=simple
 User=greghandsley
 WorkingDirectory=/home/greghandsley
 Environment=DISPLAY=:0
-# Wait for display/GPU to be ready at boot
-ExecStartPre=/bin/sleep 10
-ExecStart=/usr/bin/startx /home/greghandsley/kiosk.sh -- :0
+# Wait for display to be ready (X may already be running from autologin)
+ExecStartPre=/bin/sleep 15
+# Run kiosk directly - X is already active on :0 (no startx)
+ExecStart=/home/greghandsley/facilityos/kiosk.sh
 Restart=always
 RestartSec=5
 
