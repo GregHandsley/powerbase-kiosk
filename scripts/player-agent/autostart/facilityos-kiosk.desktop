@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=FacilityOS Kiosk
+Exec=/home/greghandsley/facilityos/kiosk-loop.sh
+X-GNOME-Autostart-enabled=true
