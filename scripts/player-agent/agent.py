@@ -329,8 +329,9 @@ def update_kiosk_config(desired_url):
     if existing_url == target_url:
         return False
 
+    url_value = desired_url or DEFAULT_KIOSK_URL
     with open(KIOSK_CONFIG_PATH, "w", encoding="utf-8") as handle:
-        handle.write(f"KIOSK_URL={desired_url or DEFAULT_KIOSK_URL}\n")
+        handle.write(f'KIOSK_URL="{url_value}"\n')
     return True
 
 

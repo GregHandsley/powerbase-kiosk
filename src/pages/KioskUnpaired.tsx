@@ -35,6 +35,12 @@ export function KioskUnpaired() {
           <p>3. Enter the code above and click Pair</p>
         </div>
 
+        {(!deviceId || !code) && (
+          <p className="text-amber-400 text-sm">
+            Waiting for agent… If this persists, restart the kiosk or check that
+            the agent is running.
+          </p>
+        )}
         {deviceId && (
           <div className="text-xs text-slate-500 font-mono break-all">
             Device: {deviceId}
