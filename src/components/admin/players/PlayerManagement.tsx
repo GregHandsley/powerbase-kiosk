@@ -1,23 +1,71 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { useOrganizations } from '../../../hooks/useOrganizations';
 import { useSites } from '../../../hooks/useSites';
 import { usePlayers } from '../../../hooks/usePlayers';
 import { usePrimaryOrganizationId } from '../../../hooks/usePermissions';
 import { supabase } from '../../../lib/supabaseClient';
+import { CreatePlayerModal } from './playerManagement/CreatePlayerModal';
+import { PlayerActionMenu } from './playerManagement/PlayerActionMenu';
+import { PlayerMetricsModal } from './playerManagement/PlayerMetricsModal';
+import { PlayersTable } from './playerManagement/PlayersTable';
+import { PlayersToolbar } from './playerManagement/PlayersToolbar';
+import type {
+  CommandLoadingState,
+  MenuPlacement,
+  MenuPosition,
+  PlayerListItem,
+  PowerState,
+  SideKey,
+} from './playerManagement/types';
+import { hasAgentUpdateAvailable } from './playerManagement/utils';
 
 export function PlayerManagement() {
+  const queryClient = useQueryClient();
   const { organizations, isLoading: orgsLoading } = useOrganizations();
   const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
+
   const [formOrganizationId, setFormOrganizationId] = useState<number | ''>('');
   const [formSiteId, setFormSiteId] = useState<number | ''>('');
-  const [sideKey, setSideKey] = useState<'Base' | 'Power'>('Base');
+  const [sideKey, setSideKey] = useState<SideKey>('Base');
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [desiredUrl, setDesiredUrl] = useState('');
-  const [powerState, setPowerState] = useState<'on' | 'off'>('on');
+  const [powerState, setPowerState] = useState<PowerState>('on');
+
+  const [editingPlayerId, setEditingPlayerId] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [editDesiredUrl, setEditDesiredUrl] = useState('');
+  const [editPowerState, setEditPowerState] = useState<PowerState>('on');
+  const [editSideKey, setEditSideKey] = useState<SideKey>('Base');
+
+  const [commandLoading, setCommandLoading] =
+    useState<CommandLoadingState>(null);
+  const [deletingPlayerId, setDeletingPlayerId] = useState<number | null>(null);
+
+  const [menuOpenPlayerId, setMenuOpenPlayerId] = useState<number | null>(null);
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+  const [menuPlacement, setMenuPlacement] = useState<MenuPlacement>('below');
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [metricsModalPlayerId, setMetricsModalPlayerId] = useState<
+    number | null
+  >(null);
+
+  const [bulkBaseUrl, setBulkBaseUrl] = useState('https://facilityos.co.uk');
+  const [bulkApplying, setBulkApplying] = useState(false);
+  const [agentUpdateManifestUrl, setAgentUpdateManifestUrl] = useState('');
+  const [latestManifestVersion, setLatestManifestVersion] = useState<
+    string | null
+  >(null);
+  const [manifestVersionLoading, setManifestVersionLoading] = useState(false);
+
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+  const actionTriggerRefs = useRef<Record<number, HTMLButtonElement | null>>(
+    {}
+  );
 
   useEffect(() => {
     if (!formOrganizationId && primaryOrgId) {
@@ -28,6 +76,7 @@ export function PlayerManagement() {
   const activeOrgId =
     formOrganizationId !== '' ? (formOrganizationId as number) : null;
   const { sites, isLoading: sitesLoading } = useSites(activeOrgId);
+
   const {
     players,
     isLoading: playersLoading,
@@ -35,27 +84,9 @@ export function PlayerManagement() {
     createPlayerLoading,
     updatePlayer,
     updatePlayerLoading,
-    revokeDevice,
-    pairDevice,
-    pairDeviceLoading,
+    deletePlayer,
+    deletePlayerLoading,
   } = usePlayers(activeOrgId);
-  const [pairCode, setPairCode] = useState('');
-  const [pairPlayerId, setPairPlayerId] = useState<number | ''>('');
-  const [pairingAfterCreate, setPairingAfterCreate] = useState<number | null>(
-    null
-  );
-  const pairSectionRef = useRef<HTMLDivElement>(null);
-  const [editingPlayerId, setEditingPlayerId] = useState<number | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editLocation, setEditLocation] = useState('');
-  const [editDesiredUrl, setEditDesiredUrl] = useState('');
-  const [editPowerState, setEditPowerState] = useState<'on' | 'off'>('on');
-  const [editSideKey, setEditSideKey] = useState<'Base' | 'Power'>('Base');
-  const [commandLoading, setCommandLoading] = useState<{
-    playerId: number;
-    type: string;
-  } | null>(null);
-  const [revokingPlayerId, setRevokingPlayerId] = useState<number | null>(null);
 
   const canSubmit =
     !!activeOrgId && name.trim().length > 0 && !createPlayerLoading;
@@ -66,76 +97,73 @@ export function PlayerManagement() {
     return site?.name ?? 'Unknown';
   }, [formSiteId, sites]);
 
-  const handleCreatePlayer = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const visiblePlayers = useMemo(() => {
+    if (!formSiteId) return players;
+    return players.filter((player) => player.site_id === formSiteId);
+  }, [players, formSiteId]);
 
-    if (!activeOrgId || !name.trim()) {
-      toast.error('Please provide a player name and organization.');
+  const activeOrganizationSettings = useMemo(() => {
+    if (!activeOrgId) return {};
+    const organization = organizations.find((org) => org.id === activeOrgId);
+    return (organization?.settings ?? {}) as Record<string, unknown>;
+  }, [activeOrgId, organizations]);
+
+  useEffect(() => {
+    const manifestUrl =
+      typeof activeOrganizationSettings.player_agent_update_manifest_url ===
+      'string'
+        ? activeOrganizationSettings.player_agent_update_manifest_url
+        : '';
+    setAgentUpdateManifestUrl(manifestUrl);
+  }, [activeOrganizationSettings]);
+
+  useEffect(() => {
+    const manifestUrl = agentUpdateManifestUrl.trim();
+    if (!manifestUrl) {
+      setLatestManifestVersion(null);
       return;
     }
 
-    try {
-      const result = await createPlayer({
-        organization_id: activeOrgId,
-        site_id: formSiteId ? (formSiteId as number) : null,
-        side_key: sideKey,
-        name,
-        location: location.trim() || null,
-        desired_url: desiredUrl.trim() || null,
-        desired_power_state: powerState,
-      });
-      toast.success(
-        'Player created. Enter the code from the kiosk to connect.'
-      );
-      setPairingAfterCreate(result.id);
-      setPairPlayerId(result.id);
-      setPairCode('');
-      setName('');
-      setLocation('');
-      setDesiredUrl('');
-      setPowerState('on');
-      setSideKey('Base');
-      setFormSiteId('');
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to create player'
-      );
-    }
-  };
+    let isCancelled = false;
+    const loadManifestVersion = async () => {
+      try {
+        setManifestVersionLoading(true);
+        const response = await fetch(manifestUrl, { method: 'GET' });
+        if (!response.ok) {
+          throw new Error(`Manifest request failed (${response.status})`);
+        }
+        const json = (await response.json()) as { version?: unknown };
+        const version =
+          typeof json.version === 'string' && json.version.trim()
+            ? json.version.trim()
+            : null;
+        if (!isCancelled) {
+          setLatestManifestVersion(version);
+        }
+      } catch {
+        if (!isCancelled) {
+          setLatestManifestVersion(null);
+        }
+      } finally {
+        if (!isCancelled) {
+          setManifestVersionLoading(false);
+        }
+      }
+    };
 
-  const handlePairDevice = async () => {
-    const playerId = pairPlayerId === '' ? null : (pairPlayerId as number);
-    if (!playerId || !pairCode.trim()) {
-      toast.error('Enter the code and select a player.');
-      return;
-    }
-    try {
-      await pairDevice({ player_id: playerId, code: pairCode.trim() });
-      toast.success('Device paired. The kiosk will connect shortly.');
-      setPairCode('');
-      setPairPlayerId('');
-      setPairingAfterCreate(null);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to pair device'
-      );
-    }
-  };
+    void loadManifestVersion();
+    return () => {
+      isCancelled = true;
+    };
+  }, [agentUpdateManifestUrl]);
 
-  const startEdit = (player: {
-    id: number;
-    name: string;
-    location: string | null;
-    desired_url: string | null;
-    desired_power_state: 'on' | 'off';
-    side_key: 'Base' | 'Power' | null;
-  }) => {
+  const startEdit = (player: PlayerListItem) => {
     setEditingPlayerId(player.id);
     setEditName(player.name);
     setEditLocation(player.location ?? '');
     setEditDesiredUrl(player.desired_url ?? '');
     setEditPowerState(player.desired_power_state);
-    setEditSideKey(player.side_key ?? 'Base');
+    setEditSideKey((player.side_key ?? 'Base') as SideKey);
   };
 
   const cancelEdit = () => {
@@ -145,6 +173,39 @@ export function PlayerManagement() {
     setEditDesiredUrl('');
     setEditPowerState('on');
     setEditSideKey('Base');
+  };
+
+  const handleCreatePlayer = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!activeOrgId || !name.trim()) {
+      toast.error('Please provide a player name and organization.');
+      return;
+    }
+
+    try {
+      await createPlayer({
+        organization_id: activeOrgId,
+        site_id: formSiteId ? (formSiteId as number) : null,
+        side_key: sideKey,
+        name,
+        location: location.trim() || null,
+        desired_url: desiredUrl.trim() || null,
+        desired_power_state: powerState,
+      });
+      toast.success('Player created.');
+      setName('');
+      setLocation('');
+      setDesiredUrl('');
+      setPowerState('on');
+      setSideKey('Base');
+      setFormSiteId('');
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create player'
+      );
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -181,29 +242,65 @@ export function PlayerManagement() {
         return 'Set URL';
       case 'reboot':
         return 'Reboot';
+      case 'agent_update':
+        return 'Update agent';
       default:
         return commandType.replace(/_/g, ' ');
     }
   };
 
-  const handleRevoke = async (playerId: number, rotate: boolean) => {
+  const closeActionMenu = () => {
+    setMenuOpenPlayerId(null);
+    setMenuPosition(null);
+  };
+
+  const openActionMenu = (
+    playerId: number,
+    triggerButton: HTMLButtonElement | null
+  ) => {
+    if (!triggerButton) return;
+
+    if (menuOpenPlayerId === playerId) {
+      closeActionMenu();
+      return;
+    }
+
+    const rect = triggerButton.getBoundingClientRect();
+    const menuWidth = 208;
+    const estimatedMenuHeight = 320;
+    let top = rect.bottom + 10;
+    let placement: MenuPlacement = 'below';
+    if (top + estimatedMenuHeight > window.innerHeight - 12) {
+      top = Math.max(12, rect.top - estimatedMenuHeight - 10);
+      placement = 'above';
+    }
+    const left = Math.min(
+      Math.max(12, rect.right - menuWidth),
+      window.innerWidth - menuWidth - 12
+    );
+
+    setMenuPlacement(placement);
+    setMenuPosition({ top, left });
+    setMenuOpenPlayerId(playerId);
+  };
+
+  const handleDeletePlayer = async (playerId: number, playerName: string) => {
+    const confirmed = window.confirm(
+      `Delete player "${playerName}"?\n\nThis removes the player and related pairing/device records.`
+    );
+    if (!confirmed) return;
+
     try {
-      setRevokingPlayerId(playerId);
-      const result = await revokeDevice({ player_id: playerId, rotate });
-      if (rotate && result?.pairing_code) {
-        await navigator.clipboard.writeText(result.pairing_code);
-        toast.success(
-          `Device revoked. New pairing code copied (expires ${format(parseISO(result.expires_at), 'HH:mm')}).`
-        );
-      } else {
-        toast.success(result?.message ?? 'Device revoked.');
-      }
+      setDeletingPlayerId(playerId);
+      await deletePlayer({ id: playerId });
+      toast.success('Player deleted.');
+      closeActionMenu();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Failed to revoke device'
+        error instanceof Error ? error.message : 'Failed to delete player'
       );
     } finally {
-      setRevokingPlayerId(null);
+      setDeletingPlayerId(null);
     }
   };
 
@@ -224,9 +321,15 @@ export function PlayerManagement() {
           },
         }
       );
-      if (error) {
-        throw error;
+      if (error) throw error;
+
+      if (type === 'display_on' || type === 'display_off') {
+        await updatePlayer({
+          id: playerId,
+          desired_power_state: type === 'display_on' ? 'on' : 'off',
+        });
       }
+
       toast.success(`Command sent: ${getCommandLabel(type)}`);
     } catch (error) {
       toast.error(
@@ -237,6 +340,185 @@ export function PlayerManagement() {
     }
   };
 
+  const invokeAgentUpdate = async (playerId: number) => {
+    const payload = agentUpdateManifestUrl.trim()
+      ? { manifest_url: agentUpdateManifestUrl.trim() }
+      : {};
+    const { error } = await supabase.functions.invoke('admin-player-commands', {
+      body: {
+        player_id: playerId,
+        type: 'agent_update',
+        payload,
+      },
+    });
+    if (error) throw error;
+  };
+
+  const handleUpdateSingleAgent = async (playerId: number) => {
+    try {
+      setCommandLoading({ playerId, type: 'agent_update' });
+      await invokeAgentUpdate(playerId);
+      closeActionMenu();
+      toast.success('Agent update queued.');
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to queue agent update'
+      );
+    } finally {
+      setCommandLoading(null);
+    }
+  };
+
+  const handleApplyBaseUrl = async () => {
+    if (!activeOrgId) {
+      toast.error('Select an organization first.');
+      return;
+    }
+    const base = bulkBaseUrl.trim();
+    if (!base) {
+      toast.error('Enter a base URL.');
+      return;
+    }
+
+    let baseOrigin: string;
+    try {
+      baseOrigin = new URL(base).origin;
+    } catch {
+      toast.error('Base URL is invalid.');
+      return;
+    }
+
+    const targetPlayers = visiblePlayers.filter(
+      (player) => typeof player.desired_url === 'string' && !!player.desired_url
+    );
+    if (targetPlayers.length === 0) {
+      toast.error('No players with a desired URL in the current scope.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Apply base URL "${baseOrigin}" to ${targetPlayers.length} player(s) in ${selectedSiteLabel}?`
+    );
+    if (!confirmed) return;
+
+    const remapDesiredUrl = (input: string) => {
+      try {
+        const current = new URL(input);
+        return `${baseOrigin}${current.pathname}${current.search}${current.hash}`;
+      } catch {
+        return input;
+      }
+    };
+
+    try {
+      setBulkApplying(true);
+      await Promise.all(
+        targetPlayers.map((player) =>
+          updatePlayer({
+            id: player.id,
+            desired_url: remapDesiredUrl(player.desired_url || ''),
+          })
+        )
+      );
+
+      const nextSettings = {
+        ...activeOrganizationSettings,
+        kiosk_app_base: baseOrigin,
+      };
+      const { error: settingsError } = await supabase
+        .from('organizations')
+        .update({ settings: nextSettings })
+        .eq('id', activeOrgId);
+      if (settingsError) throw settingsError;
+
+      await queryClient.invalidateQueries({
+        queryKey: ['players', activeOrgId],
+      });
+      await queryClient.invalidateQueries({ queryKey: ['organizations'] });
+
+      toast.success(`Updated ${targetPlayers.length} player URL(s).`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to update player URLs'
+      );
+    } finally {
+      setBulkApplying(false);
+    }
+  };
+
+  const activeMenuPlayer = useMemo(
+    () =>
+      visiblePlayers.find((player) => player.id === menuOpenPlayerId) ?? null,
+    [visiblePlayers, menuOpenPlayerId]
+  );
+
+  const metricsModalPlayer = useMemo(
+    () => players.find((player) => player.id === metricsModalPlayerId) ?? null,
+    [players, metricsModalPlayerId]
+  );
+
+  useEffect(() => {
+    if (!menuOpenPlayerId) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const trigger = actionTriggerRefs.current[menuOpenPlayerId];
+      const clickedMenu = actionMenuRef.current?.contains(target) ?? false;
+      const clickedTrigger = trigger?.contains(target) ?? false;
+      if (!clickedMenu && !clickedTrigger) {
+        closeActionMenu();
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeActionMenu();
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleEscape);
+    window.addEventListener('resize', closeActionMenu);
+    window.addEventListener('scroll', closeActionMenu, true);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('resize', closeActionMenu);
+      window.removeEventListener('scroll', closeActionMenu, true);
+    };
+  }, [menuOpenPlayerId]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsCreateModalOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isCreateModalOpen]);
+
+  useEffect(() => {
+    if (!metricsModalPlayerId) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMetricsModalPlayerId(null);
+    };
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [metricsModalPlayerId]);
+
   if (orgsLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -245,566 +527,122 @@ export function PlayerManagement() {
     );
   }
 
-  const ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
-
   return (
     <div className="h-full flex flex-col space-y-6 overflow-y-auto min-h-0">
-      {/* Create Form */}
-      <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 shrink-0">
-        <h3 className="text-sm font-semibold text-slate-200 mb-4">
-          Create Player
-        </h3>
-        <form onSubmit={handleCreatePlayer} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Organization *
-            </label>
-            <select
-              value={formOrganizationId}
-              onChange={(e) => {
-                const orgId = e.target.value ? Number(e.target.value) : '';
-                setFormOrganizationId(orgId);
-                setFormSiteId('');
-              }}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              required
-            >
-              <option value="">Select organization...</option>
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          </div>
+      <PlayersToolbar
+        organizations={organizations}
+        sites={sites}
+        activeOrgId={activeOrgId}
+        formOrganizationId={formOrganizationId}
+        formSiteId={formSiteId}
+        sitesLoading={sitesLoading}
+        bulkBaseUrl={bulkBaseUrl}
+        bulkApplying={bulkApplying}
+        visiblePlayersCount={visiblePlayers.length}
+        agentUpdateManifestUrl={agentUpdateManifestUrl}
+        onChangeOrganization={(organizationId) => {
+          setFormOrganizationId(organizationId);
+          setFormSiteId('');
+        }}
+        onChangeSite={setFormSiteId}
+        onChangeBulkBaseUrl={setBulkBaseUrl}
+        onApplyBaseUrl={handleApplyBaseUrl}
+        onChangeAgentManifestUrl={setAgentUpdateManifestUrl}
+        onOpenCreateModal={() => setIsCreateModalOpen(true)}
+      />
 
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Site
-            </label>
-            {activeOrgId ? (
-              <select
-                value={formSiteId}
-                onChange={(e) =>
-                  setFormSiteId(e.target.value ? Number(e.target.value) : '')
-                }
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">All sites</option>
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="text-xs text-slate-500">
-                Select an organization to choose a site.
-              </div>
-            )}
-            {sitesLoading && activeOrgId && (
-              <div className="text-xs text-slate-500 mt-1">
-                Loading sites...
-              </div>
-            )}
-          </div>
+      <PlayersTable
+        playersLoading={playersLoading}
+        activeOrgId={activeOrgId}
+        visiblePlayers={visiblePlayers}
+        latestManifestVersion={latestManifestVersion}
+        manifestVersionLoading={manifestVersionLoading}
+        editingPlayerId={editingPlayerId}
+        editName={editName}
+        editLocation={editLocation}
+        editDesiredUrl={editDesiredUrl}
+        editPowerState={editPowerState}
+        editSideKey={editSideKey}
+        updatePlayerLoading={updatePlayerLoading}
+        commandLoading={commandLoading}
+        onSetEditName={setEditName}
+        onSetEditLocation={setEditLocation}
+        onSetEditDesiredUrl={setEditDesiredUrl}
+        onSetEditPowerState={setEditPowerState}
+        onSetEditSideKey={setEditSideKey}
+        onSaveEdit={handleSaveEdit}
+        onCancelEdit={cancelEdit}
+        onUpdateAgent={handleUpdateSingleAgent}
+        onOpenActionMenu={openActionMenu}
+        onSetActionTriggerRef={(playerId, element) => {
+          actionTriggerRefs.current[playerId] = element;
+        }}
+      />
 
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Side
-            </label>
-            <select
-              value={sideKey}
-              onChange={(e) => setSideKey(e.target.value as 'Base' | 'Power')}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="Base">Base</option>
-              <option value="Power">Power</option>
-            </select>
-          </div>
+      <PlayerActionMenu
+        isOpen={!!menuOpenPlayerId}
+        position={menuPosition}
+        placement={menuPlacement}
+        activePlayer={activeMenuPlayer}
+        actionMenuRef={actionMenuRef}
+        commandLoading={commandLoading}
+        deletingPlayerId={deletingPlayerId}
+        deletePlayerLoading={deletePlayerLoading}
+        canUpdateAgent={(player) =>
+          hasAgentUpdateAvailable(player, latestManifestVersion)
+        }
+        onClose={closeActionMenu}
+        onStartEdit={startEdit}
+        onOpenMetrics={setMetricsModalPlayerId}
+        onSendCommand={(playerId, type) => {
+          void handleSendCommand(playerId, type);
+        }}
+        onUpdateAgent={(playerId) => {
+          void handleUpdateSingleAgent(playerId);
+        }}
+        onDeletePlayer={(playerId, playerName) => {
+          void handleDeletePlayer(playerId, playerName);
+        }}
+      />
 
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Player Name *
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Powerbase Kiosk 1"
-              required
-            />
-          </div>
+      <PlayerMetricsModal
+        player={metricsModalPlayer}
+        commandLoading={commandLoading}
+        latestManifestVersion={latestManifestVersion}
+        onClose={() => setMetricsModalPlayerId(null)}
+        onUpdateAgent={(playerId) => {
+          void handleUpdateSingleAgent(playerId);
+        }}
+      />
 
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Location
-            </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Zone A, North wall"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Desired URL
-            </label>
-            <input
-              type="url"
-              value={desiredUrl}
-              onChange={(e) => setDesiredUrl(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="https://facilityos.co.uk/kiosk"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Desired Power State
-            </label>
-            <select
-              value={powerState}
-              onChange={(e) => setPowerState(e.target.value as 'on' | 'off')}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="on">On</option>
-              <option value="off">Off</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded transition-colors disabled:opacity-50"
-            >
-              {createPlayerLoading ? 'Creating...' : 'Create Player'}
-            </button>
-            <div className="text-xs text-slate-400">
-              {activeOrgId
-                ? `Targeting ${selectedSiteLabel}`
-                : 'Select an organization to continue.'}
-            </div>
-          </div>
-        </form>
-      </div>
-
-      {/* Pair device - enter code from kiosk */}
-      {activeOrgId && players.length > 0 && (
-        <div
-          ref={pairSectionRef}
-          className={`rounded-lg border p-4 ${
-            pairingAfterCreate
-              ? 'border-indigo-500 bg-indigo-950/30'
-              : 'border-slate-700 bg-slate-900/50'
-          }`}
-        >
-          <h3 className="text-sm font-medium text-slate-200 mb-2">
-            {pairingAfterCreate
-              ? 'Connect a device to this player'
-              : 'Pair device'}
-          </h3>
-          <p className="text-xs text-slate-400 mb-3">
-            Enter the code shown on the kiosk display (e.g. ABC-123-45)
-          </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[140px]">
-              <input
-                type="text"
-                value={pairCode}
-                onChange={(e) =>
-                  setPairCode(
-                    e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '')
-                  )
-                }
-                placeholder="ABC-123-45"
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm font-mono text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
-                maxLength={12}
-              />
-            </div>
-            <div className="min-w-[160px]">
-              <select
-                value={pairPlayerId}
-                onChange={(e) =>
-                  setPairPlayerId(e.target.value ? Number(e.target.value) : '')
-                }
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Select player...</option>
-                {players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-                {pairingAfterCreate &&
-                  !players.some((p) => p.id === pairingAfterCreate) && (
-                    <option value={pairingAfterCreate}>
-                      (new player – refreshing...)
-                    </option>
-                  )}
-              </select>
-            </div>
-            <button
-              type="button"
-              onClick={handlePairDevice}
-              disabled={!pairCode.trim() || !pairPlayerId || pairDeviceLoading}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded disabled:opacity-50"
-            >
-              {pairDeviceLoading ? 'Pairing...' : 'Pair'}
-            </button>
-            {pairingAfterCreate && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPairingAfterCreate(null);
-                  setPairCode('');
-                  setPairPlayerId('');
-                }}
-                className="text-xs text-slate-400 hover:text-slate-300"
-              >
-                Skip
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Players List */}
-      <div className="flex-1 min-h-0">
-        <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-800 border-b border-slate-700">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
-                    Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
-                    Pairing
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
-                    Site
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
-                    Side
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
-                    Location
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
-                    Desired URL
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
-                    Schedule
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
-                    Power
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase">
-                    Created
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-300 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700">
-                {playersLoading ? (
-                  <tr>
-                    <td
-                      colSpan={11}
-                      className="px-4 py-8 text-center text-sm text-slate-400"
-                    >
-                      Loading players...
-                    </td>
-                  </tr>
-                ) : players.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={11}
-                      className="px-4 py-8 text-center text-sm text-slate-400"
-                    >
-                      {activeOrgId
-                        ? 'No players yet. Create one to get started.'
-                        : 'Select an organization to view players.'}
-                    </td>
-                  </tr>
-                ) : (
-                  players.map((player) => (
-                    <tr
-                      key={player.id}
-                      className="hover:bg-slate-800/50 transition-colors"
-                    >
-                      <td className="px-4 py-3 text-sm text-slate-200">
-                        {editingPlayerId === player.id ? (
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(event) =>
-                              setEditName(event.target.value)
-                            }
-                            className="w-full px-2 py-1 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
-                        ) : (
-                          player.name
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-300">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPairPlayerId(player.id);
-                            setPairingAfterCreate(null);
-                            pairSectionRef.current?.scrollIntoView({
-                              behavior: 'smooth',
-                              block: 'nearest',
-                            });
-                          }}
-                          className="inline-flex items-center justify-center px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
-                        >
-                          Pair device
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-300">
-                        {player.site_name || 'All sites'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-300">
-                        {editingPlayerId === player.id ? (
-                          <select
-                            value={editSideKey}
-                            onChange={(event) =>
-                              setEditSideKey(
-                                event.target.value as 'Base' | 'Power'
-                              )
-                            }
-                            className="w-full px-2 py-1 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
-                          >
-                            <option value="Base">Base</option>
-                            <option value="Power">Power</option>
-                          </select>
-                        ) : (
-                          player.side_key || '—'
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-300">
-                        {player.has_revoked_device && (
-                          <span className="mr-2 inline-block rounded bg-amber-900/50 px-1.5 py-0.5 text-xs text-amber-400">
-                            Revoked
-                          </span>
-                        )}
-                        {player.last_seen_at ? (
-                          (() => {
-                            const lastSeenDate = parseISO(player.last_seen_at);
-                            const isOnline =
-                              Date.now() - lastSeenDate.getTime() <
-                              ONLINE_THRESHOLD_MS;
-                            const onlineSince = player.online_since
-                              ? parseISO(player.online_since)
-                              : null;
-                            const durationLabel = isOnline
-                              ? onlineSince
-                                ? `Up for ${formatDistanceToNow(onlineSince)}`
-                                : 'Up for just now'
-                              : `Down for ${formatDistanceToNow(lastSeenDate)}`;
-                            return (
-                              <div className="flex flex-col">
-                                <span
-                                  className={
-                                    isOnline
-                                      ? 'text-green-400'
-                                      : 'text-slate-500'
-                                  }
-                                >
-                                  {isOnline ? 'Online' : 'Offline'}
-                                </span>
-                                <span className="text-xs text-slate-400">
-                                  {durationLabel}
-                                </span>
-                              </div>
-                            );
-                          })()
-                        ) : (
-                          <span className="text-slate-500">Down (no data)</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-400">
-                        {editingPlayerId === player.id ? (
-                          <input
-                            type="text"
-                            value={editLocation}
-                            onChange={(event) =>
-                              setEditLocation(event.target.value)
-                            }
-                            className="w-full px-2 py-1 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
-                        ) : (
-                          player.location || '—'
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-400">
-                        {editingPlayerId === player.id ? (
-                          <input
-                            type="url"
-                            value={editDesiredUrl}
-                            onChange={(event) =>
-                              setEditDesiredUrl(event.target.value)
-                            }
-                            className="w-full px-2 py-1 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
-                        ) : (
-                          player.desired_url || '—'
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-400">
-                        {player.site_id && player.side_key ? (
-                          <Link
-                            to={`/admin?view=capacity-schedule&side=${player.side_key}`}
-                            className="text-xs text-indigo-300 hover:text-indigo-200"
-                          >
-                            View schedule
-                          </Link>
-                        ) : (
-                          <span className="text-xs text-slate-500">
-                            Set site &amp; side
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-300">
-                        {editingPlayerId === player.id ? (
-                          <select
-                            value={editPowerState}
-                            onChange={(event) =>
-                              setEditPowerState(
-                                event.target.value as 'on' | 'off'
-                              )
-                            }
-                            className="w-full px-2 py-1 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
-                          >
-                            <option value="on">On</option>
-                            <option value="off">Off</option>
-                          </select>
-                        ) : (
-                          player.desired_power_state
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-400">
-                        {format(parseISO(player.created_at), 'MMM d, yyyy')}
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm">
-                        {editingPlayerId === player.id ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={handleSaveEdit}
-                              disabled={updatePlayerLoading}
-                              className="px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
-                            >
-                              {updatePlayerLoading ? 'Saving...' : 'Save'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelEdit}
-                              className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-2 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => handleRevoke(player.id, false)}
-                              disabled={revokingPlayerId === player.id}
-                              className="px-2 py-1 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded disabled:opacity-50"
-                            >
-                              {revokingPlayerId === player.id
-                                ? 'Revoking...'
-                                : 'Revoke'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRevoke(player.id, true)}
-                              disabled={revokingPlayerId === player.id}
-                              className="px-2 py-1 text-xs bg-amber-600 hover:bg-amber-500 text-white rounded disabled:opacity-50"
-                            >
-                              Rotate
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleSendCommand(player.id, 'display_on')
-                              }
-                              disabled={commandLoading?.playerId === player.id}
-                              className="px-2 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded disabled:opacity-50"
-                            >
-                              Display On
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleSendCommand(player.id, 'display_off')
-                              }
-                              disabled={commandLoading?.playerId === player.id}
-                              className="px-2 py-1 text-xs bg-slate-600 hover:bg-slate-500 text-white rounded disabled:opacity-50"
-                            >
-                              Display Off
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleSendCommand(player.id, 'reload')
-                              }
-                              disabled={commandLoading?.playerId === player.id}
-                              className="px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
-                            >
-                              Reload
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleSendCommand(player.id, 'restart_kiosk')
-                              }
-                              disabled={commandLoading?.playerId === player.id}
-                              className="px-2 py-1 text-xs bg-indigo-700 hover:bg-indigo-600 text-white rounded disabled:opacity-50"
-                            >
-                              Restart Kiosk
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                startEdit({
-                                  id: player.id,
-                                  name: player.name,
-                                  location: player.location,
-                                  desired_url: player.desired_url,
-                                  desired_power_state:
-                                    player.desired_power_state,
-                                  side_key: player.side_key,
-                                })
-                              }
-                              className="px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 hover:underline"
-                            >
-                              Edit
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      <CreatePlayerModal
+        isOpen={isCreateModalOpen}
+        organizations={organizations}
+        sites={sites}
+        activeOrgId={activeOrgId}
+        canSubmit={canSubmit}
+        createPlayerLoading={createPlayerLoading}
+        selectedSiteLabel={selectedSiteLabel}
+        formOrganizationId={formOrganizationId}
+        formSiteId={formSiteId}
+        sideKey={sideKey}
+        name={name}
+        location={location}
+        desiredUrl={desiredUrl}
+        powerState={powerState}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreatePlayer}
+        onChangeOrganization={(organizationId) => {
+          setFormOrganizationId(organizationId);
+          setFormSiteId('');
+        }}
+        onChangeSite={setFormSiteId}
+        onChangeSideKey={setSideKey}
+        onChangeName={setName}
+        onChangeLocation={setLocation}
+        onChangeDesiredUrl={setDesiredUrl}
+        onChangePowerState={setPowerState}
+      />
     </div>
   );
 }

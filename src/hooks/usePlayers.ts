@@ -1,6 +1,7 @@
 // Hook for managing players
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
+import type { DeviceMetadata } from '../types/playerAgent';
 
 export type Player = {
   id: number;
@@ -17,6 +18,8 @@ export type Player = {
   last_seen_at?: string | null;
   online_since?: string | null;
   has_revoked_device?: boolean;
+  device_id?: string | null;
+  device_meta?: DeviceMetadata | null;
 };
 
 export type CreatePlayerParams = {
@@ -38,6 +41,10 @@ export type UpdatePlayerParams = {
   side_key?: 'Base' | 'Power' | null;
 };
 
+export type DeletePlayerParams = {
+  id: number;
+};
+
 type CreatePairingCodeParams = {
   player_id: number;
   expires_in_minutes?: number;
@@ -54,6 +61,7 @@ type PlayerDevice = {
   last_seen_at: string | null;
   online_since: string | null;
   revoked_at: string | null;
+  meta_json: DeviceMetadata | null;
 };
 
 type PlayerWithSite = Player & {
@@ -96,7 +104,8 @@ export function usePlayers(organizationId: number | null) {
             device_id,
             last_seen_at,
             online_since,
-            revoked_at
+            revoked_at,
+            meta_json
           )
         `
         )
@@ -119,6 +128,16 @@ export function usePlayers(organizationId: number | null) {
           : devices
             ? [devices]
             : [];
+        const activeDevices = deviceList.filter((d) => d?.revoked_at == null);
+        const latestActiveDevice =
+          activeDevices.sort((a, b) => {
+            const left = a.last_seen_at ?? '';
+            const right = b.last_seen_at ?? '';
+            if (left !== right) {
+              return right.localeCompare(left);
+            }
+            return b.id - a.id;
+          })[0] ?? null;
         const hasRevokedDevice = deviceList.some((d) => d?.revoked_at != null);
         const lastSeenAt = deviceList.reduce<string | null>(
           (latest, device) => {
@@ -143,6 +162,8 @@ export function usePlayers(organizationId: number | null) {
           last_seen_at: lastSeenAt,
           online_since: onlineSince,
           has_revoked_device: hasRevokedDevice,
+          device_id: latestActiveDevice?.device_id ?? null,
+          device_meta: latestActiveDevice?.meta_json ?? null,
         } as Player & { has_revoked_device?: boolean };
       });
     },
@@ -200,6 +221,22 @@ export function usePlayers(organizationId: number | null) {
 
       if (updateError) {
         throw new Error(updateError.message || 'Failed to update player');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['players', organizationId] });
+    },
+  });
+
+  const deletePlayerMutation = useMutation({
+    mutationFn: async ({ id }: DeletePlayerParams) => {
+      const { error: deleteError } = await supabase
+        .from('players')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        throw new Error(deleteError.message || 'Failed to delete player');
       }
     },
     onSuccess: () => {
@@ -286,6 +323,8 @@ export function usePlayers(organizationId: number | null) {
     createPairingCodeLoading: createPairingCodeMutation.isPending,
     updatePlayer: updatePlayerMutation.mutateAsync,
     updatePlayerLoading: updatePlayerMutation.isPending,
+    deletePlayer: deletePlayerMutation.mutateAsync,
+    deletePlayerLoading: deletePlayerMutation.isPending,
     revokeDevice: revokeDeviceMutation.mutateAsync,
     revokeDeviceLoading: revokeDeviceMutation.isPending,
     pairDevice: pairDeviceMutation.mutateAsync,
