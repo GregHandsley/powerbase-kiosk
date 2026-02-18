@@ -9,6 +9,12 @@ import {
   type ScheduleData,
 } from '../components/admin/capacity/scheduleUtils';
 
+const ONE_MINUTE_MS = 60_000;
+
+function msUntilNextMinute(): number {
+  return ONE_MINUTE_MS - (Date.now() % ONE_MINUTE_MS);
+}
+
 type UseKioskCapacityResult = {
   used: number;
   limit: number | null;
@@ -18,27 +24,24 @@ type UseKioskCapacityResult = {
 };
 
 /**
- * Round time to nearest 15-minute interval for stable query keys
+ * Round time to the current minute for stable query keys.
  */
-function roundToNearest15Minutes(date: Date): Date {
+function roundToNearestMinute(date: Date): Date {
   const rounded = new Date(date);
-  const minutes = rounded.getMinutes();
-  const roundedMinutes = Math.floor(minutes / 15) * 15;
-  rounded.setMinutes(roundedMinutes, 0, 0);
+  rounded.setSeconds(0, 0);
   return rounded;
 }
 
 /**
- * Hook to fetch current capacity usage for a kiosk side at the current time
- * Updates every 15 minutes to match booking intervals
+ * Hook to fetch current capacity usage for a kiosk side at the current time.
+ * Refreshes every minute to keep kiosk context aligned with live floor state.
  */
 export function useKioskCapacity(
   sideKey: SideKey,
   currentTime: Date
 ): UseKioskCapacityResult {
-  // Round time to nearest 15-minute interval for stable query keys
-  // This prevents the query from refetching every second
-  const roundedTime = roundToNearest15Minutes(currentTime);
+  // Round to minute to avoid query-key churn from the per-second kiosk clock.
+  const roundedTime = roundToNearestMinute(currentTime);
   const dateStr = format(roundedTime, 'yyyy-MM-dd');
   const timeStr = formatTimeSlot({
     hour: roundedTime.getHours(),
@@ -91,7 +94,8 @@ export function useKioskCapacity(
     },
     enabled: !!sideId,
     staleTime: 30000,
-    refetchInterval: 900000, // Refresh every 15 minutes (bookings are on 15-min intervals)
+    // Keep polls aligned to HH:mm:00 boundaries for consistency.
+    refetchInterval: () => msUntilNextMinute(),
     placeholderData: (previousData) => previousData, // Keep previous data during refetch
   });
 
@@ -119,7 +123,7 @@ export function useKioskCapacity(
     queryKey: [
       'kiosk-capacity-usage',
       sideId,
-      roundedTime.toISOString(), // Use rounded time for stable query key
+      roundedTime.toISOString(), // Use minute-rounded time for stable query key
     ],
     queryFn: async () => {
       if (!sideId) return { used: 0 };
@@ -149,7 +153,8 @@ export function useKioskCapacity(
     },
     enabled: !!sideId,
     staleTime: 0, // Always fetch fresh data
-    refetchInterval: 900000, // Refresh every 15 minutes (bookings are on 15-min intervals)
+    // Keep polls aligned to HH:mm:00 boundaries for consistency.
+    refetchInterval: () => msUntilNextMinute(),
     placeholderData: (previousData) => previousData, // Keep previous data during refetch
   });
 

@@ -163,11 +163,11 @@ function RackSlotComponent({
     if (!currentInst) {
       statusLine1 = 'Available';
       const availableUntil = nextUseToday ? formatTime(nextUseStartIso) : null;
-      statusLine2 = availableUntil ? `until ${availableUntil}` : 'until close';
+      statusLine2 = availableUntil ? `Until ${availableUntil}` : 'Until close';
     } else {
       statusLine1 = currentInst.title;
       const endTime = formatTime(currentInst.end);
-      statusLine2 = endTime ? `until ${endTime}` : null;
+      statusLine2 = endTime ? `Until ${endTime}` : null;
     }
   } else if (!currentInst) {
     statusLine1 = 'Available';
@@ -231,19 +231,19 @@ function RackSlotComponent({
   const typography = isStatusBoard
     ? {
         // Platform number - large, minimal, no badge needed
-        labelSize: 2.6,
+        labelSize: 2.7,
         labelWeight: '700',
         labelLetterSpacing: -0.05,
-        labelGap: 0.4,
+        labelGap: 0.42,
         // Status/Title - prominent but not overwhelming
-        titleSize: 1.5,
+        titleSize: 1.56,
         titleWeight: '600',
-        titleWeightAvailable: '600',
-        titleGap: 0.35,
+        titleWeightAvailable: '650',
+        titleGap: 0.38,
         // Meta info - subtle but readable
-        metaSize: 1.0,
-        metaWeight: '400',
-        metaGap: 0.3,
+        metaSize: 1.08,
+        metaWeight: '500',
+        metaGap: 0.28,
         metaAccentSize: 0.9,
         metaAccentWeight: '400',
         metaAccentGap: 0.25,
@@ -308,15 +308,10 @@ function RackSlotComponent({
 
   // Middle: dominant line (squad or Available) - Apple-like clarity
   for (let i = 0; i < titleLines.length; i++) {
-    // For status-board, clear and purposeful colors
-    const statusColor =
-      isStatusBoard && !currentInst
-        ? 'rgba(96, 165, 250, 0.95)' // Available: Vibrant blue - clear and visible
-        : isStatusBoard && currentInst
-          ? 'rgba(255, 255, 255, 0.98)' // Booked: Bright white for maximum contrast
-          : !currentInst
-            ? (palette.primaryStrong ?? palette.primary)
-            : palette.primary;
+    // For status-board, use palette-led colors for clear state contrast.
+    const statusColor = !currentInst
+      ? (palette.primaryStrong ?? palette.primary)
+      : palette.primary;
     content.push({
       text: titleLines[i],
       size: typography.titleSize,
@@ -354,8 +349,8 @@ function RackSlotComponent({
   const totalHeight =
     content.reduce((acc, item) => acc + item.size + item.gapAfter, 0) -
     (content.at(-1)?.gapAfter ?? 0);
-  // Better spacing for status-board - not cramped
-  const available = isStatusBoard ? innerHeight - 1.0 : innerHeight - 1.2;
+  // Better spacing for status-board - keeps strong hierarchy readable.
+  const available = isStatusBoard ? innerHeight - 0.85 : innerHeight - 1.2;
   const scale = totalHeight > 0 ? Math.min(1, available / totalHeight) : 1;
 
   // Liquid glass layout - comfortable spacing
@@ -447,11 +442,11 @@ function RackSlotComponent({
                 stopColor={
                   isOccupied
                     ? isDimmed
-                      ? 'rgba(37, 99, 235, 0.55)'
-                      : 'rgba(37, 99, 235, 0.48)'
+                      ? 'rgba(37, 99, 235, 0.70)'
+                      : 'rgba(37, 99, 235, 0.64)'
                     : isDimmed
-                      ? 'rgba(30, 41, 59, 0.65)'
-                      : 'rgba(30, 41, 59, 0.58)'
+                      ? 'rgba(31, 41, 55, 0.60)'
+                      : 'rgba(31, 41, 55, 0.54)'
                 }
               />
               <stop
@@ -459,11 +454,11 @@ function RackSlotComponent({
                 stopColor={
                   isOccupied
                     ? isDimmed
-                      ? 'rgba(29, 78, 216, 0.48)'
-                      : 'rgba(29, 78, 216, 0.42)'
+                      ? 'rgba(29, 78, 216, 0.62)'
+                      : 'rgba(29, 78, 216, 0.56)'
                     : isDimmed
-                      ? 'rgba(15, 23, 42, 0.55)'
-                      : 'rgba(15, 23, 42, 0.50)'
+                      ? 'rgba(15, 23, 42, 0.58)'
+                      : 'rgba(15, 23, 42, 0.52)'
                 }
               />
               <stop
@@ -471,11 +466,11 @@ function RackSlotComponent({
                 stopColor={
                   isOccupied
                     ? isDimmed
-                      ? 'rgba(30, 64, 175, 0.42)'
-                      : 'rgba(30, 64, 175, 0.36)'
+                      ? 'rgba(30, 64, 175, 0.56)'
+                      : 'rgba(30, 64, 175, 0.50)'
                     : isDimmed
-                      ? 'rgba(2, 6, 23, 0.48)'
-                      : 'rgba(2, 6, 23, 0.42)'
+                      ? 'rgba(2, 6, 23, 0.52)'
+                      : 'rgba(2, 6, 23, 0.46)'
                 }
               />
             </linearGradient>
@@ -485,16 +480,16 @@ function RackSlotComponent({
                 offset="0%"
                 stopColor={
                   isOccupied
-                    ? 'rgba(96, 165, 250, 0.25)'
-                    : 'rgba(148, 163, 184, 0.20)'
+                    ? 'rgba(147, 197, 253, 0.44)'
+                    : 'rgba(148, 163, 184, 0.24)'
                 }
               />
               <stop
                 offset="100%"
                 stopColor={
                   isOccupied
-                    ? 'rgba(59, 130, 246, 0.18)'
-                    : 'rgba(100, 116, 139, 0.15)'
+                    ? 'rgba(59, 130, 246, 0.34)'
+                    : 'rgba(100, 116, 139, 0.20)'
                 }
               />
             </linearGradient>
@@ -538,7 +533,7 @@ function RackSlotComponent({
             rx={rackCornerRadius}
             ry={rackCornerRadius}
             fill={
-              isOccupied ? 'rgba(37, 99, 235, 0.35)' : 'rgba(15, 23, 42, 0.35)'
+              isOccupied ? 'rgba(37, 99, 235, 0.52)' : 'rgba(15, 23, 42, 0.42)'
             }
             opacity={fillOpacity}
           />

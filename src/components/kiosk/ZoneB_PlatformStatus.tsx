@@ -156,11 +156,9 @@ function PlatformStatusRow({
     return <div className="flex-1 min-h-0" />;
   }
 
-  const nowUntil = platform.nowBooking
+  const currentUntil = platform.nowBooking
     ? format(new Date(platform.nowBooking.until), 'HH:mm')
-    : platform.nextBooking
-      ? format(new Date(platform.nextBooking.from), 'HH:mm')
-      : null;
+    : null;
 
   const nextFrom = platform.nextBooking
     ? format(new Date(platform.nextBooking.from), 'HH:mm')
@@ -179,7 +177,7 @@ function PlatformStatusRow({
   return (
     <div
       className="kiosk-platform-card flex-1 min-h-0 max-h-full grid gap-2 px-2.5 py-1.5 overflow-hidden"
-      style={{ gridTemplateColumns: '118px minmax(0,1fr)' }}
+      style={{ gridTemplateColumns: '116px minmax(0,1fr)' }}
     >
       <div className="kiosk-platform-identity kiosk-platform-identity--single">
         {shouldAnimateNumberFlip ? (
@@ -224,10 +222,10 @@ function PlatformStatusRow({
         )}
       </div>
 
-      <div className="min-w-0 h-full grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1 py-0.5">
+      <div className="min-w-0 h-full grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,0.82fr)] gap-1 py-0.25">
         {isLive ? (
           <div className="min-w-0 h-full rounded-md px-2 py-1.5 border border-sky-400/30 bg-gradient-to-r from-sky-500/12 to-indigo-500/10 flex items-center">
-            <div className="min-w-0 w-full flex items-center gap-2">
+            <div className="min-w-0 w-full flex flex-col justify-center gap-1">
               <span
                 className="text-slate-100 leading-snug break-words font-semibold min-w-0"
                 style={{
@@ -242,54 +240,58 @@ function PlatformStatusRow({
               >
                 {platform.nowBooking?.title}
               </span>
+              {currentUntil && (
+                <div className="text-[clamp(10px,1.1vh,14px)] text-sky-200 font-mono tracking-[0.06em]">
+                  Until {currentUntil}
+                </div>
+              )}
             </div>
           </div>
         ) : (
           <div className="min-w-0 h-full rounded-md px-2 py-1.5 border bg-emerald-500/10 border-emerald-400/30 flex items-center">
-            <span className="text-emerald-300 truncate block text-[clamp(15px,2vh,26px)] font-semibold">
-              Available
-            </span>
+            <div className="min-w-0 w-full flex flex-col justify-center gap-1">
+              <span className="text-emerald-300 truncate block text-[clamp(15px,2vh,26px)] font-semibold">
+                Available
+              </span>
+            </div>
           </div>
         )}
 
-        <div className="min-w-0 h-full rounded-md px-2 py-1.5 border border-slate-700/70 bg-slate-900/25 flex items-center">
+        <div className="min-w-0 h-full rounded-md px-2 py-1 border border-slate-700/70 bg-slate-900/25 flex items-center overflow-hidden">
           {nextTitle ? (
-            <div
-              className="font-medium text-slate-300 leading-snug min-w-0 w-full"
-              style={{
-                fontSize: 'clamp(12px, 1.55vh, 20px)',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                wordBreak: 'break-word',
-                overflowWrap: 'break-word',
-              }}
-            >
-              {nextTitle}
+            <div className="min-w-0 w-full flex flex-col justify-center gap-0.5">
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <div className="text-[clamp(9px,0.9vh,11px)] uppercase tracking-[0.12em] text-slate-500">
+                  Next booking
+                </div>
+                {nextFrom && (
+                  <div className="text-[clamp(9px,0.95vh,12px)] text-slate-400 font-mono tracking-[0.05em] whitespace-nowrap">
+                    From {nextFrom}
+                  </div>
+                )}
+              </div>
+              <div
+                className="font-medium text-slate-300 leading-snug min-w-0 w-full"
+                style={{
+                  fontSize: 'clamp(12px, 1.35vh, 17px)',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 1,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                }}
+              >
+                {nextTitle}
+              </div>
             </div>
           ) : (
-            <div className="text-slate-500 text-[clamp(11px,1.35vh,16px)]">
-              No upcoming booking
+            <div className="min-w-0 w-full flex items-center">
+              <div className="text-slate-500 text-[clamp(11px,1.25vh,15px)]">
+                No upcoming booking
+              </div>
             </div>
           )}
-        </div>
-
-        <div className="flex items-center gap-3 min-w-0">
-          <div
-            className={`text-[clamp(10px,1.1vh,14px)] font-mono tracking-[0.06em] whitespace-nowrap ${
-              isLive ? 'text-sky-200' : 'text-slate-400'
-            }`}
-          >
-            {nowUntil
-              ? isLive
-                ? `until ${nowUntil}`
-                : `until ${nowUntil}`
-              : 'until close'}
-          </div>
-          <div className="text-[clamp(10px,1.1vh,14px)] text-slate-500 font-mono tracking-[0.06em] whitespace-nowrap">
-            {nextFrom ? `from ${nextFrom}` : ''}
-          </div>
         </div>
       </div>
     </div>
