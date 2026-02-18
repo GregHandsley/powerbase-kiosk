@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 
 type PlatformBooking = {
@@ -50,16 +50,46 @@ export function PlatformStatusBoard({
   cycleLabel = null,
   isLoading = false,
 }: Props) {
-  const currentPlatforms = useMemo(() => {
-    const page = platformPages[currentCycleIndex] ?? [];
-    if (page.length >= rowsPerPage) {
-      return page.slice(0, rowsPerPage);
-    }
-    return [
-      ...page,
-      ...Array.from({ length: rowsPerPage - page.length }, () => null),
-    ];
-  }, [platformPages, currentCycleIndex, rowsPerPage]);
+  const padPageRows = useMemo(
+    () => (page: PlatformBooking[] | undefined | null) => {
+      const safePage = page ?? [];
+      if (safePage.length >= rowsPerPage) return safePage.slice(0, rowsPerPage);
+      return [
+        ...safePage,
+        ...Array.from({ length: rowsPerPage - safePage.length }, () => null),
+      ];
+    },
+    [rowsPerPage]
+  );
+  const currentPlatforms = useMemo(
+    () => padPageRows(platformPages[currentCycleIndex]),
+    [padPageRows, platformPages, currentCycleIndex]
+  );
+  const previousCycleIndexRef = useRef(currentCycleIndex);
+  const [transitionFromPlatforms, setTransitionFromPlatforms] = useState<
+    (PlatformBooking | null)[] | null
+  >(null);
+  const [isCycleTransitioning, setIsCycleTransitioning] = useState(false);
+  const [cycleFlipId, setCycleFlipId] = useState(0);
+
+  useEffect(() => {
+    if (previousCycleIndexRef.current === currentCycleIndex) return;
+
+    const fromPlatforms = padPageRows(
+      platformPages[previousCycleIndexRef.current] ?? []
+    );
+    setTransitionFromPlatforms(fromPlatforms);
+    setIsCycleTransitioning(true);
+    setCycleFlipId((prev) => prev + 1);
+    previousCycleIndexRef.current = currentCycleIndex;
+
+    const timer = window.setTimeout(() => {
+      setIsCycleTransitioning(false);
+      setTransitionFromPlatforms(null);
+    }, 760);
+
+    return () => window.clearTimeout(timer);
+  }, [currentCycleIndex, padPageRows, platformPages]);
 
   if (isLoading) {
     return (
@@ -82,25 +112,28 @@ export function PlatformStatusBoard({
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="mb-6">
-        <div className="kiosk-kicker mb-2">Platform Status</div>
+      <div className="mb-3">
+        <div className="kiosk-kicker mb-1">Platform Status</div>
         {cycleLabel ? (
-          <div className="text-[clamp(12px,1.6vh,18px)] text-slate-400">
+          <div className="text-[clamp(11px,1.3vh,15px)] text-slate-400">
             {cycleLabel}
           </div>
         ) : totalCycles > 1 ? (
-          <div className="text-[clamp(12px,1.6vh,18px)] text-slate-400">
+          <div className="text-[clamp(11px,1.3vh,15px)] text-slate-400">
             Showing {currentCycleIndex + 1} of {totalCycles}
           </div>
         ) : null}
       </div>
 
       {/* Status list */}
-      <div className="flex-1 min-h-0 flex flex-col gap-2">
+      <div className="flex-1 min-h-0 flex flex-col gap-1.5">
         {currentPlatforms.map((platform, index) => (
           <PlatformStatusRow
             key={platform ? platform.platformNumber : `empty-${index}`}
             platform={platform}
+            flipFromPlatform={transitionFromPlatforms?.[index] ?? null}
+            animateCycleFlip={isCycleTransitioning}
+            cycleFlipId={cycleFlipId}
           />
         ))}
       </div>
@@ -108,7 +141,17 @@ export function PlatformStatusBoard({
   );
 }
 
-function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
+function PlatformStatusRow({
+  platform,
+  flipFromPlatform,
+  animateCycleFlip,
+  cycleFlipId,
+}: {
+  platform: PlatformBooking | null;
+  flipFromPlatform: PlatformBooking | null;
+  animateCycleFlip: boolean;
+  cycleFlipId: number;
+}) {
   if (!platform) {
     return <div className="flex-1 min-h-0" />;
   }
@@ -124,64 +167,97 @@ function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
     : null;
 
   const nextTitle = platform.nextBooking ? platform.nextBooking.title : null;
+  const isLive = !!platform.nowBooking;
+  const bookingLogoUrl = isLive ? '/lboro-sport.svg' : null;
+  const hasBadge = !!bookingLogoUrl;
+  const fromNumber = flipFromPlatform?.platformNumber ?? null;
+  const shouldAnimateNumberFlip =
+    animateCycleFlip &&
+    fromNumber !== null &&
+    fromNumber !== platform.platformNumber;
 
   return (
     <div
-      className="kiosk-platform-card flex-1 min-h-0 max-h-full grid grid-cols-[160px_1fr_1fr] grid-rows-[auto_minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 px-2 py-1.5 overflow-hidden"
-      style={{
-        border: '2px solid transparent',
-        backgroundImage: `
-          linear-gradient(transparent 1px, transparent 1px),
-          linear-gradient(90deg, transparent 1px, transparent 1px)
-        `,
-        backgroundSize: 'calc(100% / 3) calc(100% / 3)',
-      }}
+      className="kiosk-platform-card flex-1 min-h-0 max-h-full grid gap-2 px-2.5 py-1.5 overflow-hidden"
+      style={{ gridTemplateColumns: '118px minmax(0,1fr)' }}
     >
-      {/* Row 1: Labels - all inline */}
-      <div className="kiosk-kicker min-w-0 relative">
-        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
-          A
-        </span>
-        Platform
-      </div>
-      <div className="kiosk-kicker min-w-0 relative pl-0">
-        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
-          B
-        </span>
-        Now
-      </div>
-      <div className="kiosk-kicker min-w-0 relative pl-0">
-        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
-          C
-        </span>
-        {nextTitle ? 'Next' : ''}
+      <div className="kiosk-platform-identity kiosk-platform-identity--single">
+        {shouldAnimateNumberFlip ? (
+          <div className="kiosk-number-cycle-flip">
+            <div
+              key={`${cycleFlipId}-${platform.platformNumber}-${fromNumber}`}
+              className="kiosk-number-cycle-flip-inner"
+            >
+              <div className="kiosk-number-cycle-face kiosk-number-cycle-front">
+                <div className="kiosk-platform-number-display">
+                  {fromNumber}
+                </div>
+              </div>
+              <div className="kiosk-number-cycle-face kiosk-number-cycle-back">
+                <div className="kiosk-platform-number-display">
+                  {platform.platformNumber}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : hasBadge ? (
+          <div className="kiosk-platform-flip">
+            <div className="kiosk-platform-flip-inner">
+              <div className="kiosk-platform-flip-face kiosk-platform-flip-front">
+                <div className="kiosk-platform-number-display">
+                  {platform.platformNumber}
+                </div>
+              </div>
+              <div className="kiosk-platform-flip-face kiosk-platform-flip-back">
+                <img
+                  src={bookingLogoUrl}
+                  alt="Club badge"
+                  className="kiosk-logo-badge-image"
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="kiosk-platform-number-display">
+            {platform.platformNumber}
+          </div>
+        )}
       </div>
 
-      {/* Row 2: Main content - Platform number spans D and G, Booking name, Next booking */}
-      <div className="flex items-end justify-start min-w-0 overflow-hidden relative row-span-2">
-        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
-          D+G
-        </span>
-        <div
-          className="font-semibold tracking-tight text-slate-50 leading-none"
-          style={{
-            fontSize: 'clamp(56px, 8.5vh, 120px)',
-            lineHeight: '0.85',
-          }}
-        >
-          {platform.platformNumber}
-        </div>
-      </div>
-      <div className="flex items-center justify-start min-w-0 overflow-hidden relative pl-0">
-        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
-          E
-        </span>
-        <div className="font-semibold text-slate-50 leading-tight min-w-0 w-full">
-          {platform.nowBooking ? (
-            <span
-              className="text-slate-100 leading-snug break-words"
+      <div className="min-w-0 h-full grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1 py-0.5">
+        {isLive ? (
+          <div className="min-w-0 h-full rounded-md px-2 py-1.5 border border-sky-400/30 bg-gradient-to-r from-sky-500/12 to-indigo-500/10 flex items-center">
+            <div className="min-w-0 w-full flex items-center gap-2">
+              <span
+                className="text-slate-100 leading-snug break-words font-semibold min-w-0"
+                style={{
+                  fontSize: 'clamp(15px, 2vh, 26px)',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 1,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                }}
+              >
+                {platform.nowBooking?.title}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="min-w-0 h-full rounded-md px-2 py-1.5 border bg-emerald-500/10 border-emerald-400/30 flex items-center">
+            <span className="text-emerald-300 truncate block text-[clamp(15px,2vh,26px)] font-semibold">
+              Available
+            </span>
+          </div>
+        )}
+
+        <div className="min-w-0 h-full rounded-md px-2 py-1.5 border border-slate-700/70 bg-slate-900/25 flex items-center">
+          {nextTitle ? (
+            <div
+              className="font-medium text-slate-300 leading-snug min-w-0 w-full"
               style={{
-                fontSize: 'clamp(12px, 1.8vh, 28px)',
+                fontSize: 'clamp(12px, 1.55vh, 20px)',
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical',
@@ -190,52 +266,30 @@ function PlatformStatusRow({ platform }: { platform: PlatformBooking | null }) {
                 overflowWrap: 'break-word',
               }}
             >
-              {platform.nowBooking.title}
-            </span>
+              {nextTitle}
+            </div>
           ) : (
-            <span className="text-emerald-400 truncate block text-[clamp(17px,2.4vh,32px)]">
-              Available
-            </span>
+            <div className="text-slate-500 text-[clamp(11px,1.35vh,16px)]">
+              No upcoming booking
+            </div>
           )}
         </div>
-      </div>
-      <div className="flex items-center justify-start min-w-0 overflow-hidden relative pl-0">
-        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
-          F
-        </span>
-        {nextTitle && (
-          <div
-            className="font-medium text-slate-300 leading-snug min-w-0 w-full"
-            style={{
-              fontSize: 'clamp(11px, 1.6vh, 24px)',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              wordBreak: 'break-word',
-              overflowWrap: 'break-word',
-            }}
-          >
-            {nextTitle}
-          </div>
-        )}
-      </div>
 
-      {/* Row 3: Time info - G is now part of platform number cell above */}
-      <div className="flex items-center justify-start min-w-0 overflow-hidden relative pl-0">
-        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
-          H
-        </span>
-        <div className="text-[clamp(13px,1.9vh,22px)] text-slate-400 font-mono tracking-[0.1em] min-w-0 whitespace-nowrap">
-          {nowUntil ? `until ${nowUntil}` : 'until close'}
-        </div>
-      </div>
-      <div className="flex items-center justify-start min-w-0 overflow-hidden relative pl-0">
-        <span className="absolute top-0 left-0 text-xs text-blue-400 font-bold opacity-0">
-          I
-        </span>
-        <div className="text-[clamp(12px,1.7vh,20px)] text-slate-500 font-mono tracking-[0.1em] min-w-0 whitespace-nowrap">
-          {nextFrom ? `from ${nextFrom}` : ''}
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className={`text-[clamp(10px,1.1vh,14px)] font-mono tracking-[0.06em] whitespace-nowrap ${
+              isLive ? 'text-sky-200' : 'text-slate-400'
+            }`}
+          >
+            {nowUntil
+              ? isLive
+                ? `until ${nowUntil}`
+                : `until ${nowUntil}`
+              : 'until close'}
+          </div>
+          <div className="text-[clamp(10px,1.1vh,14px)] text-slate-500 font-mono tracking-[0.06em] whitespace-nowrap">
+            {nextFrom ? `from ${nextFrom}` : ''}
+          </div>
         </div>
       </div>
     </div>

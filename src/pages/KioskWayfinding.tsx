@@ -9,6 +9,7 @@ import { useSideSnapshot } from '../hooks/useSideSnapshot';
 import { useInstancesRealtime } from '../hooks/useInstancesRealtime';
 import type { SideKey } from '../nodes/data/sidesNodes';
 import { useLiveViewCapacity } from '../components/schedule/hooks/useLiveViewCapacity';
+import { useKioskCapacity } from '../hooks/useKioskCapacity';
 import {
   doesScheduleApply,
   parseExcludedDates,
@@ -60,7 +61,7 @@ const BASE_QUADRANT_LABELS = [
 const PLATFORMS_PER_CYCLE = 6;
 const EMPTY_PLATFORM_IDS: number[] = [];
 const CYCLE_DURATION_MS = 10000; // 10 seconds per cycle
-const TIME_REFRESH_MS = 60_000;
+const CLOCK_TICK_MS = 1000;
 
 /**
  * Main kiosk wayfinding page.
@@ -106,14 +107,47 @@ export function KioskWayfinding() {
   const debounceTimerRef = useRef<number | null>(null);
 
   const [nowTime, setNowTime] = useState(new Date());
+  const [minuteTime, setMinuteTime] = useState(() => {
+    const initial = new Date();
+    initial.setSeconds(0, 0);
+    return initial;
+  });
   useEffect(() => {
-    const interval = setInterval(() => setNowTime(new Date()), TIME_REFRESH_MS);
+    const interval = setInterval(() => setNowTime(new Date()), CLOCK_TICK_MS);
     return () => clearInterval(interval);
   }, []);
 
-  const dateStr = format(nowTime, 'yyyy-MM-dd');
-  const timeStr = format(nowTime, 'HH:mm');
-  const dayOfWeek = getDay(nowTime);
+  useEffect(() => {
+    let intervalId: number | null = null;
+    let timeoutId: number | null = null;
+
+    const runMinuteTick = () => {
+      const next = new Date();
+      next.setSeconds(0, 0);
+      setMinuteTime(next);
+    };
+
+    const scheduleAlignedUpdates = () => {
+      const now = Date.now();
+      const msUntilNextMinute = 60_000 - (now % 60_000);
+      timeoutId = window.setTimeout(() => {
+        runMinuteTick();
+        intervalId = window.setInterval(runMinuteTick, 60_000);
+      }, msUntilNextMinute);
+    };
+
+    runMinuteTick();
+    scheduleAlignedUpdates();
+
+    return () => {
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      if (intervalId !== null) window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const dateStr = format(minuteTime, 'yyyy-MM-dd');
+  const timeStr = format(minuteTime, 'HH:mm');
+  const dayOfWeek = getDay(minuteTime);
   const liveViewSide = sideKey === 'Power' ? 'power' : 'base';
   const { applicableSchedule, capacitySchedules, schedulesLoading } =
     useLiveViewCapacity({
@@ -121,6 +155,8 @@ export function KioskWayfinding() {
       date: dateStr,
       time: timeStr,
     });
+  const { used: performanceCapacityUsed, limit: performanceCapacityLimit } =
+    useKioskCapacity(sideKey, nowTime);
 
   // Cycling logic for Zone B
   const [currentCycleIndex, setCurrentCycleIndex] = useState(() => 0);
@@ -230,6 +266,9 @@ export function KioskWayfinding() {
             periodEnd={currentPeriod?.end ?? null}
             nextPeriodType={nextPeriod?.type ?? null}
             nextPeriodStart={nextPeriod?.start ?? null}
+            performanceCapacityUsed={performanceCapacityUsed}
+            performanceCapacityLimit={performanceCapacityLimit}
+            now={nowTime}
             isLoading={isLoading || schedulesLoading}
           />
         }

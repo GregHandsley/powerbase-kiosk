@@ -111,12 +111,18 @@ export function KioskWayfindingStatic() {
   const sideKey: SideKey =
     sideKeyParam === 'Base' || sideKeyParam === 'Power' ? sideKeyParam : 'Base';
   const [currentCycleIndex, setCurrentCycleIndex] = useState(0);
+  const [nowTime, setNowTime] = useState(new Date());
 
   useEffect(() => {
     document.body.classList.add('kiosk-mode');
     return () => {
       document.body.classList.remove('kiosk-mode');
     };
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNowTime(new Date()), 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const platformPages = useMemo(() => getPlatformPages(sideKey), [sideKey]);
@@ -154,6 +160,9 @@ export function KioskWayfindingStatic() {
           periodEnd={'2026-02-02T13:00:00.000Z'}
           nextPeriodType={'General User' as PeriodType}
           nextPeriodStart={'2026-02-02T13:00:00.000Z'}
+          performanceCapacityUsed={18}
+          performanceCapacityLimit={24}
+          now={nowTime}
           isLoading={false}
         />
       }
