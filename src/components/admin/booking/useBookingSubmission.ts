@@ -24,6 +24,7 @@ import {
 } from '../../../services/email/sendEmail';
 import { useNotificationSettings } from '../../../hooks/useNotificationSettings';
 import { useAuth } from '../../../context/AuthContext';
+import { getDeterministicBookingColor } from '../../../utils/bookingColor';
 import toast from 'react-hot-toast';
 
 type WeekManagement = {
@@ -103,6 +104,66 @@ export function useBookingSubmission(
 
       const organizationId = sideData.organization_id;
       const siteId = sideData.site_id;
+
+      let resolvedTitle = values.title.trim();
+      let resolvedDisplayName = resolvedTitle;
+      let resolvedSquadId: number | null = null;
+      let resolvedBookingType: 'catalogue' | 'one_off' = values.bookingType;
+
+      if (values.bookingType === 'catalogue') {
+        if (!values.squadId) {
+          throw new Error('Please select a squad for this booking.');
+        }
+
+        const { data: squadRow, error: squadError } = await supabase
+          .from('booking_squads')
+          .select('id, family_id, organization_id, name, active')
+          .eq('id', values.squadId)
+          .maybeSingle();
+
+        if (squadError || !squadRow || !squadRow.active) {
+          throw new Error(
+            'Selected squad is unavailable. Please choose another.'
+          );
+        }
+
+        if (squadRow.organization_id !== organizationId) {
+          throw new Error(
+            'Selected squad does not belong to this organization.'
+          );
+        }
+
+        resolvedSquadId = squadRow.id;
+        resolvedTitle = squadRow.name;
+        resolvedDisplayName = squadRow.name;
+      } else {
+        const allowedRoles = notificationSettings?.one_off_allowed_roles;
+        if (
+          allowedRoles &&
+          allowedRoles.length > 0 &&
+          !allowedRoles.includes(role)
+        ) {
+          throw new Error(
+            'Your role is not allowed to create one-off bookings. Please select a squad booking.'
+          );
+        }
+
+        const oneOffName = values.oneOffName?.trim() ?? '';
+        if (!oneOffName) {
+          throw new Error('Please enter a booking name for one-off bookings.');
+        }
+        resolvedBookingType = 'one_off';
+        resolvedTitle = oneOffName;
+        resolvedDisplayName = oneOffName;
+        resolvedSquadId = null;
+      }
+
+      const assignedColor = getDeterministicBookingColor(
+        organizationId,
+        resolvedBookingType,
+        resolvedSquadId,
+        resolvedDisplayName
+      );
 
       const startTemplate = combineDateAndTime(
         values.startDate,
@@ -374,7 +435,10 @@ export function useBookingSubmission(
       const { data: booking, error: bookingError } = await supabase
         .from('bookings')
         .insert({
-          title: values.title,
+          title: resolvedTitle,
+          booking_type: resolvedBookingType,
+          squad_id: resolvedSquadId,
+          display_name: resolvedDisplayName,
           side_id: sideId,
           organization_id: organizationId, // Required: bookings must belong to an organization
           site_id: siteId, // Required: bookings must belong to a site (S6a/S6b)
@@ -384,7 +448,7 @@ export function useBookingSubmission(
           areas: areasKeys,
           racks: templateRacks,
           capacity_template: templateCapacity,
-          color: values.color || null,
+          color: assignedColor,
           created_by: userId,
           is_locked: isLocked,
           status: 'pending', // New bookings start as pending
@@ -457,6 +521,9 @@ export function useBookingSubmission(
         ActivityLogger.booking
           .created(organizationId, siteId, userId, booking.id, {
             title: booking.title,
+            booking_type: resolvedBookingType,
+            squad_id: resolvedSquadId,
+            display_name: resolvedDisplayName,
             last_minute_change: booking.last_minute_change || false,
           })
           .catch((err) => {
@@ -497,12 +564,12 @@ export function useBookingSubmission(
               ? 'Last-Minute Booking Created'
               : 'New Booking Created',
             message: lastMinuteChange
-              ? `Booking "${values.title}" was created after the notification window deadline.`
-              : `New booking "${values.title}" requires processing.`,
+              ? `Booking "${resolvedTitle}" was created after the notification window deadline.`
+              : `New booking "${resolvedTitle}" requires processing.`,
             link: `/bookings-team?booking=${booking.id}`,
             metadata: {
               booking_id: booking.id,
-              booking_title: values.title,
+              booking_title: resolvedTitle,
               created_by: userId,
               is_last_minute: lastMinuteChange,
             },
@@ -581,7 +648,7 @@ export function useBookingSubmission(
               );
               const alertResult = await sendLastMinuteAlert(
                 {
-                  bookingTitle: values.title,
+                  bookingTitle: resolvedTitle,
                   bookingDate,
                   bookingTime,
                   side: sideName,
@@ -626,7 +693,7 @@ export function useBookingSubmission(
               if (shouldSendConfirmation) {
                 const confirmationResult = await sendUserConfirmation({
                   toEmail: user.email,
-                  bookingTitle: values.title,
+                  bookingTitle: resolvedTitle,
                   bookingDate,
                   bookingTime,
                   side: sideName,
@@ -657,7 +724,7 @@ export function useBookingSubmission(
       }
 
       setSubmitMessage(
-        `Created booking "${values.title}" with ${instancesPayload.length} instance${instancesPayload.length !== 1 ? 's' : ''}.`
+        `Created booking "${resolvedTitle}" with ${instancesPayload.length} instance${instancesPayload.length !== 1 ? 's' : ''}.`
       );
 
       // Clear rack selections and capacity to prevent red highlighting after booking creation
@@ -667,6 +734,10 @@ export function useBookingSubmission(
       form.reset({
         ...form.getValues(),
         title: '',
+        bookingType: values.bookingType,
+        squadFamilyId: values.squadFamilyId ?? null,
+        squadId: values.squadId ?? null,
+        oneOffName: '',
         racksInput: '',
         areas: [],
         capacity: 1,

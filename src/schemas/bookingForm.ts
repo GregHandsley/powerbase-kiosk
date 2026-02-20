@@ -1,7 +1,11 @@
 import { z } from 'zod';
 
 export const BookingFormSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
+  bookingType: z.enum(['catalogue', 'one_off']),
+  squadFamilyId: z.number().int().positive().nullable().optional(),
+  squadId: z.number().int().positive().nullable().optional(),
+  oneOffName: z.string().optional(),
+  title: z.string(),
   sideKey: z.enum(['Power', 'Base']),
   startDate: z.string().min(1, 'Start date is required'), // yyyy-mm-dd
   startTime: z

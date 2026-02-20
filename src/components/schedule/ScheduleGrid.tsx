@@ -76,14 +76,14 @@ export function ScheduleGrid({
   return (
     <div
       ref={gridRef}
-      className="flex-1 glass-panel rounded-lg overflow-hidden flex flex-col shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
+      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg glass-panel shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
     >
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-auto overflow-x-auto relative"
+        className="relative min-h-0 flex-1 overflow-auto overflow-x-auto"
       >
         {/* Current Time Indicator Line - Only show if viewing today */}
         {currentTimePosition && isToday && (

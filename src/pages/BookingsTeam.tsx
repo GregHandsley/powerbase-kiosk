@@ -227,24 +227,22 @@ export function BookingsTeam() {
           .eq('id', booking.id)
           .single();
 
-        if (bookingData?.site_id) {
-          const { ActivityLogger } = await import('../lib/activityLogger');
-          ActivityLogger.booking
-            .approved(
-              booking.organization_id,
-              bookingData.site_id,
-              user.id,
-              booking.id,
-              booking.created_by,
-              {
-                title: booking.title,
-              }
-            )
-            .catch((err) => {
-              // Fail-open: don't break booking processing if logging fails
-              console.error('Failed to log booking approval activity:', err);
-            });
-        }
+        const { ActivityLogger } = await import('../lib/activityLogger');
+        ActivityLogger.booking
+          .approved(
+            booking.organization_id,
+            bookingData?.site_id ?? null,
+            user.id,
+            booking.id,
+            booking.created_by,
+            {
+              title: booking.title,
+            }
+          )
+          .catch((err) => {
+            // Fail-open: don't break booking processing if logging fails
+            console.error('Failed to log booking approval activity:', err);
+          });
       }
 
       // Delete tasks related to this booking since it's now processed/resolved
@@ -316,26 +314,24 @@ export function BookingsTeam() {
           .eq('id', booking.id)
           .single();
 
-        if (bookingData?.site_id) {
-          const { ActivityLogger } = await import('../lib/activityLogger');
-          ActivityLogger.booking
-            .cancellationConfirmed(
-              booking.organization_id,
-              bookingData.site_id,
-              user.id,
-              booking.id,
-              {
-                title: booking.title,
-              }
-            )
-            .catch((err) => {
-              // Fail-open: don't break booking cancellation if logging fails
-              console.error(
-                'Failed to log booking cancellation confirmation activity:',
-                err
-              );
-            });
-        }
+        const { ActivityLogger } = await import('../lib/activityLogger');
+        ActivityLogger.booking
+          .cancellationConfirmed(
+            booking.organization_id,
+            bookingData?.site_id ?? null,
+            user.id,
+            booking.id,
+            {
+              title: booking.title,
+            }
+          )
+          .catch((err) => {
+            // Fail-open: don't break booking cancellation if logging fails
+            console.error(
+              'Failed to log booking cancellation confirmation activity:',
+              err
+            );
+          });
       }
 
       // Delete tasks related to this booking since cancellation is confirmed
@@ -475,26 +471,24 @@ export function BookingsTeam() {
               .eq('id', booking.id)
               .single();
 
-            if (bookingData?.site_id) {
-              return ActivityLogger.booking
-                .approved(
-                  booking.organization_id,
-                  bookingData.site_id,
-                  user.id,
-                  booking.id,
-                  booking.created_by,
-                  {
-                    title: booking.title,
-                    bulk_operation: true,
-                  }
-                )
-                .catch((err) => {
-                  console.error(
-                    `Failed to log bulk booking approval for booking ${booking.id}:`,
-                    err
-                  );
-                });
-            }
+            return ActivityLogger.booking
+              .approved(
+                booking.organization_id,
+                bookingData?.site_id ?? null,
+                user.id,
+                booking.id,
+                booking.created_by,
+                {
+                  title: booking.title,
+                  bulk_operation: true,
+                }
+              )
+              .catch((err) => {
+                console.error(
+                  `Failed to log bulk booking approval for booking ${booking.id}:`,
+                  err
+                );
+              });
           })
         );
       }
@@ -815,9 +809,13 @@ export function BookingsTeam() {
           message={`Are you sure you want to mark "${processingBooking.title}" as processed?`}
           confirmLabel="Process"
           cancelLabel="Cancel"
-          onConfirm={() => handleProcessBooking(processingBooking)}
+          onConfirm={async () => {
+            await handleProcessBooking(processingBooking);
+          }}
           onCancel={() => setProcessingBooking(null)}
           confirmVariant="primary"
+          loading={processing}
+          lockScroll
         />
       )}
 
@@ -842,6 +840,7 @@ export function BookingsTeam() {
           }}
           confirmVariant="danger"
           loading={processing}
+          lockScroll
         />
       )}
     </div>

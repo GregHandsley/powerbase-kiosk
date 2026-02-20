@@ -1,3 +1,9 @@
+# Powerbase Kiosk
+
+**Raspberry Pi setup (one guide):** [docs/PI_SETUP.md](docs/PI_SETUP.md) — step-by-step to get the kiosk + player agent on a Pi.
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

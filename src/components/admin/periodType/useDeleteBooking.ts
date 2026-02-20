@@ -69,13 +69,13 @@ export function useDeleteBooking(onOverridesRefetch: () => void) {
           .single();
 
         // Log activity before deleting
-        if (user?.id && bookingData?.organization_id && bookingData?.site_id) {
+        if (user?.id && bookingData?.organization_id) {
           const { ActivityLogger } =
             await import('../../../lib/activityLogger');
           ActivityLogger.booking
             .deleted(
               bookingData.organization_id,
-              bookingData.site_id,
+              bookingData.site_id ?? null,
               user.id,
               bookingId,
               {
@@ -134,13 +134,13 @@ export function useDeleteBooking(onOverridesRefetch: () => void) {
             .eq('id', bookingId)
             .single();
 
-          if (bookingData?.organization_id && bookingData?.site_id) {
+          if (bookingData?.organization_id) {
             const { ActivityLogger } =
               await import('../../../lib/activityLogger');
             ActivityLogger.booking
               .updated(
                 bookingData.organization_id,
-                bookingData.site_id,
+                bookingData.site_id ?? null,
                 user.id,
                 bookingId,
                 {},
@@ -211,12 +211,12 @@ export function useDeleteBooking(onOverridesRefetch: () => void) {
       }
 
       // Log activity before deleting booking
-      if (user?.id && bookingData?.organization_id && bookingData?.site_id) {
+      if (user?.id && bookingData?.organization_id) {
         const { ActivityLogger } = await import('../../../lib/activityLogger');
         ActivityLogger.booking
           .deleted(
             bookingData.organization_id,
-            bookingData.site_id,
+            bookingData.site_id ?? null,
             user.id,
             bookingId,
             {

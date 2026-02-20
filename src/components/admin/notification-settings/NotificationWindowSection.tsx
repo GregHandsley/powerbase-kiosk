@@ -22,6 +22,7 @@ export function NotificationWindowSection({
   onUpdate,
   // isUpdating,
 }: Props) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [localEnabled, setLocalEnabled] = useState(
     settings.notification_window_enabled
   );
@@ -42,7 +43,12 @@ export function NotificationWindowSection({
 
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-6">
-      <div className="flex items-start justify-between mb-4">
+      <button
+        type="button"
+        onClick={() => setIsCollapsed((prev) => !prev)}
+        aria-expanded={!isCollapsed}
+        className="mb-4 flex w-full items-start justify-between rounded-md border border-slate-700/70 bg-slate-800/40 px-3 py-2 text-left transition-colors hover:bg-slate-800/70"
+      >
         <div>
           <h3 className="text-base font-semibold text-slate-100">
             Notification Window
@@ -53,74 +59,90 @@ export function NotificationWindowSection({
             bookings are still allowed.
           </p>
         </div>
-      </div>
+        <svg
+          className={`ml-4 mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
 
-      <div className="space-y-4">
-        {/* Enable/Disable Toggle */}
-        <div className="flex items-center justify-between">
-          <label className="text-sm text-slate-200">
-            Enable Notification Window
-          </label>
-          <button
-            type="button"
-            onClick={() => {
-              setLocalEnabled(!localEnabled);
-              onUpdate({ notification_window_enabled: !localEnabled });
-            }}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              localEnabled ? 'bg-indigo-600' : 'bg-slate-700'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                localEnabled ? 'translate-x-6' : 'translate-x-1'
+      {!isCollapsed && (
+        <div className="space-y-4">
+          {/* Enable/Disable Toggle */}
+          <div className="flex items-center justify-between">
+            <label className="text-sm text-slate-200">
+              Enable Notification Window
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setLocalEnabled(!localEnabled);
+                onUpdate({ notification_window_enabled: !localEnabled });
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                localEnabled ? 'bg-indigo-600' : 'bg-slate-700'
               }`}
-            />
-          </button>
-        </div>
-
-        {localEnabled && (
-          <div className="space-y-4 pt-2 border-t border-slate-700">
-            {/* Day of Week */}
-            <div>
-              <label className="block text-sm font-medium text-slate-200 mb-2">
-                Day of Week
-              </label>
-              <select
-                value={localDay}
-                onChange={(e) => setLocalDay(Number(e.target.value))}
-                onBlur={handleSave}
-                className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              >
-                {DAYS_OF_WEEK.map((day) => (
-                  <option key={day.value} value={day.value}>
-                    {day.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Time */}
-            <div>
-              <label className="block text-sm font-medium text-slate-200 mb-2">
-                Time
-              </label>
-              <input
-                type="time"
-                value={localTime}
-                onChange={(e) => setLocalTime(e.target.value)}
-                onBlur={handleSave}
-                className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  localEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
               />
-              <p className="text-xs text-slate-400 mt-1">
-                Current setting:{' '}
-                {DAYS_OF_WEEK.find((d) => d.value === localDay)?.label} at{' '}
-                {localTime}
-              </p>
-            </div>
+            </button>
           </div>
-        )}
-      </div>
+
+          {localEnabled && (
+            <div className="space-y-4 pt-2 border-t border-slate-700">
+              {/* Day of Week */}
+              <div>
+                <label className="block text-sm font-medium text-slate-200 mb-2">
+                  Day of Week
+                </label>
+                <select
+                  value={localDay}
+                  onChange={(e) => setLocalDay(Number(e.target.value))}
+                  onBlur={handleSave}
+                  className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  {DAYS_OF_WEEK.map((day) => (
+                    <option key={day.value} value={day.value}>
+                      {day.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Time */}
+              <div>
+                <label className="block text-sm font-medium text-slate-200 mb-2">
+                  Time
+                </label>
+                <input
+                  type="time"
+                  value={localTime}
+                  onChange={(e) => setLocalTime(e.target.value)}
+                  onBlur={handleSave}
+                  className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Current setting:{' '}
+                  {DAYS_OF_WEEK.find((d) => d.value === localDay)?.label} at{' '}
+                  {localTime}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

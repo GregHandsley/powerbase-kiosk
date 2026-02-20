@@ -15,7 +15,7 @@ All database functions exist:
 Run this command (replace `YOUR_SERVICE_ROLE_KEY`):
 
 ```bash
-./test-email-digest-now.sh YOUR_SERVICE_ROLE_KEY
+./scripts/test/test-email-digest-now.sh YOUR_SERVICE_ROLE_KEY
 ```
 
 **Get your service role key from:**
@@ -127,7 +127,7 @@ You should now see log entries showing:
 
 - Function might not be deployed correctly
 - Check function status in dashboard
-- Try redeploying: `./deploy-send-email-digest-function.sh`
+- Try redeploying: `./scripts/deploy/deploy-send-email-digest-function.sh`
 
 **Function returns error:**
 

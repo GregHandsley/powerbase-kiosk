@@ -1,11 +1,13 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
+import { ModalPortal } from './ModalPortal';
 
 type ModalProps = {
   isOpen: boolean;
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  lockScroll?: boolean;
   maxWidth?:
     | 'sm'
     | 'md'
@@ -42,29 +44,40 @@ export function Modal({
   onClose,
   children,
   className,
+  lockScroll = false,
   maxWidth = 'md',
 }: ModalProps) {
+  const [viewportTop, setViewportTop] = useState(0);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setViewportTop(window.scrollY || window.pageYOffset || 0);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
+    <ModalPortal lockScroll={lockScroll}>
       <div
-        className={clsx(
-          'bg-slate-900 border border-slate-700 rounded-xl w-full max-h-[90vh] overflow-y-auto p-6',
-          maxWidthClasses[maxWidth],
-          className
-        )}
-        onClick={(e) => e.stopPropagation()}
+        className="absolute inset-x-0 z-[1000] flex min-h-screen items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
+        style={{ top: `${viewportTop}px` }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
       >
-        {children}
+        <div
+          className={clsx(
+            'my-6 w-full max-h-[90vh] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-6 sm:my-0',
+            maxWidthClasses[maxWidth],
+            className
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }

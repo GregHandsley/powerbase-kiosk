@@ -73,15 +73,21 @@ export function ScheduleGridRow({
       {/* Time Label - Sticky, positioned on the line */}
       <div
         className={clsx(
-          'sticky left-0 z-10 border-r bg-slate-950/95 min-w-[120px] relative min-h-[50px] px-3',
+          'sticky left-0 z-20 border-r min-w-[120px] relative min-h-[50px] px-3',
+          'bg-slate-950/99 backdrop-blur-md shadow-[4px_0_10px_rgba(2,6,23,0.35)]',
           isHour ? 'border-slate-600' : 'border-slate-700'
         )}
       >
+        <div className="pointer-events-none absolute inset-0 bg-slate-950/25" />
+        {/* Soft edge treatment so bookings passing underneath look intentional */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-r from-transparent to-slate-950/72" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-slate-300/12" />
+
         {/* Hide the first time label (slotIndex === 0) but keep the slot functional */}
         {slotIndex > 0 && (
           <div
             className={clsx(
-              'absolute top-0 right-2.5 font-mono whitespace-nowrap leading-tight -translate-y-1/2 backdrop-blur-sm px-2 py-0.5 rounded-md border shadow-sm',
+              'absolute top-0 right-2.5 z-10 font-mono whitespace-nowrap leading-tight -translate-y-1/2 backdrop-blur-sm px-2 py-0.5 rounded-md border shadow-sm',
               isHour
                 ? 'text-xs font-semibold text-slate-100 bg-slate-900/90 border-slate-600/60'
                 : 'text-[11px] font-medium text-slate-400 bg-slate-900/70 border-slate-700/40'
@@ -156,7 +162,7 @@ export function ScheduleGridRow({
           <div
             key={rackIndex}
             className={clsx(
-              'relative border-r border-slate-800 last:border-r-0 min-h-[54px] min-w-[120px]',
+              'relative border-r border-slate-800 last:border-r-0 min-h-[50px] min-w-[120px]',
               isSelected && isSelectionValid && 'bg-indigo-500/20',
               isSelected && !isSelectionValid && 'bg-red-500/10',
               isAtCapacity && !isInBookingBlock && 'bg-red-950/20',

@@ -30,6 +30,7 @@ export type BookingBlock = {
   startSlot: number;
   endSlot: number;
   rowSpan: number;
+  startOffsetInSlot: number; // 0-1 offset from top of start slot
 };
 
 export type UnavailableBlock = {

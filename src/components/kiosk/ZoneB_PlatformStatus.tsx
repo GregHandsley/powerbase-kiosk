@@ -225,11 +225,21 @@ function PlatformStatusRow({
       <div className="min-w-0 h-full grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,0.82fr)] gap-1 py-0.25">
         {isLive ? (
           <div className="min-w-0 h-full rounded-md px-2 py-1.5 border border-sky-400/30 bg-gradient-to-r from-sky-500/12 to-indigo-500/10 flex items-center">
-            <div className="min-w-0 w-full flex flex-col justify-center gap-1">
+            <div className="min-w-0 w-full flex flex-col justify-center gap-0.5">
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <div className="text-[clamp(9px,0.9vh,11px)] uppercase tracking-[0.12em] text-sky-300/80">
+                  Current booking
+                </div>
+                {currentUntil && (
+                  <div className="text-[clamp(9px,0.95vh,12px)] text-sky-200 font-mono tracking-[0.05em] whitespace-nowrap shrink-0">
+                    Until {currentUntil}
+                  </div>
+                )}
+              </div>
               <span
-                className="text-slate-100 leading-snug break-words font-semibold min-w-0"
+                className="text-slate-100 leading-snug break-words font-semibold min-w-0 flex-1"
                 style={{
-                  fontSize: 'clamp(15px, 2vh, 26px)',
+                  fontSize: 'clamp(17px, 2.2vh, 30px)',
                   display: '-webkit-box',
                   WebkitLineClamp: 1,
                   WebkitBoxOrient: 'vertical',
@@ -240,11 +250,6 @@ function PlatformStatusRow({
               >
                 {platform.nowBooking?.title}
               </span>
-              {currentUntil && (
-                <div className="text-[clamp(10px,1.1vh,14px)] text-sky-200 font-mono tracking-[0.06em]">
-                  Until {currentUntil}
-                </div>
-              )}
             </div>
           </div>
         ) : (

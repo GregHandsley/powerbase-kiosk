@@ -27,30 +27,33 @@ export function UpdateTimeConfirmationDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="rounded-md bg-indigo-900/20 border border-indigo-700/50 p-4 space-y-3">
-      <p className="text-sm font-medium text-indigo-300">
+    <div className="rounded-md border border-indigo-700/50 bg-indigo-950/40 p-4 space-y-3">
+      <p className="text-sm font-semibold text-slate-100">
         {sessionCount === 0
           ? 'No sessions selected'
           : `Update ${sessionCount} selected session${sessionCount !== 1 ? 's' : ''}?`}
       </p>
-      <div className="text-xs text-indigo-400/80 space-y-1">
+      <div className="text-xs text-slate-200 space-y-1">
         {startTime && endTime && (
           <>
             <p>
-              <span className="font-medium">Start:</span> {startTime}
+              <span className="font-semibold text-slate-100">Start:</span>{' '}
+              {startTime}
             </p>
             <p>
-              <span className="font-medium">End:</span> {endTime}
+              <span className="font-semibold text-slate-100">End:</span>{' '}
+              {endTime}
             </p>
           </>
         )}
         {capacity !== undefined && (
           <p>
-            <span className="font-medium">Athletes:</span> {capacity}
+            <span className="font-semibold text-slate-100">Athletes:</span>{' '}
+            {capacity}
           </p>
         )}
       </div>
-      <p className="text-xs text-indigo-400/70">
+      <p className="text-xs text-slate-300">
         {sessionCount === 0
           ? 'Please select at least one session to update.'
           : `This will update ${startTime && endTime ? 'the times' : ''}${startTime && endTime && capacity !== undefined ? ' and ' : ''}${capacity !== undefined ? 'the number of athletes' : ''} for ${sessionCount} selected session${sessionCount !== 1 ? 's' : ''}.`}

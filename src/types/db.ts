@@ -36,6 +36,9 @@ export interface BookingInstanceWithBookingRow extends BookingInstanceRow {
 export interface BookingRow {
   id: number;
   title: string;
+  booking_type?: 'catalogue' | 'one_off';
+  squad_id?: number | null;
+  display_name?: string | null;
   side_id: number;
   start_template: string;
   end_template: string;

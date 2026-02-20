@@ -20,6 +20,7 @@ export function LastMinuteRecipientsSection({
   onUpdate,
   // isUpdating,
 }: Props) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<string[]>(
     settings.last_minute_alert_roles || []
   );
@@ -77,7 +78,12 @@ export function LastMinuteRecipientsSection({
 
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-6">
-      <div className="flex items-start justify-between mb-4">
+      <button
+        type="button"
+        onClick={() => setIsCollapsed((prev) => !prev)}
+        aria-expanded={!isCollapsed}
+        className="mb-4 flex w-full items-start justify-between rounded-md border border-slate-700/70 bg-slate-800/40 px-3 py-2 text-left transition-colors hover:bg-slate-800/70"
+      >
         <div>
           <h3 className="text-base font-semibold text-slate-100">
             Last-Minute Alert Recipients
@@ -87,103 +93,121 @@ export function LastMinuteRecipientsSection({
             after the notification window?
           </p>
         </div>
-      </div>
+        <svg
+          className={`ml-4 mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
 
-      <div className="space-y-4">
-        {/* Role Selection */}
-        <div>
-          <label className="block text-sm font-medium text-slate-200 mb-2">
-            Recipient Roles
-          </label>
-          <div className="space-y-2">
-            {AVAILABLE_ROLES.map((role) => (
-              <label
-                key={role.value}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedRoles.includes(role.value)}
-                  onChange={() => handleRoleToggle(role.value)}
-                  className="rounded border-slate-600 bg-slate-950 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="text-sm text-slate-300">{role.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Specific User Selection */}
-        <div>
-          <label className="block text-sm font-medium text-slate-200 mb-2">
-            Additional Recipients (Specific Users)
-          </label>
-          <div className="max-h-48 overflow-y-auto border border-slate-700 rounded-md p-2 space-y-2">
-            {allUsers.length === 0 ? (
-              <div className="text-sm text-slate-400 text-center py-4">
-                Loading users...
-              </div>
-            ) : (
-              allUsers.map((user) => (
+      {!isCollapsed && (
+        <div className="space-y-4">
+          {/* Role Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-200 mb-2">
+              Recipient Roles
+            </label>
+            <div className="space-y-2">
+              {AVAILABLE_ROLES.map((role) => (
                 <label
-                  key={user.id}
-                  className="flex items-center gap-2 cursor-pointer hover:bg-slate-800/50 p-2 rounded"
+                  key={role.value}
+                  className="flex items-center gap-2 cursor-pointer"
                 >
                   <input
                     type="checkbox"
-                    checked={selectedUserIds.includes(user.id)}
-                    onChange={() => handleUserToggle(user.id)}
+                    checked={selectedRoles.includes(role.value)}
+                    onChange={() => handleRoleToggle(role.value)}
                     className="rounded border-slate-600 bg-slate-950 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <div className="flex-1">
-                    <span className="text-sm text-slate-300">{user.name}</span>
-                    <span className="text-xs text-slate-600 ml-2 capitalize">
-                      • {user.role}
-                    </span>
-                  </div>
+                  <span className="text-sm text-slate-300">{role.label}</span>
                 </label>
-              ))
-            )}
+              ))}
+            </div>
           </div>
-          {selectedUserIds.length > 0 && (
-            <p className="text-xs text-slate-400 mt-2">
-              {selectedUserIds.length} additional user
-              {selectedUserIds.length !== 1 ? 's' : ''} selected
-            </p>
-          )}
-        </div>
 
-        {/* Preview */}
-        <div className="pt-4 border-t border-slate-700">
-          <p className="text-xs font-medium text-slate-300 mb-2">
-            Recipients Summary:
-          </p>
-          <div className="text-xs text-slate-400 space-y-1">
-            {selectedRoles.length > 0 && (
-              <div>
-                <span className="text-slate-300">Roles:</span>{' '}
-                {selectedRoles
-                  .map(
-                    (r) =>
-                      AVAILABLE_ROLES.find((role) => role.value === r)?.label
-                  )
-                  .join(', ')}
-              </div>
-            )}
+          {/* Specific User Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-200 mb-2">
+              Additional Recipients (Specific Users)
+            </label>
+            <div className="max-h-48 overflow-y-auto border border-slate-700 rounded-md p-2 space-y-2">
+              {allUsers.length === 0 ? (
+                <div className="text-sm text-slate-400 text-center py-4">
+                  Loading users...
+                </div>
+              ) : (
+                allUsers.map((user) => (
+                  <label
+                    key={user.id}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-slate-800/50 p-2 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.includes(user.id)}
+                      onChange={() => handleUserToggle(user.id)}
+                      className="rounded border-slate-600 bg-slate-950 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm text-slate-300">
+                        {user.name}
+                      </span>
+                      <span className="text-xs text-slate-600 ml-2 capitalize">
+                        • {user.role}
+                      </span>
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
             {selectedUserIds.length > 0 && (
-              <div>
-                <span className="text-slate-300">Additional Users:</span>{' '}
-                {selectedUserIds.length}
-              </div>
-            )}
-            {selectedRoles.length === 0 && selectedUserIds.length === 0 && (
-              <div className="text-yellow-400">
-                No recipients selected - no emails will be sent
-              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                {selectedUserIds.length} additional user
+                {selectedUserIds.length !== 1 ? 's' : ''} selected
+              </p>
             )}
           </div>
+
+          {/* Preview */}
+          <div className="pt-4 border-t border-slate-700">
+            <p className="text-xs font-medium text-slate-300 mb-2">
+              Recipients Summary:
+            </p>
+            <div className="text-xs text-slate-400 space-y-1">
+              {selectedRoles.length > 0 && (
+                <div>
+                  <span className="text-slate-300">Roles:</span>{' '}
+                  {selectedRoles
+                    .map(
+                      (r) =>
+                        AVAILABLE_ROLES.find((role) => role.value === r)?.label
+                    )
+                    .join(', ')}
+                </div>
+              )}
+              {selectedUserIds.length > 0 && (
+                <div>
+                  <span className="text-slate-300">Additional Users:</span>{' '}
+                  {selectedUserIds.length}
+                </div>
+              )}
+              {selectedRoles.length === 0 && selectedUserIds.length === 0 && (
+                <div className="text-yellow-400">
+                  No recipients selected - no emails will be sent
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

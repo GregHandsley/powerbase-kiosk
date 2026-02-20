@@ -1,6 +1,5 @@
 // src/pages/LiveView.tsx
 import { useCallback, useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useSnapshotFromSearchParams } from '../hooks/useSnapshotFromSearchParams';
 import { Clock } from '../components/Clock';
@@ -8,15 +7,10 @@ import { RackListEditor } from '../components/schedule/RackListEditor';
 import { useLiveViewCapacity } from '../components/schedule/hooks/useLiveViewCapacity';
 import { isSessionInPast } from '../components/admin/booking/utils';
 import { supabase } from '../lib/supabaseClient';
-import {
-  usePermission,
-  usePrimaryOrganizationId,
-} from '../hooks/usePermissions';
 
 type SideMode = 'power' | 'base';
 
 export function LiveView() {
-  const navigate = useNavigate();
   const { date, time, power, base, update, searchParams, setSearchParams } =
     useSnapshotFromSearchParams();
 
@@ -42,10 +36,6 @@ export function LiveView() {
     [searchParams, setSearchParams]
   );
 
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
-    'idle'
-  );
-
   const handleDateChange = (newDate: string) => {
     const safeDate = newDate || date;
     update(safeDate, time);
@@ -56,47 +46,6 @@ export function LiveView() {
     if (/^\d{2}:\d{2}$/.test(newTime)) {
       update(date, newTime);
     }
-  };
-
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopyState('copied');
-      setTimeout(() => setCopyState('idle'), 1500);
-    } catch {
-      setCopyState('error');
-      setTimeout(() => setCopyState('idle'), 1500);
-    }
-  };
-
-  // Check permissions for creating bookings
-  const { organizationId: primaryOrgId } = usePrimaryOrganizationId();
-  const { hasPermission: canCreateBookings } = usePermission(
-    primaryOrgId,
-    'bookings.create'
-  );
-
-  const handleAddBooking = () => {
-    if (!canCreateBookings) {
-      return;
-    }
-
-    // Calculate end time as 90 minutes after start time
-    const [startHour, startMinute] = time.split(':').map(Number);
-    const startTotalMinutes = startHour * 60 + startMinute;
-    const endTotalMinutes = startTotalMinutes + 90;
-    const endHour = Math.floor(endTotalMinutes / 60);
-    const endMinute = endTotalMinutes % 60;
-    const endTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
-
-    // Navigate to bookings page with pre-filled values
-    const params = new URLSearchParams({
-      date,
-      startTime: time,
-      endTime,
-      side: sideMode === 'power' ? 'Power' : 'Base',
-    });
-    navigate(`/bookings?${params.toString()}`);
   };
 
   const selectedSnapshot = sideMode === 'power' ? power : base;
@@ -238,36 +187,6 @@ export function LiveView() {
               <Clock />
             </div>
           </div>
-
-          {/* Copy link */}
-          <div className="flex flex-col">
-            <span className="mb-1 text-slate-300">Share</span>
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="px-3 py-1 rounded-md border border-slate-600 bg-slate-950 text-xs text-slate-100 hover:bg-slate-800"
-            >
-              {copyState === 'copied'
-                ? 'Copied'
-                : copyState === 'error'
-                  ? 'Error'
-                  : 'Copy link'}
-            </button>
-          </div>
-
-          {/* Add Booking button */}
-          {canCreateBookings && (
-            <div className="flex flex-col">
-              <span className="mb-1 text-slate-300">Actions</span>
-              <button
-                type="button"
-                onClick={handleAddBooking}
-                className="px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-medium"
-              >
-                Add Booking
-              </button>
-            </div>
-          )}
         </div>
       </header>
 

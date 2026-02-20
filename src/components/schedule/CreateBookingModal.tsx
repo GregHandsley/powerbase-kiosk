@@ -87,10 +87,6 @@ export function CreateBookingModal({
             <h2 className="text-lg font-semibold text-slate-100">
               Create New Booking
             </h2>
-            <p className="text-sm text-slate-400 mt-1">
-              Pre-filled for {format(initialDate, 'EEEE, MMMM d')} at {timeStr}{' '}
-              on Rack {initialRack} ({initialSide})
-            </p>
           </div>
           <button
             type="button"

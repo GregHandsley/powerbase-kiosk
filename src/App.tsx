@@ -3,11 +3,8 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { AcceptInvite } from './pages/AcceptInvite';
-import { KioskPower } from './pages/KioskPower';
-import { KioskBase } from './pages/KioskBase';
 import { KioskWayfinding } from './pages/KioskWayfinding';
 import { KioskWayfindingStatic } from './pages/KioskWayfindingStatic';
-import { KioskBaseStatic } from './pages/KioskBaseStatic';
 import { KioskUnpaired } from './pages/KioskUnpaired';
 import { KioskBlank } from './pages/KioskBlank';
 import { FloorplanTest } from './pages/FloorplanTest';
@@ -97,6 +94,7 @@ export default function App() {
     !pathname.startsWith('/kiosk') &&
     !pathname.startsWith('/login') &&
     !pathname.startsWith('/accept-invite');
+  const lockAppScroll = pathname.startsWith('/schedule') || pathname === '/';
 
   // Show only public kiosk + auth pages if not authenticated
   if (!loading && !user) {
@@ -104,30 +102,6 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/accept-invite" element={<AcceptInvite />} />
-        <Route
-          path="/kiosk/power"
-          element={
-            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-              <KioskPower />
-            </ErrorBoundary>
-          }
-        />
-        <Route
-          path="/kiosk/base"
-          element={
-            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-              <KioskBase />
-            </ErrorBoundary>
-          }
-        />
-        <Route
-          path="/kiosk/base-static"
-          element={
-            <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-              <KioskBaseStatic />
-            </ErrorBoundary>
-          }
-        />
         <Route
           path="/kiosk/wayfinding"
           element={
@@ -168,10 +142,16 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col overflow-visible">
+    <div
+      className={
+        lockAppScroll
+          ? 'h-screen flex flex-col overflow-hidden'
+          : 'min-h-screen flex flex-col overflow-visible'
+      }
+    >
       {/* simple header for dev; hidden on kiosk routes */}
       {showHeader && (
-        <header className="relative z-[70] px-4 py-3 glass-header">
+        <header className="sticky top-0 z-[70] px-4 py-3 glass-header">
           <nav className="flex items-center gap-4 text-sm text-slate-200">
             <Link
               to="/"
@@ -214,7 +194,7 @@ export default function App() {
         </header>
       )}
 
-      <main className="flex-1">
+      <main className="flex-1 min-h-0 overflow-hidden">
         <Routes>
           <Route
             path="/"
@@ -222,30 +202,6 @@ export default function App() {
               <ProtectedRoute>
                 <Home />
               </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/kiosk/power"
-            element={
-              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-                <KioskPower />
-              </ErrorBoundary>
-            }
-          />
-          <Route
-            path="/kiosk/base"
-            element={
-              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-                <KioskBase />
-              </ErrorBoundary>
-            }
-          />
-          <Route
-            path="/kiosk/base-static"
-            element={
-              <ErrorBoundary FallbackComponent={KioskErrorScreen}>
-                <KioskBaseStatic />
-              </ErrorBoundary>
             }
           />
           <Route

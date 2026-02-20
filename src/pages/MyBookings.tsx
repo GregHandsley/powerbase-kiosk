@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMyBookings, type BookingFilter } from '../hooks/useMyBookings';
 import { BookingCard } from '../components/my-bookings/BookingCard';
+import { BookingLifecycleModal } from '../components/my-bookings/BookingLifecycleModal';
 import { BookingFilters } from '../components/my-bookings/BookingFilters';
 import { BookingEditorModal } from '../components/schedule/BookingEditorModal';
 import { RackSelectionPanel } from '../components/schedule/rack-editor/RackSelectionPanel';
@@ -27,6 +28,8 @@ export function MyBookings() {
   const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(
     null
   );
+  const [lifecycleBooking, setLifecycleBooking] =
+    useState<BookingWithInstances | null>(null);
   const [showExtendDialogOnOpen, setShowExtendDialogOnOpen] = useState(false);
 
   const {
@@ -257,6 +260,7 @@ export function MyBookings() {
                   key={booking.id}
                   booking={booking}
                   onEdit={handleEdit}
+                  onViewLifecycle={setLifecycleBooking}
                 />
               ))}
             </div>
@@ -278,6 +282,12 @@ export function MyBookings() {
           initialShowExtendDialog={showExtendDialogOnOpen}
         />
       )}
+
+      <BookingLifecycleModal
+        booking={lifecycleBooking}
+        isOpen={!!lifecycleBooking}
+        onClose={() => setLifecycleBooking(null)}
+      />
     </div>
   );
 }
