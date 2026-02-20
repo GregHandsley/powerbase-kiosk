@@ -4,7 +4,7 @@ type BookingEditorActionsProps = {
   onEditRacks?: () => void;
   onCancel: () => void;
   onSave?: () => void;
-  onCancelBooking?: () => void;
+  onCancelBooking?: () => void | Promise<void>;
   onExtend?: () => void;
   saving: boolean;
   cancelling: boolean;
@@ -88,7 +88,9 @@ export function BookingEditorActions({
         {onCancelBooking && (
           <button
             type="button"
-            onClick={onCancelBooking}
+            onClick={() => {
+              void onCancelBooking();
+            }}
             disabled={
               isLocked ||
               saving ||

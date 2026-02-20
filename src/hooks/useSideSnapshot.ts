@@ -4,6 +4,12 @@ import { getInstancesAtNode } from '../nodes/data/instancesNodes';
 import { computeSnapshotFromInstances } from '../nodes/logic/computeSnapshot';
 import type { SideSnapshot } from '../types/snapshot';
 
+const ONE_MINUTE_MS = 60_000;
+
+function msUntilNextMinute(): number {
+  return ONE_MINUTE_MS - (Date.now() % ONE_MINUTE_MS);
+}
+
 type UseSideSnapshotResult = {
   snapshot: SideSnapshot | null;
   error: string | null;
@@ -28,7 +34,8 @@ export function useSideSnapshot(
 
       return computeSnapshotFromInstances(data ?? [], effectiveAtIso);
     },
-    refetchInterval: 900_000, // 15 minutes (bookings are on 15-min intervals)
+    // Poll on clock-minute boundaries (e.g. HH:mm:00) for predictable updates.
+    refetchInterval: () => msUntilNextMinute(),
     // Keep last snapshot while refetching to avoid visible flashes.
     placeholderData: (previous) => previous,
   });

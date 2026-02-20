@@ -11,6 +11,8 @@ export function getBookingBlocks(
   timeSlots: TimeSlot[],
   currentDate: Date
 ): BookingBlock | null {
+  if (timeSlots.length === 0) return null;
+
   const bookingStart = new Date(booking.start);
   const bookingEnd = new Date(booking.end);
   const dateStr = format(currentDate, 'yyyy-MM-dd');
@@ -23,95 +25,53 @@ export function getBookingBlocks(
     return null; // Booking doesn't overlap with this date
   }
 
-  // Get the effective start and end times for this date
-  let effectiveStartHour = 0;
-  let effectiveStartMinute = 0;
-  let effectiveEndHour = 23;
-  let effectiveEndMinute = 59;
+  // Effective booking bounds for this date in minutes.
+  const effectiveStartMinutes =
+    bookingStartDate === dateStr
+      ? bookingStart.getHours() * 60 + bookingStart.getMinutes()
+      : 0;
+  const effectiveEndMinutes =
+    bookingEndDate === dateStr
+      ? bookingEnd.getHours() * 60 + bookingEnd.getMinutes()
+      : 24 * 60;
 
-  if (bookingStartDate === dateStr) {
-    effectiveStartHour = bookingStart.getHours();
-    effectiveStartMinute = bookingStart.getMinutes();
-  }
+  const firstSlot = timeSlots[0];
+  const lastSlot = timeSlots[timeSlots.length - 1];
+  const slotDuration =
+    timeSlots.length > 1
+      ? Math.max(
+          1,
+          timeSlots[1].hour * 60 +
+            timeSlots[1].minute -
+            (firstSlot.hour * 60 + firstSlot.minute)
+        )
+      : 30;
 
-  if (bookingEndDate === dateStr) {
-    effectiveEndHour = bookingEnd.getHours();
-    effectiveEndMinute = bookingEnd.getMinutes();
-  }
+  const gridStartMinutes = firstSlot.hour * 60 + firstSlot.minute;
+  const gridEndMinutes = lastSlot.hour * 60 + lastSlot.minute + slotDuration;
 
-  // Find the slot indices
-  let startSlot = -1;
-  let endSlot = -1;
+  // Clamp booking to visible grid range.
+  const clampedStart = Math.max(effectiveStartMinutes, gridStartMinutes);
+  const clampedEnd = Math.min(effectiveEndMinutes, gridEndMinutes);
+  if (clampedEnd <= clampedStart) return null;
 
-  const bookingStartMinutes = effectiveStartHour * 60 + effectiveStartMinute;
-  const bookingEndMinutes = effectiveEndHour * 60 + effectiveEndMinute;
+  const startRowsFromGrid = (clampedStart - gridStartMinutes) / slotDuration;
+  const rowSpan = (clampedEnd - clampedStart) / slotDuration;
 
-  timeSlots.forEach((slot, index) => {
-    const slotHour = slot.hour;
-    const slotMinute = slot.minute;
-    const slotStartMinutes = slotHour * 60 + slotMinute;
-
-    // Check if this slot is the start slot (slot start time >= booking start time)
-    if (startSlot === -1) {
-      if (slotStartMinutes >= bookingStartMinutes) {
-        startSlot = index;
-      }
-    }
-
-    // Find the last slot that starts before the booking ends
-    // This will be the slot that contains or is just before the end time
-    if (slotStartMinutes < bookingEndMinutes) {
-      endSlot = index;
-    }
-  });
-
-  // If booking extends beyond the last slot, set endSlot to the last slot
-  if (endSlot === -1) {
-    endSlot = timeSlots.length - 1;
-  }
-
-  // If booking starts before the first slot, set startSlot to 0
-  if (startSlot === -1) {
-    startSlot = 0;
-  }
-
-  if (startSlot > endSlot) {
-    return null; // Invalid range
-  }
-
-  // Calculate the exact height based on the actual end time
-  const endSlotTime = timeSlots[endSlot];
-  const endSlotStartMinutes = endSlotTime.hour * 60 + endSlotTime.minute;
-  const slotDuration = 30; // 30 minutes per slot
-
-  // Calculate how much of the end slot the booking occupies
-  let rowSpan: number;
-  if (bookingEndMinutes <= endSlotStartMinutes) {
-    // Booking ends before or at the start of the end slot, so don't include it
-    if (endSlot > startSlot) {
-      rowSpan = endSlot - startSlot;
-      endSlot = endSlot - 1;
-    } else {
-      // Booking is very short, less than one slot
-      rowSpan = 0.5; // Minimum visibility
-    }
-  } else {
-    // Booking ends within the end slot, calculate partial height
-    const partialHeight =
-      (bookingEndMinutes - endSlotStartMinutes) / slotDuration;
-    rowSpan = endSlot - startSlot + partialHeight;
-  }
-
-  // Ensure we have at least one slot
-  if (startSlot > endSlot) {
-    return null;
-  }
+  const startSlot = Math.floor(startRowsFromGrid);
+  const startOffsetInSlot = startRowsFromGrid - startSlot;
+  const endRowsFromGrid = startRowsFromGrid + rowSpan;
+  const endSlot = Math.min(
+    timeSlots.length - 1,
+    Math.ceil(endRowsFromGrid) - 1
+  );
 
   return {
     booking,
     startSlot,
     endSlot,
-    rowSpan: Math.max(0.5, rowSpan), // Minimum 0.5 to ensure visibility
+    rowSpan: Math.max(0.5, rowSpan), // Minimum visibility
+    startOffsetInSlot,
   };
 }
 

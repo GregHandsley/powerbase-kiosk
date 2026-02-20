@@ -321,6 +321,137 @@ body.kiosk-mode * {
   pointer-events: none;
 }
 
+.kiosk-platform-identity {
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(
+    165deg,
+    rgba(9, 20, 42, 0.88),
+    rgba(4, 10, 24, 0.94)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.kiosk-platform-identity--single {
+  min-width: 0;
+  min-height: 74px;
+}
+
+.kiosk-platform-flip {
+  width: 100%;
+  height: 100%;
+  perspective: 1000px;
+}
+
+.kiosk-platform-flip-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: kiosk-platform-flip 7s cubic-bezier(0.3, 0, 0.2, 1) infinite;
+}
+
+.kiosk-platform-flip-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.kiosk-platform-flip-front {
+  background: transparent;
+}
+
+.kiosk-platform-flip-back {
+  transform: rotateY(180deg);
+  background: transparent;
+}
+
+.kiosk-number-cycle-flip {
+  width: 100%;
+  height: 100%;
+  perspective: 1000px;
+}
+
+.kiosk-number-cycle-flip-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: kiosk-number-cycle-flip 760ms cubic-bezier(0.25, 0.8, 0.25, 1) both;
+}
+
+.kiosk-number-cycle-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.kiosk-number-cycle-front {
+  background: transparent;
+}
+
+.kiosk-number-cycle-back {
+  transform: rotateY(180deg);
+  background: transparent;
+}
+
+.kiosk-platform-number-display {
+  color: #f8fafc;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.84;
+  font-size: clamp(56px, 7.8vh, 96px);
+  text-shadow: 0 2px 10px rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.1rem 0.2rem;
+}
+
+.kiosk-logo-badge-image {
+  max-height: 54%;
+  max-width: 70%;
+  object-fit: contain;
+  opacity: 0.95;
+  filter: drop-shadow(0 2px 6px rgba(15, 23, 42, 0.35));
+}
+
+@keyframes kiosk-platform-flip {
+  0%,
+  38% {
+    transform: rotateY(0deg);
+  }
+  48%,
+  86% {
+    transform: rotateY(180deg);
+  }
+  100% {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes kiosk-number-cycle-flip {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(180deg);
+  }
+}
+
 .kiosk-status-row {
   background-color: #0a0f1a;
   padding: 0 1rem;

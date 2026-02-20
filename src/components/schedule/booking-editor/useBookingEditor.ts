@@ -747,11 +747,13 @@ export function useBookingEditor(
         // Fetch booking data to get organization_id and site_id
         const { data: bookingData } = await supabase
           .from('bookings')
-          .select('organization_id, site_id, title, status')
+          .select(
+            'organization_id, site_id, title, status, booking_type, squad_id, display_name'
+          )
           .eq('id', booking.bookingId)
           .single();
 
-        if (bookingData?.organization_id && bookingData?.site_id) {
+        if (bookingData?.organization_id) {
           // Get old and new values for the update
           const oldValue: Record<string, unknown> = {};
           const newValue: Record<string, unknown> = {};
@@ -777,7 +779,7 @@ export function useBookingEditor(
             ActivityLogger.booking
               .updated(
                 bookingData.organization_id,
-                bookingData.site_id,
+                bookingData.site_id ?? null,
                 user.id,
                 booking.bookingId,
                 oldValue,
@@ -785,6 +787,9 @@ export function useBookingEditor(
                 {
                   title: bookingData.title,
                   status: bookingData.status,
+                  booking_type: bookingData.booking_type,
+                  squad_id: bookingData.squad_id,
+                  display_name: bookingData.display_name,
                 }
               )
               .catch((err) => {
@@ -863,7 +868,7 @@ export function useBookingEditor(
       // Get booking data for task creation
       const { data: bookingData } = await supabase
         .from('bookings')
-        .select('title, status, recurrence')
+        .select('title, status, recurrence, processed_at, processed_snapshot')
         .eq('id', booking.bookingId)
         .single();
 
@@ -875,28 +880,53 @@ export function useBookingEditor(
       const allInstancesCancelled =
         instancesToCancel.length === seriesInstances.length;
 
-      // Update booking status to pending_cancellation if all instances are cancelled
-      // Otherwise, we'll mark individual instances (we may need to add a status field to instances)
-      // For now, if all instances are cancelled, update the booking status
-      if (allInstancesCancelled) {
-        const { error: bookingError } = await supabase
-          .from('bookings')
-          .update({
-            status: 'pending_cancellation',
-            last_edited_at: now.toISOString(),
-            last_edited_by: user.id,
-          })
-          .eq('id', booking.bookingId);
+      const requiresFormalCancellation = Boolean(
+        bookingData.status === 'processed' ||
+        bookingData.status === 'pending_cancellation' ||
+        bookingData.processed_at ||
+        bookingData.processed_snapshot
+      );
 
-        if (bookingError) {
-          throw new Error(bookingError.message);
+      if (!requiresFormalCancellation) {
+        // Never-processed bookings can be cancelled directly without bookings team intervention.
+        if (allInstancesCancelled) {
+          const { error: bookingError } = await supabase
+            .from('bookings')
+            .update({
+              status: 'cancelled',
+              last_edited_at: now.toISOString(),
+              last_edited_by: user.id,
+            })
+            .eq('id', booking.bookingId);
+
+          if (bookingError) {
+            throw new Error(bookingError.message);
+          }
+        } else {
+          // For partial cancellation on unprocessed bookings, remove only selected instances.
+          const { error: deleteError } = await supabase
+            .from('booking_instances')
+            .delete()
+            .in('id', instancesToCancel);
+
+          if (deleteError) {
+            throw new Error(deleteError.message);
+          }
+
+          const { error: bookingUpdateError } = await supabase
+            .from('bookings')
+            .update({
+              last_edited_at: now.toISOString(),
+              last_edited_by: user.id,
+            })
+            .eq('id', booking.bookingId);
+
+          if (bookingUpdateError) {
+            throw new Error(bookingUpdateError.message);
+          }
         }
       } else {
-        // For partial cancellations, we need to track which instances are cancelled
-        // Since booking_instances doesn't have a status field, we'll:
-        // 1. Update the booking status to pending_cancellation if it's not already
-        // 2. Store cancelled instance IDs in metadata or create a separate tracking table
-        // For now, let's update the booking status and note in the task metadata
+        // Previously processed bookings require formal cancellation workflow.
         const { error: bookingError } = await supabase
           .from('bookings')
           .update({
@@ -918,13 +948,13 @@ export function useBookingEditor(
             .eq('id', booking.bookingId)
             .single();
 
-          if (bookingFullData?.organization_id && bookingFullData?.site_id) {
+          if (bookingFullData?.organization_id) {
             const { ActivityLogger } =
               await import('../../../lib/activityLogger');
             ActivityLogger.booking
               .cancellationRequested(
                 bookingFullData.organization_id,
-                bookingFullData.site_id,
+                bookingFullData.site_id ?? null,
                 user.id,
                 booking.bookingId,
                 {
@@ -944,61 +974,63 @@ export function useBookingEditor(
         }
       }
 
-      // Create tasks for bookings team
+      // Create tasks for bookings team only when formal cancellation is required
       let allNotifyIds: string[] = [];
-      try {
-        const bookingsTeamIds = await getUserIdsByRole('bookings_team');
-        const adminIds = await getUserIdsByRole('admin');
-        allNotifyIds = [...new Set([...bookingsTeamIds, ...adminIds])];
+      if (requiresFormalCancellation) {
+        try {
+          const bookingsTeamIds = await getUserIdsByRole('bookings_team');
+          const adminIds = await getUserIdsByRole('admin');
+          allNotifyIds = [...new Set([...bookingsTeamIds, ...adminIds])];
 
-        if (allNotifyIds.length > 0) {
-          const cancelledCount = instancesToCancel.length;
-          const totalCount = seriesInstances.length;
-          const isPartial = cancelledCount < totalCount;
+          if (allNotifyIds.length > 0) {
+            const cancelledCount = instancesToCancel.length;
+            const totalCount = seriesInstances.length;
+            const isPartial = cancelledCount < totalCount;
 
-          const createdTasks = await createTasksForUsers(allNotifyIds, {
-            type: 'booking:cancelled',
-            title: isPartial
-              ? `Booking Partially Cancelled`
-              : 'Booking Cancellation Request',
-            message: isPartial
-              ? `Booking "${bookingData.title || 'Untitled'}" has ${cancelledCount} of ${totalCount} sessions marked for cancellation.`
-              : `Booking "${bookingData.title || 'Untitled'}" has been requested for cancellation and needs to be removed from Legend.`,
-            link: `/bookings-team?booking=${booking.bookingId}`,
-            metadata: {
-              booking_id: booking.bookingId,
-              booking_title: bookingData.title || null,
-              cancelled_by: user.id,
-              cancelled_instance_ids: instancesToCancel,
-              cancel_mode: cancelMode,
-              is_partial: isPartial,
-            },
-          });
+            const createdTasks = await createTasksForUsers(allNotifyIds, {
+              type: 'booking:cancelled',
+              title: isPartial
+                ? `Booking Partially Cancelled`
+                : 'Booking Cancellation Request',
+              message: isPartial
+                ? `Booking "${bookingData.title || 'Untitled'}" has ${cancelledCount} of ${totalCount} sessions marked for cancellation.`
+                : `Booking "${bookingData.title || 'Untitled'}" has been requested for cancellation and needs to be removed from Legend.`,
+              link: `/bookings-team?booking=${booking.bookingId}`,
+              metadata: {
+                booking_id: booking.bookingId,
+                booking_title: bookingData.title || null,
+                cancelled_by: user.id,
+                cancelled_instance_ids: instancesToCancel,
+                cancel_mode: cancelMode,
+                is_partial: isPartial,
+              },
+            });
 
-          // Invalidate tasks queries for all notified users so tasks appear immediately
-          if (createdTasks.length > 0) {
-            await Promise.all(
-              allNotifyIds.map((userId) =>
-                queryClient.invalidateQueries({ queryKey: ['tasks', userId] })
-              )
-            );
+            // Invalidate tasks queries for all notified users so tasks appear immediately
+            if (createdTasks.length > 0) {
+              await Promise.all(
+                allNotifyIds.map((userId) =>
+                  queryClient.invalidateQueries({ queryKey: ['tasks', userId] })
+                )
+              );
+            }
           }
+        } catch (taskError) {
+          console.error('Failed to create tasks for cancellation:', taskError);
+          // Log more details for debugging
+          if (taskError instanceof Error) {
+            console.error('Task creation error details:', {
+              message: taskError.message,
+              stack: taskError.stack,
+              bookingId: booking.bookingId,
+              allNotifyIds,
+            });
+          }
+          // Don't fail the cancellation if tasks fail, but log it prominently
+          setError(
+            `Booking cancelled, but failed to notify bookings team. Please check console for details.`
+          );
         }
-      } catch (taskError) {
-        console.error('Failed to create tasks for cancellation:', taskError);
-        // Log more details for debugging
-        if (taskError instanceof Error) {
-          console.error('Task creation error details:', {
-            message: taskError.message,
-            stack: taskError.stack,
-            bookingId: booking.bookingId,
-            allNotifyIds,
-          });
-        }
-        // Don't fail the cancellation if tasks fail, but log it prominently
-        setError(
-          `Booking cancelled, but failed to notify bookings team. Please check console for details.`
-        );
       }
 
       await queryClient.invalidateQueries({
@@ -1386,13 +1418,13 @@ export function useBookingEditor(
           .eq('id', booking.bookingId)
           .single();
 
-        if (bookingFullData?.organization_id && bookingFullData?.site_id) {
+        if (bookingFullData?.organization_id) {
           const { ActivityLogger } =
             await import('../../../lib/activityLogger');
           ActivityLogger.booking
             .updated(
               bookingFullData.organization_id,
-              bookingFullData.site_id,
+              bookingFullData.site_id ?? null,
               user.id,
               booking.bookingId,
               {

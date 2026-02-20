@@ -173,7 +173,7 @@ export function BookingDetailModal({
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} maxWidth="6xl">
+    <Modal isOpen={isOpen} onClose={onClose} maxWidth="6xl" lockScroll>
       <div className="space-y-4">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-700">
           <div className="flex items-center gap-3">

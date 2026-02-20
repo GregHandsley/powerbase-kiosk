@@ -316,8 +316,8 @@ export function BookingEditorModal({
           onCancelBooking={
             canEdit
               ? () => {
-                  setShowCancelDialog(true);
                   setCancelMode('single');
+                  setShowCancelDialog(true);
                 }
               : undefined
           }

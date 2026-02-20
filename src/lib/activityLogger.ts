@@ -76,7 +76,7 @@ export const ActivityLogger = {
   booking: {
     created: (
       organizationId: number,
-      siteId: number,
+      siteId: number | null,
       actorUserId: string,
       bookingId: number,
       metadata?: Record<string, unknown>
@@ -96,7 +96,7 @@ export const ActivityLogger = {
 
     updated: (
       organizationId: number,
-      siteId: number,
+      siteId: number | null,
       actorUserId: string,
       bookingId: number,
       oldValue: Record<string, unknown>,
@@ -120,7 +120,7 @@ export const ActivityLogger = {
 
     approved: (
       organizationId: number,
-      siteId: number,
+      siteId: number | null,
       actorUserId: string,
       bookingId: number,
       subjectUserId?: string | null,
@@ -142,7 +142,7 @@ export const ActivityLogger = {
 
     rejected: (
       organizationId: number,
-      siteId: number,
+      siteId: number | null,
       actorUserId: string,
       bookingId: number,
       subjectUserId: string,
@@ -164,7 +164,7 @@ export const ActivityLogger = {
 
     cancellationRequested: (
       organizationId: number,
-      siteId: number,
+      siteId: number | null,
       actorUserId: string,
       bookingId: number,
       metadata?: Record<string, unknown>
@@ -184,7 +184,7 @@ export const ActivityLogger = {
 
     cancellationConfirmed: (
       organizationId: number,
-      siteId: number,
+      siteId: number | null,
       actorUserId: string,
       bookingId: number,
       metadata?: Record<string, unknown>
@@ -204,7 +204,7 @@ export const ActivityLogger = {
 
     cancelled: (
       organizationId: number,
-      siteId: number,
+      siteId: number | null,
       actorUserId: string,
       bookingId: number,
       metadata?: Record<string, unknown>
@@ -224,7 +224,7 @@ export const ActivityLogger = {
 
     deleted: (
       organizationId: number,
-      siteId: number,
+      siteId: number | null,
       actorUserId: string,
       bookingId: number,
       metadata?: Record<string, unknown>

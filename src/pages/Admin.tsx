@@ -11,6 +11,8 @@ import { AuditLog } from '../components/admin/audit/AuditLog';
 import { ActivityLog } from '../components/admin/activity/ActivityLog';
 import { AnnouncementManagement } from '../components/admin/announcements/AnnouncementManagement';
 import { PlayerManagement } from '../components/admin/players/PlayerManagement';
+import { BookingCatalogueManagement } from '../components/admin/booking-catalogue/BookingCatalogueManagement';
+import { WayfindingMaps } from '../components/admin/wayfinding/WayfindingMaps';
 import { Clock } from '../components/Clock';
 import {
   usePermission,
@@ -53,6 +55,12 @@ export function Admin() {
       title: 'Player Management',
       subtitle: 'Create and manage kiosk players.',
     },
+    'booking-catalogue': {
+      crumb: 'Booking Catalogue',
+      title: 'Booking Catalogue',
+      subtitle:
+        'Manage booking families/squads, active state, ordering, and migration helpers.',
+    },
     'notification-settings': {
       crumb: 'Notification Settings',
       title: 'System Notification Settings',
@@ -63,6 +71,11 @@ export function Admin() {
       crumb: 'Branding',
       title: 'Branding',
       subtitle: 'Customize colors and logo for your organization.',
+    },
+    'wayfinding-maps': {
+      crumb: 'Wayfinding Maps',
+      title: 'Wayfinding Maps',
+      subtitle: 'Copy kiosk map URLs for screen setup.',
     },
     invitations: {
       crumb: 'Invitations',
@@ -212,7 +225,7 @@ export function Admin() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden border-l border-white/5 bg-slate-950/40">
-        <div className="px-8 py-6 border-b border-white/5">
+        <div className="mx-6 mt-4 rounded-xl glass-panel border border-white/10 px-8 py-6 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
             Admin <span className="mx-1">→</span> {viewMeta.crumb}
           </div>
@@ -252,17 +265,19 @@ export function Admin() {
           </div>
         </div>
         <main
-          className={`flex-1 px-8 py-6 ${view === 'branding' ? 'overflow-y-auto' : 'overflow-hidden'}`}
+          className={`flex-1 px-8 py-6 ${view === 'branding' || view === 'booking-catalogue' ? 'overflow-y-auto' : 'overflow-hidden'}`}
         >
           {view === 'capacity-schedule' && <CapacityManagement />}
           {view === 'period-capacity' && <PeriodTypeCapacityManagement />}
           {view === 'players' && <PlayerManagement />}
+          {view === 'booking-catalogue' && <BookingCatalogueManagement />}
           {view === 'notification-settings' && (
             <NotificationSettings
               onUnsavedChangesChange={setHasUnsavedNotificationChanges}
             />
           )}
           {view === 'branding' && <BrandingSettings />}
+          {view === 'wayfinding-maps' && <WayfindingMaps />}
           {view === 'invitations' && (
             <InvitationManagement
               showCreateForm={showCreateInvitationForm}

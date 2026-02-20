@@ -14,7 +14,7 @@ export function CurrentTimeIndicator({ position, isToday, numRacks }: Props) {
 
   return (
     <div
-      className="absolute left-0 z-30 pointer-events-none"
+      className="absolute left-0 z-[15] pointer-events-none"
       style={{
         top: `${position.top}px`,
         width: totalGridWidth ? `${totalGridWidth}px` : '100%',
@@ -23,17 +23,19 @@ export function CurrentTimeIndicator({ position, isToday, numRacks }: Props) {
     >
       <div className="flex items-center w-full">
         {/* Time label on the left - sticky */}
-        <div className="sticky left-0 z-30 bg-indigo-600 text-white text-xs font-mono px-2 py-0.5 rounded-r border-r-2 border-indigo-300 shadow-lg flex-shrink-0">
-          {format(new Date(), 'HH:mm')}
+        <div className="sticky left-0 z-[15] bg-amber-400/95 text-slate-950 text-xs font-semibold font-mono px-2 py-0.5 rounded-r border-r-2 border-amber-200 shadow-[0_0_0_1px_rgba(251,191,36,0.4),0_6px_16px_rgba(251,191,36,0.35)] flex-shrink-0">
+          NOW {format(new Date(), 'HH:mm')}
         </div>
-        {/* Line across all racks - spans the full remaining width */}
+        {/* High-contrast line across racks */}
         <div
-          className="h-0.5 bg-indigo-500 flex-1"
+          className="relative flex-1"
           style={{
             minWidth: numRacks ? `${numRacks * 120}px` : undefined,
-            boxShadow: '0 0 8px rgba(var(--brand-primary-rgb), 0.6)',
           }}
-        />
+        >
+          <div className="h-1 w-full bg-amber-500/85 shadow-[0_0_10px_rgba(251,191,36,0.65)]" />
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-white/90" />
+        </div>
       </div>
     </div>
   );

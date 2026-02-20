@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { useAuth } from '../../context/AuthContext';
@@ -24,42 +25,110 @@ export function AdminSidebar({
     {
       path: '/admin?view=capacity-schedule',
       label: 'Capacity Schedule',
+      section: 'operations',
     },
     {
       path: '/admin?view=period-capacity',
       label: 'Period Capacity',
+      section: 'operations',
     },
     {
       path: '/admin?view=players',
       label: 'Players',
+      section: 'operations',
+    },
+    {
+      path: '/admin?view=booking-catalogue',
+      label: 'Booking Catalogue',
+      section: 'operations',
     },
     {
       path: '/admin?view=notification-settings',
       label: 'Notification Settings',
+      section: 'comms',
     },
     {
       path: '/admin?view=branding',
       label: 'Branding',
+      section: 'appearance',
+      requiresSuperAdmin: true,
+    },
+    {
+      path: '/admin?view=wayfinding-maps',
+      label: 'Wayfinding Maps',
+      section: 'appearance',
       requiresSuperAdmin: true,
     },
     {
       path: '/admin?view=invitations',
       label: 'Invitations',
+      section: 'comms',
     },
     {
       path: '/admin?view=audit',
       label: 'Audit Log',
+      section: 'monitoring',
     },
     {
       path: '/admin?view=activity',
       label: 'Activity Log',
+      section: 'monitoring',
     },
     {
       path: '/admin?view=announcements',
       label: 'Announcements',
+      section: 'comms',
       requiresSuperAdmin: true,
     },
   ].filter((item) => (item.requiresSuperAdmin ? isSuperAdmin : true));
+
+  const sectionMeta: Record<
+    'operations' | 'comms' | 'monitoring' | 'appearance',
+    { label: string }
+  > = {
+    operations: { label: 'Operations' },
+    comms: { label: 'Comms & Access' },
+    monitoring: { label: 'Monitoring' },
+    appearance: { label: 'Appearance' },
+  };
+
+  const sectionOrder: Array<keyof typeof sectionMeta> = [
+    'operations',
+    'comms',
+    'monitoring',
+    'appearance',
+  ];
+
+  const groupedMenuItems = useMemo(() => {
+    const grouped: Record<string, typeof menuItems> = {};
+    for (const item of menuItems) {
+      if (!grouped[item.section]) grouped[item.section] = [];
+      grouped[item.section].push(item);
+    }
+    return grouped;
+  }, [menuItems]);
+
+  const [collapsedSections, setCollapsedSections] = useState<
+    Record<string, boolean>
+  >(() => {
+    if (typeof window === 'undefined') {
+      return {};
+    }
+    try {
+      const raw = window.localStorage.getItem('admin-sidebar-collapsed');
+      return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(
+      'admin-sidebar-collapsed',
+      JSON.stringify(collapsedSections)
+    );
+  }, [collapsedSections]);
 
   return (
     <>
@@ -102,27 +171,58 @@ export function AdminSidebar({
           </div>
         </div>
 
-        <nav className="flex-1 px-4 pb-4 pt-2 space-y-1.5">
-          {menuItems.map((item) => {
-            const currentView =
-              new URLSearchParams(location.search).get('view') ||
-              'capacity-schedule';
-            const itemView = item.path.split('view=')[1];
-            const isActive =
-              location.pathname === '/admin' && currentView === itemView;
+        <nav className="flex-1 px-4 pb-4 pt-2 space-y-3">
+          {sectionOrder.map((sectionKey) => {
+            const items = groupedMenuItems[sectionKey] ?? [];
+            if (items.length === 0) return null;
+            const isCollapsed = collapsedSections[sectionKey] ?? false;
+
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={clsx(
-                  'flex items-center gap-2 px-2.5 py-2 rounded-md text-sm font-normal transition-colors',
-                  isActive
-                    ? 'bg-indigo-500/20 text-slate-100'
-                    : 'text-slate-300/80 hover:bg-slate-800/40 hover:text-slate-100'
+              <div key={sectionKey}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCollapsedSections((prev) => ({
+                      ...prev,
+                      [sectionKey]: !isCollapsed,
+                    }))
+                  }
+                  className="mb-1.5 flex w-full items-center justify-between rounded px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-300"
+                >
+                  <span>{sectionMeta[sectionKey].label}</span>
+                  <span className="text-slate-500">
+                    {isCollapsed ? '+' : '-'}
+                  </span>
+                </button>
+
+                {!isCollapsed && (
+                  <div className="space-y-1.5">
+                    {items.map((item) => {
+                      const currentView =
+                        new URLSearchParams(location.search).get('view') ||
+                        'capacity-schedule';
+                      const itemView = item.path.split('view=')[1];
+                      const isActive =
+                        location.pathname === '/admin' &&
+                        currentView === itemView;
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          className={clsx(
+                            'flex items-center gap-2 px-2.5 py-2 rounded-md text-sm font-normal transition-colors',
+                            isActive
+                              ? 'bg-indigo-500/20 text-slate-100'
+                              : 'text-slate-300/80 hover:bg-slate-800/40 hover:text-slate-100'
+                          )}
+                        >
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 )}
-              >
-                <span>{item.label}</span>
-              </Link>
+              </div>
             );
           })}
         </nav>

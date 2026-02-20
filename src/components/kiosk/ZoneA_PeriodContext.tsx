@@ -13,6 +13,9 @@ type Props = {
   periodEnd: string | null; // ISO time string
   nextPeriodType: PeriodType | null;
   nextPeriodStart: string | null; // ISO time string
+  performanceCapacityUsed?: number | null;
+  performanceCapacityLimit?: number | null;
+  now: Date;
   isLoading?: boolean;
 };
 
@@ -23,7 +26,7 @@ type Props = {
  * Rules: Static (never cycles), applies to everyone
  *
  * Content:
- * - Large title: CURRENT PERIOD
+ * - Large title: SESSION NOW
  * - Period name (e.g. PERFORMANCE)
  * - Time range (e.g. 12:00–13:00)
  * - Optional: small "Next period" preview
@@ -34,22 +37,56 @@ export function PeriodPanel({
   periodEnd,
   nextPeriodType,
   nextPeriodStart,
+  performanceCapacityUsed = null,
+  performanceCapacityLimit = null,
+  now,
   isLoading = false,
 }: Props) {
+  const clockMain = format(now, 'HH:mm');
+  const clockSeconds = format(now, 'ss');
+  const dateLabel = format(now, 'EEE d MMM');
+  const sectionLabel = 'Session';
+
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        <div className="kiosk-kicker">Current Period</div>
-        <div className="text-slate-400 text-lg">Loading...</div>
+      <div className="h-full flex items-center justify-between gap-6">
+        <div className="space-y-2">
+          <div className="kiosk-kicker">{sectionLabel}</div>
+          <div className="text-slate-400 text-lg">Loading...</div>
+        </div>
+        <div className="text-right flex flex-col items-end">
+          <div className="kiosk-kicker">{dateLabel}</div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <div className="text-[clamp(44px,5.6vh,76px)] font-semibold tracking-tight text-slate-100 font-mono leading-none">
+              {clockMain}
+            </div>
+            <div className="text-[clamp(18px,2.2vh,30px)] text-slate-400 font-mono leading-none">
+              {clockSeconds}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!periodType) {
     return (
-      <div className="space-y-3">
-        <div className="kiosk-kicker">Current Period</div>
-        <div className="text-slate-400 text-lg">No period data</div>
+      <div className="h-full flex items-center justify-between gap-6">
+        <div className="space-y-2">
+          <div className="kiosk-kicker">{sectionLabel}</div>
+          <div className="text-slate-400 text-lg">No period data</div>
+        </div>
+        <div className="text-right flex flex-col items-end">
+          <div className="kiosk-kicker">{dateLabel}</div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <div className="text-[clamp(44px,5.6vh,76px)] font-semibold tracking-tight text-slate-100 font-mono leading-none">
+              {clockMain}
+            </div>
+            <div className="text-[clamp(18px,2.2vh,30px)] text-slate-400 font-mono leading-none">
+              {clockSeconds}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -62,29 +99,55 @@ export function PeriodPanel({
   const nextPeriodTime = nextPeriodStart
     ? format(new Date(nextPeriodStart), 'HH:mm')
     : null;
+  const showPerformanceCapacity =
+    periodType === 'Performance' ||
+    periodType === 'High Hybrid' ||
+    periodType === 'Low Hybrid';
+  const performanceCapacityLabel =
+    showPerformanceCapacity && performanceCapacityLimit !== null
+      ? `Performance capacity: ${performanceCapacityUsed ?? 0}/${performanceCapacityLimit}`
+      : null;
 
   return (
-    <div className="space-y-5">
-      <div className="kiosk-kicker">Current Period</div>
-
-      <div className="text-[clamp(36px,4.6vh,64px)] font-semibold tracking-tight text-slate-100">
-        {periodType}
-      </div>
-
-      {timeRange && (
-        <div className="text-[clamp(20px,2.8vh,36px)] text-slate-300 font-mono tracking-[0.08em]">
-          {timeRange}
+    <div className="h-full grid grid-rows-[minmax(0,1fr)_auto] gap-3">
+      <div className="min-h-0 flex items-center justify-between gap-8">
+        <div className="min-w-0 space-y-2">
+          <div className="kiosk-kicker">{sectionLabel}</div>
+          <div className="text-[clamp(34px,4.3vh,58px)] font-semibold tracking-tight text-slate-100">
+            {periodType}
+          </div>
+          {timeRange && (
+            <div className="text-[clamp(17px,2.4vh,30px)] text-slate-300 font-mono tracking-[0.06em]">
+              {timeRange}
+            </div>
+          )}
+          {performanceCapacityLabel && (
+            <div className="text-[clamp(12px,1.5vh,18px)] text-slate-300">
+              {performanceCapacityLabel}
+            </div>
+          )}
+          {nextPeriodType && nextPeriodTime && (
+            <div className="text-[clamp(12px,1.5vh,16px)] text-slate-400">
+              Next change: {nextPeriodType} {nextPeriodTime}
+            </div>
+          )}
         </div>
-      )}
 
-      {nextPeriodType && nextPeriodTime && (
-        <div className="pt-3">
-          <div className="kiosk-kicker mb-2">Next Period</div>
-          <div className="text-[clamp(14px,1.9vh,22px)] text-slate-400">
-            {nextPeriodType} from {nextPeriodTime}
+        <div className="text-right shrink-0 flex flex-col items-end">
+          <div className="kiosk-kicker">{dateLabel}</div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <div className="text-[clamp(48px,6vh,86px)] font-semibold tracking-tight text-slate-100 font-mono leading-none">
+              {clockMain}
+            </div>
+            <div className="text-[clamp(18px,2.2vh,30px)] text-slate-400 font-mono leading-none">
+              {clockSeconds}
+            </div>
           </div>
         </div>
-      )}
+      </div>
+      <div className="rounded-md border border-slate-700/80 bg-slate-900/25 px-3 py-2 text-[clamp(11px,1.35vh,16px)] text-slate-300">
+        All users must have a valid booking to train.
+      </div>
     </div>
   );
 }

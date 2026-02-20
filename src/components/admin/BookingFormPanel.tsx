@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import {
   BookingFormSchema,
@@ -24,6 +25,26 @@ import {
 import type { OrgRole } from '../../types/auth';
 import { isAdminRole } from '../../types/auth';
 import clsx from 'clsx';
+import { ModalPortal } from '../shared/ModalPortal';
+import { supabase } from '../../lib/supabaseClient';
+
+type BookingFamily = {
+  id: number;
+  organization_id: number;
+  name: string;
+  active: boolean;
+  sort_order: number;
+};
+
+type BookingSquad = {
+  id: number;
+  family_id: number;
+  organization_id: number;
+  name: string;
+  logo_url: string | null;
+  active: boolean;
+  sort_order: number;
+};
 
 type Props = {
   role: OrgRole; // Now accepts all org roles (2.3.1)
@@ -55,6 +76,10 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(BookingFormSchema),
     defaultValues: {
+      bookingType: 'catalogue',
+      squadFamilyId: null,
+      squadId: null,
+      oneOffName: '',
       title: '',
       sideKey: 'Power',
       startDate: todayStr,
@@ -63,7 +88,6 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
       weeks: 1,
       racksInput: '',
       areas: [],
-      color: '#4f46e5',
       isLocked: false,
       emergencyReason: '',
       capacity: 1,
@@ -82,6 +106,10 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
           : 'Power';
 
       const valuesToSet: BookingFormValues = {
+        bookingType: 'catalogue',
+        squadFamilyId: null,
+        squadId: null,
+        oneOffName: '',
         title: '',
         startDate: todayStr,
         startTime: '07:00',
@@ -89,7 +117,6 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
         weeks: 1,
         racksInput: '',
         areas: [],
-        color: '#4f46e5',
         isLocked: false,
         emergencyReason: '',
         capacity: 1,
@@ -104,6 +131,13 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   // Get side ID for closed times check
   const [sideId, setSideId] = useState<number | null>(null);
   const sideKey = useWatch({ control: form.control, name: 'sideKey' });
+  const bookingType = useWatch({ control: form.control, name: 'bookingType' });
+  const selectedFamilyId = useWatch({
+    control: form.control,
+    name: 'squadFamilyId',
+  });
+  const selectedSquadId = useWatch({ control: form.control, name: 'squadId' });
+  const oneOffName = useWatch({ control: form.control, name: 'oneOffName' });
   const startDate = useWatch({ control: form.control, name: 'startDate' });
 
   useEffect(() => {
@@ -111,6 +145,96 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
       .then(setSideId)
       .catch(console.error);
   }, [sideKey]);
+
+  const { data: bookingFamilies = [], isLoading: bookingFamiliesLoading } =
+    useQuery({
+      queryKey: ['booking-families', primaryOrgId],
+      queryFn: async () => {
+        if (!primaryOrgId) return [] as BookingFamily[];
+        const { data, error } = await supabase
+          .from('booking_families')
+          .select('id, organization_id, name, active, sort_order')
+          .eq('organization_id', primaryOrgId)
+          .eq('active', true)
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true });
+        if (error) throw error;
+        return (data ?? []) as BookingFamily[];
+      },
+      enabled: !!primaryOrgId,
+    });
+
+  const { data: bookingSquads = [], isLoading: bookingSquadsLoading } =
+    useQuery({
+      queryKey: ['booking-squads', primaryOrgId],
+      queryFn: async () => {
+        if (!primaryOrgId) return [] as BookingSquad[];
+        const { data, error } = await supabase
+          .from('booking_squads')
+          .select(
+            'id, family_id, organization_id, name, logo_url, active, sort_order'
+          )
+          .eq('organization_id', primaryOrgId)
+          .eq('active', true)
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true });
+        if (error) throw error;
+        return (data ?? []) as BookingSquad[];
+      },
+      enabled: !!primaryOrgId,
+    });
+
+  const filteredSquads = useMemo(() => {
+    if (!selectedFamilyId) return [] as BookingSquad[];
+    return bookingSquads.filter(
+      (squad) => squad.family_id === selectedFamilyId
+    );
+  }, [bookingSquads, selectedFamilyId]);
+
+  const selectedSquad = useMemo(
+    () => bookingSquads.find((squad) => squad.id === selectedSquadId) ?? null,
+    [bookingSquads, selectedSquadId]
+  );
+
+  useEffect(() => {
+    if (bookingType === 'catalogue') {
+      if (selectedSquad) {
+        form.setValue('title', selectedSquad.name, { shouldValidate: true });
+      } else {
+        form.setValue('title', '', { shouldValidate: true });
+      }
+      return;
+    }
+
+    form.setValue('title', oneOffName?.trim() ?? '', { shouldValidate: true });
+  }, [bookingType, selectedSquad, oneOffName, form]);
+
+  useEffect(() => {
+    if (bookingType !== 'catalogue') return;
+    if (!selectedFamilyId) {
+      form.setValue('squadId', null, { shouldValidate: false });
+      return;
+    }
+    const hasSelectedSquad = filteredSquads.some(
+      (squad) => squad.id === selectedSquadId
+    );
+    if (!hasSelectedSquad) {
+      form.setValue('squadId', null, { shouldValidate: false });
+    }
+  }, [bookingType, selectedFamilyId, selectedSquadId, filteredSquads, form]);
+
+  useEffect(() => {
+    if (bookingFamiliesLoading || bookingSquadsLoading) return;
+    if (bookingFamilies.length === 0 || bookingSquads.length === 0) {
+      form.setValue('bookingType', 'one_off', { shouldValidate: true });
+    }
+  }, [
+    bookingFamiliesLoading,
+    bookingSquadsLoading,
+    bookingFamilies.length,
+    bookingSquads.length,
+    form,
+  ]);
 
   // Get closed times for the selected date and side
   const {
@@ -131,12 +255,18 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   const [overrideReasonError, setOverrideReasonError] = useState<string | null>(
     null
   );
+  const successHandledRef = useRef(false);
 
   // Check if selected times are closed
   const startTime = useWatch({ control: form.control, name: 'startTime' });
   const endTime = useWatch({ control: form.control, name: 'endTime' });
   const capacity = useWatch({ control: form.control, name: 'capacity' });
   const weeks = useWatch({ control: form.control, name: 'weeks' });
+  const canCreateOneOff = useMemo(() => {
+    const allowedRoles = notificationSettings?.one_off_allowed_roles;
+    if (!allowedRoles || allowedRoles.length === 0) return true;
+    return allowedRoles.includes(role);
+  }, [notificationSettings?.one_off_allowed_roles, role]);
   // Check if any time in the range is closed
   const timeRangeIsClosed = useMemo(() => {
     if (!startTime || !endTime) return false;
@@ -194,6 +324,28 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
 
   // Wrapper to enforce cutoff UX before calling onSubmit
   const handleSubmitWithCutoff = form.handleSubmit((vals) => {
+    if (vals.bookingType === 'catalogue') {
+      if (!vals.squadFamilyId) {
+        setInlineError(
+          'Please select a family before creating a squad booking.'
+        );
+        return;
+      }
+      if (!vals.squadId) {
+        setInlineError(
+          'Please select a squad before creating a squad booking.'
+        );
+        return;
+      }
+    } else {
+      if (!vals.oneOffName?.trim()) {
+        setInlineError(
+          'Please enter a one-off booking name before creating the booking.'
+        );
+        return;
+      }
+    }
+
     if (hardRestrictionEnabled && isInsideHardCutoff) {
       // Non-admins are blocked inside the cutoff window
       if (!isAdminRole(role)) {
@@ -225,12 +377,13 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
 
   // Call onSuccess when booking is successfully created
   useEffect(() => {
-    if (submitMessage && onSuccess) {
-      // Delay slightly to show the success message
-      const timer = setTimeout(() => {
-        onSuccess();
-      }, 1500);
-      return () => clearTimeout(timer);
+    if (submitMessage && onSuccess && !successHandledRef.current) {
+      successHandledRef.current = true;
+      onSuccess();
+    }
+
+    if (!submitMessage) {
+      successHandledRef.current = false;
     }
   }, [submitMessage, onSuccess]);
 
@@ -282,20 +435,138 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
       >
         {/* Left column: basic details and time */}
         <div className="space-y-2">
-          {/* Title */}
+          {/* Booking source */}
           <div>
-            <label className="block mb-1 font-medium">Title</label>
-            <input
-              className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
-              {...form.register('title')}
-              placeholder="e.g. Loughborough S&C – Squad A"
-            />
-            {form.formState.errors.title && (
-              <p className="text-red-400 mt-0.5">
-                {form.formState.errors.title.message}
+            <label className="block mb-1 font-medium">Booking Type</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  form.setValue('bookingType', 'catalogue', {
+                    shouldValidate: true,
+                  })
+                }
+                disabled={
+                  bookingFamilies.length === 0 || bookingSquads.length === 0
+                }
+                className={clsx(
+                  'flex-1 rounded-md border px-2 py-1 text-xs font-medium transition',
+                  bookingType === 'catalogue'
+                    ? 'bg-indigo-600 border-indigo-500 text-white'
+                    : 'bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900',
+                  (bookingFamilies.length === 0 ||
+                    bookingSquads.length === 0) &&
+                    'opacity-50 cursor-not-allowed'
+                )}
+              >
+                Squad Booking
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  form.setValue('bookingType', 'one_off', {
+                    shouldValidate: true,
+                  })
+                }
+                disabled={!canCreateOneOff}
+                className={clsx(
+                  'flex-1 rounded-md border px-2 py-1 text-xs font-medium transition',
+                  bookingType === 'one_off'
+                    ? 'bg-indigo-600 border-indigo-500 text-white'
+                    : 'bg-slate-950 border-slate-600 text-slate-300 hover:bg-slate-900',
+                  !canCreateOneOff && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                One-off Booking
+              </button>
+            </div>
+          </div>
+
+          {bookingType === 'catalogue' ? (
+            <>
+              <div>
+                <label className="block mb-1 font-medium">Family</label>
+                <select
+                  className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
+                  value={selectedFamilyId ?? ''}
+                  onChange={(e) =>
+                    form.setValue(
+                      'squadFamilyId',
+                      e.target.value ? Number(e.target.value) : null,
+                      { shouldValidate: true }
+                    )
+                  }
+                >
+                  <option value="">
+                    {bookingFamiliesLoading
+                      ? 'Loading families...'
+                      : 'Select family'}
+                  </option>
+                  {bookingFamilies.map((family) => (
+                    <option key={family.id} value={family.id}>
+                      {family.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block mb-1 font-medium">Squad</label>
+                <select
+                  className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
+                  value={selectedSquadId ?? ''}
+                  onChange={(e) =>
+                    form.setValue(
+                      'squadId',
+                      e.target.value ? Number(e.target.value) : null,
+                      { shouldValidate: true }
+                    )
+                  }
+                  disabled={!selectedFamilyId}
+                >
+                  <option value="">
+                    {bookingSquadsLoading
+                      ? 'Loading squads...'
+                      : selectedFamilyId
+                        ? 'Select squad'
+                        : 'Select family first'}
+                  </option>
+                  {filteredSquads.map((squad) => (
+                    <option key={squad.id} value={squad.id}>
+                      {squad.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block mb-1 font-medium">Booking Name</label>
+                <input
+                  className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
+                  {...form.register('oneOffName')}
+                  placeholder="Enter booking name"
+                />
+              </div>
+            </>
+          )}
+
+          {!canCreateOneOff && (
+            <p className="text-[11px] text-amber-300">
+              Your role is not allowed to create one-off bookings.
+            </p>
+          )}
+
+          {(bookingFamilies.length === 0 || bookingSquads.length === 0) &&
+            !bookingFamiliesLoading &&
+            !bookingSquadsLoading && (
+              <p className="text-[11px] text-amber-300">
+                No squad catalogue found yet. Using One-off Booking mode.
               </p>
             )}
-          </div>
+
+          <input type="hidden" {...form.register('title')} />
 
           {/* Side */}
           <div>
@@ -360,7 +631,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
           )}
         </div>
 
-        {/* Right column: areas, color, lock, submit */}
+        {/* Right column: areas, lock, submit */}
         <div className="space-y-2">
           {/* Areas */}
           <div>
@@ -406,23 +677,6 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
             <p className="text-[10px] text-slate-500 mt-1 italic">
               Area selection will be available in a later update
             </p>
-          </div>
-
-          {/* Colour */}
-          <div>
-            <label className="block mb-1 font-medium">Colour</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                className="w-10 h-7 rounded border border-slate-700 bg-slate-950"
-                {...form.register('color')}
-              />
-              <input
-                className="flex-1 rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
-                {...form.register('color')}
-                placeholder="#4f46e5"
-              />
-            </div>
           </div>
 
           {/* Locked booking */}
@@ -495,61 +749,63 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
 
       {/* Emergency reason modal (admin inside cutoff) */}
       {overrideModalOpen && isAdminRole(role) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 w-full max-w-lg space-y-3">
-            <h3 className="text-sm font-semibold text-slate-100">
-              Confirm emergency booking
-            </h3>
-            <p className="text-xs text-slate-300">
-              This booking is inside the {cutoffHours}-hour cutoff. Please
-              record why this needs to proceed now.
-            </p>
-            <textarea
-              className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
-              rows={4}
-              value={overrideReason}
-              onChange={(e) => setOverrideReason(e.target.value)}
-              placeholder="Reason for booking inside the cutoff window"
-            />
-            {overrideReasonError && (
-              <p className="text-xs text-red-400">{overrideReasonError}</p>
-            )}
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                className="px-3 py-1.5 text-xs rounded-md bg-slate-800 text-slate-200 hover:bg-slate-700"
-                onClick={() => {
-                  setOverrideModalOpen(false);
-                  setOverrideReason('');
-                  setOverrideReasonError(null);
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="px-3 py-1.5 text-xs rounded-md bg-indigo-600 text-white hover:bg-indigo-500"
-                onClick={() => {
-                  const reason = overrideReason.trim();
-                  if (!reason) {
-                    setOverrideReasonError(
-                      'Please provide a reason to proceed.'
-                    );
-                    return;
-                  }
-                  form.setValue('emergencyReason', reason, {
-                    shouldValidate: false,
-                  });
-                  setOverrideReasonError(null);
-                  setOverrideModalOpen(false);
-                  handleSubmitWithCutoff();
-                }}
-              >
-                Confirm booking
-              </button>
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 w-full max-w-lg space-y-3">
+              <h3 className="text-sm font-semibold text-slate-100">
+                Confirm emergency booking
+              </h3>
+              <p className="text-xs text-slate-300">
+                This booking is inside the {cutoffHours}-hour cutoff. Please
+                record why this needs to proceed now.
+              </p>
+              <textarea
+                className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500"
+                rows={4}
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder="Reason for booking inside the cutoff window"
+              />
+              {overrideReasonError && (
+                <p className="text-xs text-red-400">{overrideReasonError}</p>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  className="px-3 py-1.5 text-xs rounded-md bg-slate-800 text-slate-200 hover:bg-slate-700"
+                  onClick={() => {
+                    setOverrideModalOpen(false);
+                    setOverrideReason('');
+                    setOverrideReasonError(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="px-3 py-1.5 text-xs rounded-md bg-indigo-600 text-white hover:bg-indigo-500"
+                  onClick={() => {
+                    const reason = overrideReason.trim();
+                    if (!reason) {
+                      setOverrideReasonError(
+                        'Please provide a reason to proceed.'
+                      );
+                      return;
+                    }
+                    form.setValue('emergencyReason', reason, {
+                      shouldValidate: false,
+                    });
+                    setOverrideReasonError(null);
+                    setOverrideModalOpen(false);
+                    handleSubmitWithCutoff();
+                  }}
+                >
+                  Confirm booking
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

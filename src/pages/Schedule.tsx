@@ -252,6 +252,7 @@ export function Schedule() {
           isLocked: r.booking?.is_locked ?? false,
           createdBy: r.booking?.created_by ?? null,
           capacity: typeof r.capacity === 'number' ? r.capacity : undefined,
+          status: r.booking?.status as ActiveInstance['status'],
         };
       }) as ActiveInstance[];
     },
@@ -358,157 +359,162 @@ export function Schedule() {
   };
 
   return (
-    <div className="p-4 space-y-4">
-      {/* Header */}
-      <header className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-lg font-semibold">Schedule</h1>
-          <p className="text-sm text-slate-300">
-            Manage bookings and availability by rack and time.
-          </p>
-        </div>
+    <div className="h-full min-h-0 overflow-hidden p-4">
+      <div className="flex h-full min-h-0 flex-col gap-4">
+        {/* Header */}
+        <header className="flex shrink-0 flex-col gap-4">
+          <div>
+            <h1 className="text-lg font-semibold">Schedule</h1>
+            <p className="text-sm text-slate-300">
+              Manage bookings and availability by rack and time.
+            </p>
+          </div>
 
-        {/* Day Navigation */}
-        <DayNavigationHeader
-          currentDate={currentDate}
-          selectedSide={selectedSide}
-          onNavigateDay={navigateDay}
-          onGoToToday={goToToday}
-          onSideChange={setSelectedSide}
-          onDateChange={setCurrentDate}
-          lockedSide={
-            isSelectingRacks && bookingSide
-              ? bookingSide === 'Power' || bookingSide === 'Base'
-                ? bookingSide
+          {/* Day Navigation */}
+          <DayNavigationHeader
+            currentDate={currentDate}
+            selectedSide={selectedSide}
+            onNavigateDay={navigateDay}
+            onGoToToday={goToToday}
+            onSideChange={setSelectedSide}
+            onDateChange={setCurrentDate}
+            lockedSide={
+              isSelectingRacks && bookingSide
+                ? bookingSide === 'Power' || bookingSide === 'Base'
+                  ? bookingSide
+                  : undefined
                 : undefined
-              : undefined
+            }
+          />
+        </header>
+
+        {/* Rack Selection Panel */}
+        {isSelectingRacks && editingBooking && (
+          <div className="shrink-0 space-y-4">
+            <RackSelectionPanel
+              editingBooking={editingBooking}
+              selectedRacks={selectedRacks}
+              rackValidationError={rackValidationError}
+              savingRacks={savingRacks}
+              applyRacksToAll={applyRacksToAll}
+              setApplyRacksToAll={(value) => {
+                setApplyRacksToAll(value);
+                if (rackValidationError) {
+                  setRackValidationError(null);
+                }
+              }}
+              seriesInstancesForRacks={seriesInstancesForRacks}
+              weeksForRacks={weeksForRacks}
+              rackSelectionWeekIndex={rackSelectionWeekIndex}
+              setRackSelectionWeekIndex={setRackSelectionWeekIndex}
+              currentWeekInstancesForRacks={currentWeekInstancesForRacks}
+              selectedInstancesForRacks={selectedInstancesForRacks}
+              setSelectedInstancesForRacks={setSelectedInstancesForRacks}
+              handleCancelRackSelection={handleCancelRackSelection}
+              handleSaveRacks={handleSaveRacks}
+            />
+
+            {/* Mini Schedule Floorplan for rack selection */}
+            {currentWeekTimeRange &&
+              (() => {
+                const bookingSideKey: 'Power' | 'Base' | undefined =
+                  bookingSide === 'Power' || bookingSide === 'Base'
+                    ? bookingSide
+                    : undefined;
+                const finalSideKey: 'Power' | 'Base' =
+                  bookingSideKey ?? selectedSide;
+
+                return (
+                  <div className="border border-slate-700 rounded-lg bg-slate-900/60 p-4">
+                    <MiniScheduleFloorplan
+                      sideKey={finalSideKey}
+                      selectedRacks={selectedRacks}
+                      onRackClick={(rackNumber, replaceSelection = false) => {
+                        if (replaceSelection) {
+                          setSelectedRacks([rackNumber]);
+                          setRackValidationError(null);
+                          return;
+                        }
+                        handleRackClick(rackNumber);
+                      }}
+                      startTime={currentWeekTimeRange.start}
+                      endTime={currentWeekTimeRange.end}
+                      showTitle={true}
+                      allowConflictingRacks={false}
+                      ignoreBookings={false}
+                      excludeInstanceIds={
+                        new Set(seriesInstancesForRacks.map((inst) => inst.id))
+                      }
+                    />
+                  </div>
+                );
+              })()}
+          </div>
+        )}
+
+        {/* Schedule Grid */}
+        {!isSelectingRacks && (
+          <div className="flex-1 min-h-0">
+            {bookingsLoading || capacityLoading ? (
+              <div className="flex h-full items-center justify-center p-8">
+                <p className="text-sm text-slate-400">Loading...</p>
+              </div>
+            ) : (
+              <ScheduleGrid
+                racks={rackNumbers}
+                timeSlots={timeSlots}
+                selectedSide={selectedSide}
+                bookings={bookings}
+                currentDate={currentDate}
+                slotCapacityData={filteredSlotCapacityData}
+                capacityExceededBySlot={capacityExceededBySlot}
+                onCellClick={handleCellClick}
+                onBookingClick={handleEditBooking}
+                onDragSelection={handleDragSelection}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Booking Editor Modal */}
+        <BookingEditorModal
+          booking={editingBooking}
+          isOpen={editingBooking !== null && !isSelectingRacks}
+          onClose={handleModalClose}
+          onClearRacks={handleEditRacks}
+          initialSelectedInstances={
+            savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined
           }
         />
-      </header>
 
-      {/* Rack Selection Panel */}
-      {isSelectingRacks && editingBooking && (
-        <div className="space-y-4">
-          <RackSelectionPanel
-            editingBooking={editingBooking}
-            selectedRacks={selectedRacks}
-            rackValidationError={rackValidationError}
-            savingRacks={savingRacks}
-            applyRacksToAll={applyRacksToAll}
-            setApplyRacksToAll={(value) => {
-              setApplyRacksToAll(value);
-              if (rackValidationError) {
-                setRackValidationError(null);
-              }
-            }}
-            seriesInstancesForRacks={seriesInstancesForRacks}
-            weeksForRacks={weeksForRacks}
-            rackSelectionWeekIndex={rackSelectionWeekIndex}
-            setRackSelectionWeekIndex={setRackSelectionWeekIndex}
-            currentWeekInstancesForRacks={currentWeekInstancesForRacks}
-            selectedInstancesForRacks={selectedInstancesForRacks}
-            setSelectedInstancesForRacks={setSelectedInstancesForRacks}
-            handleCancelRackSelection={handleCancelRackSelection}
-            handleSaveRacks={handleSaveRacks}
+        {/* Create Booking Modal */}
+        {newBookingContext && (
+          <CreateBookingModal
+            isOpen={!!newBookingContext}
+            onClose={handleCloseNewBookingModal}
+            initialDate={newBookingContext.date}
+            initialTimeSlot={newBookingContext.timeSlot}
+            initialRack={newBookingContext.rack}
+            initialSide={newBookingContext.side}
+            role={role || 'snc_coach'}
+            selectedRacks={newBookingContext.selectedRacks}
+            endTimeSlot={newBookingContext.endTimeSlot}
+            onSuccess={handleCloseNewBookingModal}
           />
+        )}
 
-          {/* Mini Schedule Floorplan for rack selection */}
-          {currentWeekTimeRange &&
-            (() => {
-              const bookingSideKey: 'Power' | 'Base' | undefined =
-                bookingSide === 'Power' || bookingSide === 'Base'
-                  ? bookingSide
-                  : undefined;
-              const finalSideKey: 'Power' | 'Base' =
-                bookingSideKey ?? selectedSide;
-
-              return (
-                <div className="border border-slate-700 rounded-lg bg-slate-900/60 p-4">
-                  <MiniScheduleFloorplan
-                    sideKey={finalSideKey}
-                    selectedRacks={selectedRacks}
-                    onRackClick={(rackNumber, replaceSelection = false) => {
-                      if (replaceSelection) {
-                        setSelectedRacks([rackNumber]);
-                        setRackValidationError(null);
-                        return;
-                      }
-                      handleRackClick(rackNumber);
-                    }}
-                    startTime={currentWeekTimeRange.start}
-                    endTime={currentWeekTimeRange.end}
-                    showTitle={true}
-                    allowConflictingRacks={false}
-                    ignoreBookings={false}
-                    excludeInstanceIds={
-                      new Set(seriesInstancesForRacks.map((inst) => inst.id))
-                    }
-                  />
-                </div>
-              );
-            })()}
-        </div>
-      )}
-
-      {/* Schedule Grid */}
-      {!isSelectingRacks &&
-        (bookingsLoading || capacityLoading ? (
-          <div className="flex items-center justify-center p-8">
-            <p className="text-sm text-slate-400">Loading...</p>
-          </div>
-        ) : (
-          <ScheduleGrid
-            racks={rackNumbers}
-            timeSlots={timeSlots}
-            selectedSide={selectedSide}
-            bookings={bookings}
-            currentDate={currentDate}
-            slotCapacityData={filteredSlotCapacityData}
-            capacityExceededBySlot={capacityExceededBySlot}
-            onCellClick={handleCellClick}
-            onBookingClick={handleEditBooking}
-            onDragSelection={handleDragSelection}
+        {/* Update Racks Confirmation Dialog */}
+        {isSelectingRacks && (
+          <UpdateRacksConfirmationDialog
+            isOpen={showUpdateRacksConfirm}
+            sessionCount={selectedInstancesForRacks.size}
+            racks={selectedRacks}
+            onCancel={() => setShowUpdateRacksConfirm(false)}
+            onConfirm={performRackUpdate}
+            saving={savingRacks}
           />
-        ))}
-
-      {/* Booking Editor Modal */}
-      <BookingEditorModal
-        booking={editingBooking}
-        isOpen={editingBooking !== null && !isSelectingRacks}
-        onClose={handleModalClose}
-        onClearRacks={handleEditRacks}
-        initialSelectedInstances={
-          savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined
-        }
-      />
-
-      {/* Create Booking Modal */}
-      {newBookingContext && (
-        <CreateBookingModal
-          isOpen={!!newBookingContext}
-          onClose={handleCloseNewBookingModal}
-          initialDate={newBookingContext.date}
-          initialTimeSlot={newBookingContext.timeSlot}
-          initialRack={newBookingContext.rack}
-          initialSide={newBookingContext.side}
-          role={role || 'snc_coach'}
-          selectedRacks={newBookingContext.selectedRacks}
-          endTimeSlot={newBookingContext.endTimeSlot}
-          onSuccess={handleCloseNewBookingModal}
-        />
-      )}
-
-      {/* Update Racks Confirmation Dialog */}
-      {isSelectingRacks && (
-        <UpdateRacksConfirmationDialog
-          isOpen={showUpdateRacksConfirm}
-          sessionCount={selectedInstancesForRacks.size}
-          racks={selectedRacks}
-          onCancel={() => setShowUpdateRacksConfirm(false)}
-          onConfirm={performRackUpdate}
-          saving={savingRacks}
-        />
-      )}
+        )}
+      </div>
     </div>
   );
 }

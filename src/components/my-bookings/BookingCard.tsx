@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { format, parseISO, isAfter } from 'date-fns';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
@@ -14,9 +15,25 @@ type Props = {
   onEdit?: (booking: BookingWithInstances) => void;
   onDelete?: (booking: BookingWithInstances) => void;
   onExtend?: (booking: BookingWithInstances) => void;
+  onViewLifecycle?: (booking: BookingWithInstances) => void;
 };
 
-export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
+function formatStatusLabel(status: string): string {
+  return status
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+export function BookingCard({
+  booking,
+  onEdit,
+  onDelete,
+  onExtend,
+  onViewLifecycle,
+}: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const firstInstance = booking.instances[0];
   const lastInstance = booking.instances[booking.instances.length - 1];
   const totalInstances = booking.instances.length;
@@ -68,6 +85,20 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
   const isCancelled =
     booking.status === 'cancelled' || booking.status === 'pending_cancellation';
 
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
   return (
     <div
       className={clsx(
@@ -110,6 +141,37 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
               {totalInstances} session{totalInstances !== 1 ? 's' : ''}
             </span>
           </div>
+        </div>
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className="h-8 w-8 rounded-md border border-slate-700 bg-slate-900/70 text-slate-300 hover:text-white hover:border-slate-500"
+            aria-label="More booking options"
+            aria-expanded={menuOpen}
+          >
+            <span className="text-lg leading-none">⋯</span>
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 z-20 mt-1 w-44 rounded-md border border-slate-700 bg-slate-900 shadow-xl">
+              {onViewLifecycle ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onViewLifecycle(booking);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-800 rounded-md"
+                >
+                  View booking log
+                </button>
+              ) : (
+                <div className="px-3 py-2 text-sm text-slate-400">
+                  No actions available
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -169,10 +231,12 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
             {booking.status === 'processed' && booking.processed_at
               ? `Processed on ${format(parseISO(booking.processed_at), 'MMM d, yyyy')}`
               : booking.status === 'pending'
-                ? 'Pending processing'
+                ? 'Pending Processing'
                 : booking.status === 'draft'
                   ? 'Draft'
-                  : booking.status || 'Unknown'}
+                  : booking.status
+                    ? formatStatusLabel(booking.status)
+                    : 'Unknown'}
           </div>
         </div>
         {booking.processed_at && (
@@ -190,6 +254,7 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
         {liveViewUrl && !isCancelled && (
           <Link
             to={liveViewUrl}
+            onClick={(event) => event.stopPropagation()}
             className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors"
             title={
               isNextInstanceFuture
@@ -203,7 +268,10 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
         {onEdit && !isCancelled && (
           <button
             type="button"
-            onClick={() => onEdit(booking)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit(booking);
+            }}
             className="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded-md transition-colors"
           >
             Edit
@@ -212,7 +280,10 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
         {onExtend && (
           <button
             type="button"
-            onClick={() => onExtend(booking)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onExtend(booking);
+            }}
             className="px-3 py-1.5 text-sm bg-green-700 hover:bg-green-600 text-white rounded-md transition-colors"
           >
             Extend
@@ -221,7 +292,10 @@ export function BookingCard({ booking, onEdit, onDelete, onExtend }: Props) {
         {onDelete && (
           <button
             type="button"
-            onClick={() => onDelete(booking)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(booking);
+            }}
             className="px-3 py-1.5 text-sm bg-red-700 hover:bg-red-600 text-white rounded-md transition-colors"
           >
             Delete

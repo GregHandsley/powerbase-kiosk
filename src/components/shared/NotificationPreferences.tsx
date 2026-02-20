@@ -28,19 +28,6 @@ function formatNotificationType(type: NotificationType): string {
  *
  * This is NOT for system-wide admin settings (see NotificationSettings component in Admin panel).
  */
-function getNotificationDescription(type: NotificationType): string {
-  const descMap: Record<NotificationType, string> = {
-    'booking:created': 'When a new booking is created',
-    'booking:processed': 'When your booking is processed by the bookings team',
-    'booking:edited': 'When a booking you created is edited',
-    'booking:cancelled': 'When a booking is cancelled',
-    last_minute_change: 'When last-minute booking changes occur',
-    'system:update': 'Important system announcements and updates',
-    'feedback:response': 'When you receive a response to your feedback',
-  };
-  return descMap[type] || '';
-}
-
 export function NotificationPreferences() {
   const {
     preferences,
@@ -112,10 +99,6 @@ export function NotificationPreferences() {
             <h2 className="text-xl font-semibold text-slate-200">
               My Notification Preferences
             </h2>
-            <p className="text-sm text-slate-400 mt-1">
-              Control which notification types you receive and how (in-app or
-              email)
-            </p>
           </div>
           <div className="flex items-center gap-3">
             {isExpanded && (
@@ -196,9 +179,6 @@ export function NotificationPreferences() {
                     <h3 className="text-sm font-semibold text-slate-200">
                       {formatNotificationType(type)}
                     </h3>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {getNotificationDescription(type)}
-                    </p>
                   </div>
                   {isDefault && (
                     <span className="text-xs text-slate-500 px-2 py-1 bg-slate-800/50 rounded border border-slate-700">
@@ -213,9 +193,6 @@ export function NotificationPreferences() {
                     <label className="text-sm text-slate-300">
                       Enable notifications
                     </label>
-                    <p className="text-xs text-slate-500">
-                      Master switch for this notification type
-                    </p>
                   </div>
                   <button
                     type="button"
@@ -243,9 +220,6 @@ export function NotificationPreferences() {
                         <label className="text-sm text-slate-300">
                           In-app notifications
                         </label>
-                        <p className="text-xs text-slate-500">
-                          Show in notification bell
-                        </p>
                       </div>
                       <button
                         type="button"
@@ -271,7 +245,6 @@ export function NotificationPreferences() {
                         <label className="text-sm text-slate-300">
                           Email notifications
                         </label>
-                        <p className="text-xs text-slate-500">Send via email</p>
                       </div>
                       <button
                         type="button"

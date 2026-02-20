@@ -95,7 +95,7 @@ export function BookingPlatformSelection({
             <span className="text-xs text-slate-400 min-w-[80px] text-center">
               Week {currentWeekIndex + 1} of {weeksCount}
               {!applyToAllWeeks && (
-                <span className="block text-[10px] text-indigo-400 mt-0.5">
+                <span className="mt-0.5 block text-[10px] font-semibold text-cyan-300">
                   (Individual editing enabled)
                 </span>
               )}
@@ -137,7 +137,7 @@ export function BookingPlatformSelection({
             <span>Apply to all weeks</span>
           </label>
           {!applyToAllWeeks && (
-            <p className="text-[10px] text-slate-500 ml-5 italic">
+            <p className="ml-5 text-[10px] italic text-slate-300">
               Unlocked: You can now edit platforms and number of athletes
               individually for each week
             </p>

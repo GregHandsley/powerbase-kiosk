@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import type { OrgRole } from '../types/auth';
 
 export interface NotificationSettings {
   id: number;
@@ -19,6 +20,7 @@ export interface NotificationSettings {
   }>;
   reminder_recipient_roles: string[];
   reminder_recipient_user_ids: string[];
+  one_off_allowed_roles: OrgRole[];
   updated_at: string;
   updated_by: string | null;
 }
@@ -39,6 +41,7 @@ export interface UpdateNotificationSettingsInput {
   }>;
   reminder_recipient_roles?: string[];
   reminder_recipient_user_ids?: string[];
+  one_off_allowed_roles?: OrgRole[];
 }
 
 /**

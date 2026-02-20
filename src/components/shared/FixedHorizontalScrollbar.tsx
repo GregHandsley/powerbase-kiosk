@@ -48,10 +48,24 @@ export function FixedHorizontalScrollbar({
 
     checkOverflow();
 
-    // Use ResizeObserver to detect size changes
+    // Use ResizeObserver to detect both container and content size changes
     const resizeObserver = new ResizeObserver(checkOverflow);
-    if (scrollContainerRef.current) {
-      resizeObserver.observe(scrollContainerRef.current);
+    const container = scrollContainerRef.current;
+    if (container) {
+      resizeObserver.observe(container);
+      if (container.firstElementChild instanceof HTMLElement) {
+        resizeObserver.observe(container.firstElementChild);
+      }
+    }
+
+    // Watch DOM changes inside the scroll container (async grid/data updates).
+    const mutationObserver = new MutationObserver(checkOverflow);
+    if (container) {
+      mutationObserver.observe(container, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
     }
 
     // Also check on window resize
@@ -59,6 +73,7 @@ export function FixedHorizontalScrollbar({
 
     return () => {
       resizeObserver.disconnect();
+      mutationObserver.disconnect();
       window.removeEventListener('resize', checkOverflow);
     };
   }, [scrollContainerRef]);

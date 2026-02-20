@@ -16,6 +16,7 @@ import {
   parseExcludedDates,
   type ScheduleData,
 } from './capacity/scheduleUtils';
+import { ModalPortal } from '../shared/ModalPortal';
 
 type RecurrenceType =
   | 'single'
@@ -584,103 +585,105 @@ export function CapacityEditModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={onClose}
-    >
+    <ModalPortal>
       <div
-        className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        onClick={onClose}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-slate-100">
-            Edit Capacity
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200"
-            aria-label="Close"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        <div
+          className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-slate-100">
+              Edit Capacity
+            </h2>
+            <button
+              onClick={onClose}
+              className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+              aria-label="Close"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <CapacityEditForm
-          periodType={periodType}
-          setPeriodType={setPeriodType}
-          recurrenceType={recurrenceType}
-          setRecurrenceType={setRecurrenceType}
-          startTime={startTime}
-          setStartTime={setStartTime}
-          endTime={endTime}
-          setEndTime={setEndTime}
-          selectedPlatforms={selectedPlatforms}
-          setSelectedPlatforms={setSelectedPlatforms}
-          defaultCapacity={defaultCapacity}
-          loadingDefault={loadingDefault}
-          existingCapacity={existingCapacity}
-          capacityOverride={capacityOverride}
-          setCapacityOverride={setCapacityOverride}
-          useOverride={useOverride}
-          setUseOverride={setUseOverride}
-          initialDate={initialDate}
-          sideKey={sideKey}
-        />
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-4 p-3 rounded-md bg-red-900/20 border border-red-700">
-            <p className="text-sm text-red-400">{error}</p>
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
           </div>
-        )}
 
-        {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-700">
-          <div className="flex items-center gap-2">
-            {onDelete && (
+          <CapacityEditForm
+            periodType={periodType}
+            setPeriodType={setPeriodType}
+            recurrenceType={recurrenceType}
+            setRecurrenceType={setRecurrenceType}
+            startTime={startTime}
+            setStartTime={setStartTime}
+            endTime={endTime}
+            setEndTime={setEndTime}
+            selectedPlatforms={selectedPlatforms}
+            setSelectedPlatforms={setSelectedPlatforms}
+            defaultCapacity={defaultCapacity}
+            loadingDefault={loadingDefault}
+            existingCapacity={existingCapacity}
+            capacityOverride={capacityOverride}
+            setCapacityOverride={setCapacityOverride}
+            useOverride={useOverride}
+            setUseOverride={setUseOverride}
+            initialDate={initialDate}
+            sideKey={sideKey}
+          />
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 rounded-md bg-red-900/20 border border-red-700">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
+
+          {/* Footer Actions */}
+          <div className="flex items-center justify-between pt-4 border-t border-slate-700">
+            <div className="flex items-center gap-2">
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={saving}
+                  className="px-4 py-2 text-sm font-medium rounded-md bg-red-900/20 border border-red-700 text-red-400 hover:bg-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={onClose}
                 disabled={saving}
-                className="px-4 py-2 text-sm font-medium rounded-md bg-red-900/20 border border-red-700 text-red-400 hover:bg-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-slate-100 disabled:opacity-50"
               >
-                Delete
+                Cancel
               </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-slate-100 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }
