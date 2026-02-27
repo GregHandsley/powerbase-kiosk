@@ -5,10 +5,10 @@ import type {
 } from '../../../types/snapshot';
 import { RackSlot, type RackLayoutSlot } from '../shared/RackSlot';
 import {
-  platformPaletteByAppearance,
-  rackFontFamilyByAppearance,
-  type RackAppearance,
-} from '../shared/theme';
+  POWER_OPEN_PLATFORM_1,
+  POWER_OPEN_PLATFORM_2,
+} from '../../schedule/utils/platformUtils';
+import { type RackAppearance } from '../shared/theme';
 import '../../../styles/floorplan.css';
 
 type Props = {
@@ -77,7 +77,6 @@ export function PowerbaseFloorSvg({
     );
   };
 
-  const platformPalette = platformPaletteByAppearance[appearance];
   const platformShadowId = `platform-shadow-${appearance}`;
   const showPlatformShadow = appearance === 'kiosk';
 
@@ -291,63 +290,32 @@ export function PowerbaseFloorSvg({
         });
       })}
 
-      {/* Column 3: PLATFORM 1–2 + RACK K6–8 */}
-      {Array.from({ length: 5 }).map((_, row) => {
-        const x = col3X;
-        const y = rowY(row);
-
-        if (row === 0 || row === 1) {
-          const platformNo = row + 1;
-          return (
-            <g key={`platform-${platformNo}`}>
-              <rect
-                x={x}
-                y={y}
-                width={rackWidth}
-                height={rackHeight}
-                fill={platformPalette.fill}
-                stroke="none"
-                filter={
-                  showPlatformShadow ? `url(#${platformShadowId})` : undefined
-                }
-              />
-              <text
-                x={x + rackWidth / 2}
-                y={y + rackHeight / 2 - 1.7}
-                textAnchor="middle"
-                fontSize={2.4}
-                fill={platformPalette.text}
-                fontFamily={rackFontFamilyByAppearance[appearance]}
-                fontWeight={appearance === 'kiosk' ? 600 : 700}
-              >
-                PLATFORM
-              </text>
-              <text
-                x={x + rackWidth / 2}
-                y={y + rackHeight / 2 + 2.4}
-                textAnchor="middle"
-                fontSize={2.8}
-                fill={platformPalette.text}
-                fontFamily={rackFontFamilyByAppearance[appearance]}
-                fontWeight={appearance === 'kiosk' ? 600 : 700}
-              >
-                {platformNo}
-              </text>
-            </g>
-          );
-        }
-
-        const rackIndex = row - 2;
-        const code = 6 + rackIndex;
-
-        return renderRackSlot({
-          number: code,
-          x,
-          y,
+      {/* Column 3: PLATFORM 1–2 (bookable) + RACK K6–8 */}
+      {[
+        {
+          number: POWER_OPEN_PLATFORM_1,
+          label: 'Platform 1',
+          x: col3X,
+          y: rowY(0),
           width: rackWidth,
           height: rackHeight,
-        });
-      })}
+        },
+        {
+          number: POWER_OPEN_PLATFORM_2,
+          label: 'Platform 2',
+          x: col3X,
+          y: rowY(1),
+          width: rackWidth,
+          height: rackHeight,
+        },
+        ...([6, 7, 8] as const).map((code, row) => ({
+          number: code,
+          x: col3X,
+          y: rowY(row + 2),
+          width: rackWidth,
+          height: rackHeight,
+        })),
+      ].map((slot) => renderRackSlot(slot))}
 
       {/* Column 4: RACK K1–5 */}
       {col4Racks.map((code, row) => {

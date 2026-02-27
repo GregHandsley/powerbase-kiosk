@@ -1,8 +1,13 @@
+import { useRef, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useDroppable } from '@dnd-kit/core';
 import type { ActiveInstance } from '../../types/snapshot';
 import type { RackRow } from './RackListEditorCore';
+
+/** Matches home screen hover tooltip style */
+const OPEN_PLATFORM_TOOLTIP_CLASS =
+  'pointer-events-none fixed z-[200] min-w-[160px] rounded-md border border-indigo-300/70 bg-slate-950 px-2.5 py-1.5 text-[10px] text-slate-100 shadow-[0_10px_24px_rgba(2,6,23,0.85)] ring-1 ring-indigo-400/30';
 
 type Props = {
   row: RackRow;
@@ -29,8 +34,39 @@ export function RackRowDroppable({
   unavailableReason = null,
   onRackClick,
 }: Props) {
-  // Use a regular ref when selecting racks to avoid droppable interference
   const clickRef = useRef<HTMLDivElement>(null);
+  const [openPlatformTooltip, setOpenPlatformTooltip] = useState<{
+    show: boolean;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const handleOpenPlatformIconEnter = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (!row.isOpenPlatform) return;
+      e.stopPropagation();
+      setOpenPlatformTooltip({
+        show: true,
+        x: e.clientX,
+        y: e.clientY,
+      });
+    },
+    [row.isOpenPlatform]
+  );
+
+  const handleOpenPlatformIconMove = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (!row.isOpenPlatform || !openPlatformTooltip?.show) return;
+      setOpenPlatformTooltip((prev) =>
+        prev ? { ...prev, x: e.clientX, y: e.clientY } : null
+      );
+    },
+    [row.isOpenPlatform, openPlatformTooltip?.show]
+  );
+
+  const handleOpenPlatformIconLeave = useCallback(() => {
+    setOpenPlatformTooltip(null);
+  }, []);
 
   // Only use droppable when not in selection mode
   // Also disable if the rack is unavailable due to capacity schedules (e.g., General User)
@@ -125,9 +161,34 @@ export function RackRowDroppable({
       }`}
     >
       <div className="flex flex-col min-w-[100px] lg:min-w-[120px] flex-shrink-0">
-        <span className="font-semibold tracking-wide text-base sm:text-lg">
+        <span className="font-semibold tracking-wide text-base sm:text-lg flex items-center gap-1.5">
           {row.label}
+          {row.isOpenPlatform && (
+            <span
+              className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-600/80 text-slate-300 text-xs font-normal flex-shrink-0"
+              aria-label="Open platform without a rack"
+              onMouseEnter={handleOpenPlatformIconEnter}
+              onMouseMove={handleOpenPlatformIconMove}
+              onMouseLeave={handleOpenPlatformIconLeave}
+            >
+              i
+            </span>
+          )}
         </span>
+        {openPlatformTooltip?.show &&
+          createPortal(
+            <div
+              className={OPEN_PLATFORM_TOOLTIP_CLASS}
+              style={{
+                left: openPlatformTooltip.x + 12,
+                top: openPlatformTooltip.y - 12,
+                transform: 'translateY(-100%)',
+              }}
+            >
+              <div className="font-semibold">Open platform without a rack</div>
+            </div>,
+            document.body
+          )}
         <span className="text-sm sm:text-base text-slate-400">
           {row.disabled
             ? 'Not bookable'
@@ -135,9 +196,9 @@ export function RackRowDroppable({
               ? 'Closed'
               : unavailableReason === 'not-in-schedule'
                 ? 'General User'
-                : unavailableReason === 'booked'
-                  ? 'Assigned'
-                  : booking
+                : booking
+                  ? ''
+                  : unavailableReason === 'booked'
                     ? 'Assigned'
                     : 'Available'}
         </span>

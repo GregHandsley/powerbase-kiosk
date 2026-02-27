@@ -128,8 +128,8 @@ body {
   justify-content: stretch;
   padding: var(--kiosk-outer-gutter);
   box-sizing: border-box;
-  --kiosk-gutter: 2rem;
-  --kiosk-outer-gutter: 1.5rem;
+  --kiosk-gutter: 1rem;
+  --kiosk-outer-gutter: 0.75rem;
 }
 
 .kiosk-frame {
@@ -419,6 +419,12 @@ body.kiosk-mode * {
   justify-content: center;
   text-align: center;
   padding: 0.1rem 0.2rem;
+}
+
+/* Long labels (e.g. "Platform 1", "Platform 2") so they fit in the same column as single digits */
+.kiosk-platform-number-display--long {
+  font-size: clamp(16px, 2.2vh, 22px);
+  white-space: nowrap;
 }
 
 .kiosk-logo-badge-image {

@@ -29,6 +29,9 @@ type CreatePlayerModalProps = {
   onChangeLocation: (value: string) => void;
   onChangeDesiredUrl: (value: string) => void;
   onChangePowerState: (value: PowerState) => void;
+  pairingCode: string;
+  onChangePairingCode: (value: string) => void;
+  pairDeviceLoading?: boolean;
 };
 
 export function CreatePlayerModal({
@@ -55,6 +58,9 @@ export function CreatePlayerModal({
   onChangeLocation,
   onChangeDesiredUrl,
   onChangePowerState,
+  pairingCode,
+  onChangePairingCode,
+  pairDeviceLoading = false,
 }: CreatePlayerModalProps) {
   if (!isOpen) return null;
 
@@ -200,13 +206,40 @@ export function CreatePlayerModal({
               </select>
             </div>
 
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                Pairing code (optional)
+              </label>
+              <input
+                type="text"
+                value={pairingCode}
+                onChange={(e) => onChangePairingCode(e.target.value)}
+                placeholder="e.g. ABC-DEF-GHI from kiosk screen"
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-600 rounded text-sm text-slate-100 font-mono tracking-wider placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Enter the code shown on the unpaired kiosk to pair it to this
+                player in one step.
+              </p>
+            </div>
+
             <div className="flex items-center gap-3 pt-2">
               <button
                 type="submit"
-                disabled={!canSubmit}
+                disabled={
+                  !canSubmit ||
+                  createPlayerLoading ||
+                  (pairingCode.trim() !== '' && pairDeviceLoading)
+                }
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded transition-colors disabled:opacity-50"
               >
-                {createPlayerLoading ? 'Creating...' : 'Create Player'}
+                {createPlayerLoading
+                  ? 'Creating...'
+                  : pairingCode.trim() && pairDeviceLoading
+                    ? 'Pairing device...'
+                    : pairingCode.trim()
+                      ? 'Create player and pair device'
+                      : 'Create Player'}
               </button>
               <div className="text-xs text-slate-400">
                 {activeOrgId

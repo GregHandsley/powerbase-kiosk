@@ -20,6 +20,7 @@ export function ScheduleGrid({
   onCellClick,
   onBookingClick,
   onDragSelection,
+  selectedSide,
 }: ScheduleGridProps) {
   const numRacks = racks.length;
   // Use fixed width for rack columns (120px each) for better mobile/small screen support
@@ -98,6 +99,7 @@ export function ScheduleGrid({
           {/* Racks Header - Sticky */}
           <ScheduleGridHeader
             racks={racks}
+            selectedSide={selectedSide}
             gridTemplateColumns={gridTemplateColumns}
           />
 

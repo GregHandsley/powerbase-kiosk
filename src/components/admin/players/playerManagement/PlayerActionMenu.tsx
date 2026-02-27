@@ -22,6 +22,7 @@ type PlayerActionMenuProps = {
   onSendCommand: (playerId: number, type: string) => void;
   onUpdateAgent: (playerId: number) => void;
   onDeletePlayer: (playerId: number, playerName: string) => void;
+  onOpenPairModal: (player: PlayerListItem) => void;
 };
 
 export function PlayerActionMenu({
@@ -40,6 +41,7 @@ export function PlayerActionMenu({
   onSendCommand,
   onUpdateAgent,
   onDeletePlayer,
+  onOpenPairModal,
 }: PlayerActionMenuProps) {
   if (!isOpen || !position || !activePlayer) return null;
 
@@ -75,6 +77,16 @@ export function PlayerActionMenu({
         className="w-full rounded px-2 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-800"
       >
         View metrics
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onClose();
+          onOpenPairModal(activePlayer);
+        }}
+        className="w-full rounded px-2 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-800"
+      >
+        Pair device
       </button>
       <button
         type="button"

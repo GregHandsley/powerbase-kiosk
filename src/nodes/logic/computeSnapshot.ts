@@ -16,6 +16,11 @@ export function computeSnapshotFromInstances(
     );
   }
 
+  const atDayStart = new Date(at);
+  atDayStart.setHours(0, 0, 0, 0);
+  const atDayEnd = new Date(atDayStart);
+  atDayEnd.setDate(atDayEnd.getDate() + 1);
+
   const currentInstances: ActiveInstance[] = [];
   const nextUseByRack: Record<string, NextUseInfo | null> = {};
   const nextUseByArea: Record<string, NextUseInfo | null> = {};
@@ -50,8 +55,9 @@ export function computeSnapshotFromInstances(
       });
     }
 
-    // future: start > at -> contributes to next use
-    if (start > at) {
+    // next use: start > at and start is on the same calendar day as at (today only)
+    const isSameDay = start >= atDayStart && start < atDayEnd;
+    if (start > at && isSameDay) {
       const startIso = inst.start;
       const nextInfo: NextUseInfo = { start: startIso, title: bookingTitle };
 

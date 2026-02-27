@@ -12,6 +12,8 @@ import {
 
 export type RackLayoutSlot = {
   number: number;
+  /** Optional display label (e.g. "Platform 1" for open platforms) */
+  label?: string;
   x: number;
   y: number;
   width: number;
@@ -283,7 +285,8 @@ function RackSlotComponent({
         };
 
   // Top: Platform number - large, minimal, no badge
-  const labelText = isStatusBoard ? String(slot.number) : `Rack ${slot.number}`;
+  const labelText =
+    slot.label ?? (isStatusBoard ? String(slot.number) : `Rack ${slot.number}`);
   // Platform number - Apple-like clarity and contrast
   const labelColor = isStatusBoard
     ? isOccupied
@@ -696,6 +699,7 @@ function areRackSlotPropsEqual(prev: Props, next: Props) {
   if (nextUseKey(prev.nextUse) !== nextUseKey(next.nextUse)) return false;
   return (
     prev.slot.number === next.slot.number &&
+    prev.slot.label === next.slot.label &&
     prev.slot.x === next.slot.x &&
     prev.slot.y === next.slot.y &&
     prev.slot.width === next.slot.width &&

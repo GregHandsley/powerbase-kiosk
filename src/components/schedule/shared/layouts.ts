@@ -1,4 +1,8 @@
 import type { RackRow } from '../RackListEditorCore';
+import {
+  POWER_OPEN_PLATFORM_1,
+  POWER_OPEN_PLATFORM_2,
+} from '../utils/platformUtils';
 
 /**
  * Base side rack layout definition
@@ -196,22 +200,22 @@ export function makePowerLayout(): RackRow[] {
       gridColumn: 2,
       gridRow: 5,
     },
-    // col3 (platforms 1-2 non-bookable, then racks 6-8)
+    // col3 (Platform 1 & 2 bookable as open platforms, then racks 6-8)
     {
       id: 'platform-1',
       label: 'Platform 1',
-      rackNumber: null,
+      rackNumber: POWER_OPEN_PLATFORM_1,
       gridColumn: 3,
       gridRow: 1,
-      disabled: true,
+      isOpenPlatform: true,
     },
     {
       id: 'platform-2',
       label: 'Platform 2',
-      rackNumber: null,
+      rackNumber: POWER_OPEN_PLATFORM_2,
       gridColumn: 3,
       gridRow: 2,
-      disabled: true,
+      isOpenPlatform: true,
     },
     { id: 'rack-6', label: 'Rack 6', rackNumber: 6, gridColumn: 3, gridRow: 3 },
     { id: 'rack-7', label: 'Rack 7', rackNumber: 7, gridColumn: 3, gridRow: 4 },

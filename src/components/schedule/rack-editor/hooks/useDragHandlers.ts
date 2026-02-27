@@ -29,18 +29,29 @@ export function useDragHandlers({
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null);
     const { active, over } = event;
+    const bookingId = active.data.current?.bookingId as number | undefined;
+    const fromRack = active.data.current?.fromRack as number | undefined;
+
+    // When we reject the drop (e.g. conflict or invalid target), force state to
+    // keep the booking in its current position so it visibly snaps back.
+    const restoreOriginalPosition = () => {
+      if (bookingId === undefined) return;
+      setAssignments((prev) => {
+        const current =
+          prev.get(bookingId) ?? initialAssignments.get(bookingId) ?? [];
+        const next = new Map(prev);
+        next.set(bookingId, [...current]);
+        return next;
+      });
+    };
+
     if (!over) {
       setDragError(null);
+      restoreOriginalPosition();
       return;
     }
 
-    const bookingId = active.data.current?.bookingId as number | undefined;
-    const fromRack = active.data.current?.fromRack as number | undefined;
-    if (!bookingId) {
-      setDragError(null);
-      return;
-    }
-    if (!fromRack) {
+    if (!bookingId || fromRack === undefined) {
       setDragError(null);
       return;
     }
@@ -49,9 +60,28 @@ export function useDragHandlers({
       | number
       | null
       | undefined;
-    if (!overRackNumber) {
+    if (overRackNumber === undefined || overRackNumber === null) {
       setDragError(null);
-      return; // only drop on bookable racks
+      restoreOriginalPosition();
+      return; // only drop on bookable racks (e.g. dropped on another booking)
+    }
+
+    // Dropping on the same rack is a no-op; snap back to avoid any flicker
+    if (fromRack === overRackNumber) {
+      setDragError(null);
+      restoreOriginalPosition();
+      return;
+    }
+
+    // Multi-platform booking: if this booking is already on the target rack, we're
+    // dragging one of its slots onto another. Allowing that would collapse two
+    // slots into one (e.g. [1,2,3,4,5,6] -> [1,2,4,5,6]). Reject and snap back.
+    const currentRacks =
+      assignments.get(bookingId) ?? initialAssignments.get(bookingId) ?? [];
+    if (currentRacks.includes(overRackNumber)) {
+      setDragError(null);
+      restoreOriginalPosition();
+      return;
     }
 
     // Check if the target rack is available in the capacity schedule
@@ -64,8 +94,8 @@ export function useDragHandlers({
       setDragError(
         `Cannot move booking: Rack ${overRackNumber} is not available for booking (reserved for General User)`
       );
-      // Clear error after 5 seconds
       setTimeout(() => setDragError(null), 5000);
+      restoreOriginalPosition();
       return;
     }
 
@@ -73,6 +103,7 @@ export function useDragHandlers({
     const movingBooking = bookingById.get(bookingId);
     if (!movingBooking) {
       setDragError(null);
+      restoreOriginalPosition();
       return;
     }
 
@@ -85,13 +116,8 @@ export function useDragHandlers({
     );
 
     if (conflictingBooking) {
-      const conflictTitle = conflictingBooking.title;
-      const conflictTime = `${conflictingBooking.start.slice(11, 16)}–${conflictingBooking.end.slice(11, 16)}`;
-      setDragError(
-        `Cannot move booking: Rack ${overRackNumber} is already booked by "${conflictTitle}" (${conflictTime})`
-      );
-      // Clear error after 5 seconds
-      setTimeout(() => setDragError(null), 5000);
+      setDragError(null);
+      restoreOriginalPosition();
       return;
     }
 

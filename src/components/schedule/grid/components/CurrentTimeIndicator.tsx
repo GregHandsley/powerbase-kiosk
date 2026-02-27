@@ -14,7 +14,7 @@ export function CurrentTimeIndicator({ position, isToday, numRacks }: Props) {
 
   return (
     <div
-      className="absolute left-0 z-[15] pointer-events-none"
+      className="absolute left-0 z-[25] pointer-events-none"
       style={{
         top: `${position.top}px`,
         width: totalGridWidth ? `${totalGridWidth}px` : '100%',
@@ -23,7 +23,7 @@ export function CurrentTimeIndicator({ position, isToday, numRacks }: Props) {
     >
       <div className="flex items-center w-full">
         {/* Time label on the left - sticky */}
-        <div className="sticky left-0 z-[15] bg-amber-400/95 text-slate-950 text-xs font-semibold font-mono px-2 py-0.5 rounded-r border-r-2 border-amber-200 shadow-[0_0_0_1px_rgba(251,191,36,0.4),0_6px_16px_rgba(251,191,36,0.35)] flex-shrink-0">
+        <div className="sticky left-0 z-[25] bg-amber-400/95 text-slate-950 text-xs font-semibold font-mono px-2 py-0.5 rounded-r border-r-2 border-amber-200 shadow-[0_0_0_1px_rgba(251,191,36,0.4),0_6px_16px_rgba(251,191,36,0.35)] flex-shrink-0">
           NOW {format(new Date(), 'HH:mm')}
         </div>
         {/* High-contrast line across racks */}

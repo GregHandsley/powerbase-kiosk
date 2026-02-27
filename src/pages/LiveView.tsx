@@ -48,7 +48,7 @@ export function LiveView() {
     }
   };
 
-  const selectedSnapshot = sideMode === 'power' ? power : base;
+  // const selectedSnapshot = sideMode === 'power' ? power : base;
 
   // Get capacity information for the selected date/time
   const { applicableSchedule, sideId } = useLiveViewCapacity({
@@ -249,9 +249,6 @@ export function LiveView() {
               </span>
             )}
           </div>
-          <span className="text-slate-400">
-            Snapshot at {selectedSnapshot.snapshot?.at ?? '…'}
-          </span>
         </div>
         <RackListEditor
           side={sideMode}

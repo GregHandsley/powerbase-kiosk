@@ -16,6 +16,7 @@ import {
   type ScheduleData,
 } from '../components/admin/capacity/scheduleUtils';
 import { format, getDay } from 'date-fns';
+import { getKioskPlatformDisplayLabel } from '../components/schedule/utils/platformUtils';
 
 // Placeholder data types - will be replaced with real data fetching
 type PeriodType =
@@ -27,6 +28,7 @@ type PeriodType =
 
 type PlatformBooking = {
   platformNumber: number;
+  displayLabel: string;
   nowBooking: {
     title: string;
     until: string;
@@ -39,7 +41,7 @@ type PlatformBooking = {
 
 const POWER_PLATFORM_PAGES: number[][] = [
   [1, 2, 3, 4, 5],
-  [6, 7, 8],
+  [19, 20, 6, 7, 8], // Platform 1, Platform 2, then Racks 6–8
   [9, 10, 11, 12, 13],
   [14, 15, 16, 17, 18],
 ];
@@ -172,9 +174,9 @@ export function KioskWayfinding() {
   const platformPageData = useMemo(
     () =>
       platformPages.map((page) =>
-        mapPlatformsForPage(displaySnapshot ?? snapshot, page)
+        mapPlatformsForPage(displaySnapshot ?? snapshot, page, sideKey)
       ),
-    [displaySnapshot, snapshot, platformPages]
+    [displaySnapshot, snapshot, platformPages, sideKey]
   );
   const quadrantLabel =
     sideKey === 'Base'
@@ -315,11 +317,14 @@ function getPlatformPages(sideKey: SideKey): number[][] {
 
 function mapPlatformsForPage(
   snapshot: ReturnType<typeof useSideSnapshot>['snapshot'],
-  platformNumbers: number[]
+  platformNumbers: number[],
+  sideKey: SideKey
 ): PlatformBooking[] {
+  const side = sideKey === 'Power' ? 'power' : 'base';
   if (!snapshot) {
     return platformNumbers.map((platformNumber) => ({
       platformNumber,
+      displayLabel: getKioskPlatformDisplayLabel(side, platformNumber),
       nowBooking: null,
       nextBooking: null,
     }));
@@ -339,6 +344,7 @@ function mapPlatformsForPage(
 
     return {
       platformNumber,
+      displayLabel: getKioskPlatformDisplayLabel(side, platformNumber),
       nowBooking: currentInst
         ? {
             title: currentInst.title,

@@ -1,4 +1,8 @@
 import type { SideSnapshot, ActiveInstance } from '../../../types/snapshot';
+import {
+  POWER_OPEN_PLATFORM_1,
+  POWER_OPEN_PLATFORM_2,
+} from '../../schedule/utils/platformUtils';
 // import { BaseFloorplan } from '../base/BaseFloorplan';
 // import { PowerbaseFloorSvg } from '../power/PowerFloorplan';
 import { EditableRackSlot } from './EditableRackSlot';
@@ -129,7 +133,16 @@ export function EditableFloorplan({
       });
     });
 
-    // Column 3: racks 6-8 (platforms 1-2 are not bookable)
+    // Column 3: Platform 1 & 2 (open, bookable) + racks 6–8
+    [POWER_OPEN_PLATFORM_1, POWER_OPEN_PLATFORM_2].forEach((code, row) => {
+      racks.push({
+        number: code,
+        x: col3X,
+        y: rowY(row),
+        width: rackWidth,
+        height: rackHeight,
+      });
+    });
     [6, 7, 8].forEach((code, row) => {
       racks.push({
         number: code,

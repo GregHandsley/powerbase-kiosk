@@ -126,25 +126,27 @@ export function useDashboardInsights({
         .limit(500);
       if (instancesError) throw instancesError;
 
-      const instances = (instancesData ?? []).map((row) => {
-        const booking = Array.isArray(row.booking)
-          ? row.booking[0]
-          : row.booking;
-        return {
-          id: row.id,
-          bookingId: row.booking_id,
-          sideId: row.side_id,
-          start: row.start,
-          end: row.end,
-          racks: Array.isArray(row.racks) ? row.racks : [],
-          capacity: row.capacity ?? 0,
-          bookingTitle: booking?.title ?? 'Untitled',
-          bookingStatus: booking?.status ?? null,
-          bookingCreatedAt: booking?.created_at ?? null,
-          bookingCreatedBy: booking?.created_by ?? null,
-          lastMinute: !!booking?.last_minute_change,
-        };
-      });
+      const instances = (instancesData ?? [])
+        .map((row) => {
+          const booking = Array.isArray(row.booking)
+            ? row.booking[0]
+            : row.booking;
+          return {
+            id: row.id,
+            bookingId: row.booking_id,
+            sideId: row.side_id,
+            start: row.start,
+            end: row.end,
+            racks: Array.isArray(row.racks) ? row.racks : [],
+            capacity: row.capacity ?? 0,
+            bookingTitle: booking?.title ?? 'Untitled',
+            bookingStatus: booking?.status ?? null,
+            bookingCreatedAt: booking?.created_at ?? null,
+            bookingCreatedBy: booking?.created_by ?? null,
+            lastMinute: !!booking?.last_minute_change,
+          };
+        })
+        .filter((instance) => instance.bookingStatus !== 'cancelled');
 
       let bookingsThisWeek = 0;
       if (dashboardRole === 'coach' && userId) {

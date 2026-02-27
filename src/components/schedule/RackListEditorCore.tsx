@@ -25,6 +25,8 @@ export type RackRow = {
   label: string;
   rackNumber: number | null; // null for non-bookable
   disabled?: boolean;
+  /** True for open platforms without a rack (e.g. Power Platform 1 & 2) */
+  isOpenPlatform?: boolean;
   gridColumn: number;
   gridRow: number;
 };

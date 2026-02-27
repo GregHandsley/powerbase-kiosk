@@ -7,6 +7,7 @@ import { usePlayers } from '../../../hooks/usePlayers';
 import { usePrimaryOrganizationId } from '../../../hooks/usePermissions';
 import { supabase } from '../../../lib/supabaseClient';
 import { CreatePlayerModal } from './playerManagement/CreatePlayerModal';
+import { PairDeviceModal } from './playerManagement/PairDeviceModal';
 import { PlayerActionMenu } from './playerManagement/PlayerActionMenu';
 import { PlayerMetricsModal } from './playerManagement/PlayerMetricsModal';
 import { PlayersTable } from './playerManagement/PlayersTable';
@@ -53,6 +54,10 @@ export function PlayerManagement() {
   const [metricsModalPlayerId, setMetricsModalPlayerId] = useState<
     number | null
   >(null);
+  const [pairModalPlayerId, setPairModalPlayerId] = useState<number | null>(
+    null
+  );
+  const [createFormPairingCode, setCreateFormPairingCode] = useState('');
 
   const [bulkBaseUrl, setBulkBaseUrl] = useState('https://facilityos.co.uk');
   const [bulkApplying, setBulkApplying] = useState(false);
@@ -86,6 +91,8 @@ export function PlayerManagement() {
     updatePlayerLoading,
     deletePlayer,
     deletePlayerLoading,
+    pairDevice,
+    pairDeviceLoading,
   } = usePlayers(activeOrgId);
 
   const canSubmit =
@@ -183,8 +190,10 @@ export function PlayerManagement() {
       return;
     }
 
+    const codeToPair = createFormPairingCode.trim();
+
     try {
-      await createPlayer({
+      const data = await createPlayer({
         organization_id: activeOrgId,
         site_id: formSiteId ? (formSiteId as number) : null,
         side_key: sideKey,
@@ -193,13 +202,21 @@ export function PlayerManagement() {
         desired_url: desiredUrl.trim() || null,
         desired_power_state: powerState,
       });
-      toast.success('Player created.');
+
+      if (codeToPair && data?.id) {
+        await pairDevice({ player_id: data.id, code: codeToPair });
+        toast.success('Player created and device paired.');
+      } else {
+        toast.success('Player created.');
+      }
+
       setName('');
       setLocation('');
       setDesiredUrl('');
       setPowerState('on');
       setSideKey('Base');
       setFormSiteId('');
+      setCreateFormPairingCode('');
       setIsCreateModalOpen(false);
     } catch (error) {
       toast.error(
@@ -457,6 +474,23 @@ export function PlayerManagement() {
     [players, metricsModalPlayerId]
   );
 
+  const pairModalPlayer = useMemo(
+    () => players.find((player) => player.id === pairModalPlayerId) ?? null,
+    [players, pairModalPlayerId]
+  );
+
+  const handlePairDevice = async (playerId: number, code: string) => {
+    try {
+      await pairDevice({ player_id: playerId, code });
+      toast.success('Device paired. The kiosk will connect shortly.');
+      setPairModalPlayerId(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to pair device'
+      );
+    }
+  };
+
   useEffect(() => {
     if (!menuOpenPlayerId) return;
 
@@ -518,6 +552,16 @@ export function PlayerManagement() {
       window.removeEventListener('keydown', handleEscape);
     };
   }, [metricsModalPlayerId]);
+
+  useEffect(() => {
+    if (!pairModalPlayerId) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPairModalPlayerId(null);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [pairModalPlayerId]);
 
   if (orgsLoading) {
     return (
@@ -603,6 +647,16 @@ export function PlayerManagement() {
         onDeletePlayer={(playerId, playerName) => {
           void handleDeletePlayer(playerId, playerName);
         }}
+        onOpenPairModal={(player) => setPairModalPlayerId(player.id)}
+      />
+
+      <PairDeviceModal
+        isOpen={!!pairModalPlayer}
+        playerName={pairModalPlayer?.name ?? ''}
+        playerId={pairModalPlayer?.id ?? 0}
+        loading={pairDeviceLoading}
+        onClose={() => setPairModalPlayerId(null)}
+        onPair={handlePairDevice}
       />
 
       <PlayerMetricsModal
@@ -642,6 +696,9 @@ export function PlayerManagement() {
         onChangeLocation={setLocation}
         onChangeDesiredUrl={setDesiredUrl}
         onChangePowerState={setPowerState}
+        pairingCode={createFormPairingCode}
+        onChangePairingCode={setCreateFormPairingCode}
+        pairDeviceLoading={pairDeviceLoading}
       />
     </div>
   );

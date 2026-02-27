@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 
 type PlatformBooking = {
   platformNumber: number;
+  displayLabel?: string; // e.g. "Platform 1" for Power 19; falls back to platformNumber
   nowBooking: {
     title: string;
     until: string; // ISO time string
@@ -168,11 +169,27 @@ function PlatformStatusRow({
   const isLive = !!platform.nowBooking;
   const bookingLogoUrl = isLive ? '/lboro-sport.svg' : null;
   const hasBadge = !!bookingLogoUrl;
+  const displayLabel = platform.displayLabel ?? String(platform.platformNumber);
+  const fromDisplayLabel =
+    flipFromPlatform?.displayLabel ??
+    (flipFromPlatform?.platformNumber != null
+      ? String(flipFromPlatform.platformNumber)
+      : null);
   const fromNumber = flipFromPlatform?.platformNumber ?? null;
   const shouldAnimateNumberFlip =
     animateCycleFlip &&
     fromNumber !== null &&
     fromNumber !== platform.platformNumber;
+  const isLongLabel =
+    displayLabel === 'Platform 1' || displayLabel === 'Platform 2';
+  const numberDisplayClass = isLongLabel
+    ? 'kiosk-platform-number-display kiosk-platform-number-display--long'
+    : 'kiosk-platform-number-display';
+  const fromIsLongLabel =
+    fromDisplayLabel === 'Platform 1' || fromDisplayLabel === 'Platform 2';
+  const fromNumberDisplayClass = fromIsLongLabel
+    ? 'kiosk-platform-number-display kiosk-platform-number-display--long'
+    : 'kiosk-platform-number-display';
 
   return (
     <div
@@ -187,14 +204,10 @@ function PlatformStatusRow({
               className="kiosk-number-cycle-flip-inner"
             >
               <div className="kiosk-number-cycle-face kiosk-number-cycle-front">
-                <div className="kiosk-platform-number-display">
-                  {fromNumber}
-                </div>
+                <div className={fromNumberDisplayClass}>{fromDisplayLabel}</div>
               </div>
               <div className="kiosk-number-cycle-face kiosk-number-cycle-back">
-                <div className="kiosk-platform-number-display">
-                  {platform.platformNumber}
-                </div>
+                <div className={numberDisplayClass}>{displayLabel}</div>
               </div>
             </div>
           </div>
@@ -202,9 +215,7 @@ function PlatformStatusRow({
           <div className="kiosk-platform-flip">
             <div className="kiosk-platform-flip-inner">
               <div className="kiosk-platform-flip-face kiosk-platform-flip-front">
-                <div className="kiosk-platform-number-display">
-                  {platform.platformNumber}
-                </div>
+                <div className={numberDisplayClass}>{displayLabel}</div>
               </div>
               <div className="kiosk-platform-flip-face kiosk-platform-flip-back">
                 <img
@@ -216,9 +227,7 @@ function PlatformStatusRow({
             </div>
           </div>
         ) : (
-          <div className="kiosk-platform-number-display">
-            {platform.platformNumber}
-          </div>
+          <div className={numberDisplayClass}>{displayLabel}</div>
         )}
       </div>
 
