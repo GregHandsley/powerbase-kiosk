@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { SideSnapshot } from '../../types/snapshot';
+import type { ActiveInstance } from '../../types/snapshot';
 import { RackListEditorCore } from './RackListEditorCore';
 import {
   makePowerLayout,
@@ -12,9 +13,17 @@ type Props = {
   snapshot: SideSnapshot | null;
   date: string;
   time: string;
+  viewOnly?: boolean;
+  onEditBooking?: (booking: ActiveInstance) => void;
 };
 
-export function RackListEditorPower({ snapshot, date, time }: Props) {
+export function RackListEditorPower({
+  snapshot,
+  date,
+  time,
+  viewOnly,
+  onEditBooking,
+}: Props) {
   const layout = useMemo(() => {
     if (!snapshot) return [];
     const withCols = addDoubleColumnSpacers(makePowerLayout());
@@ -34,6 +43,8 @@ export function RackListEditorPower({ snapshot, date, time }: Props) {
       side="power"
       date={date}
       time={time}
+      viewOnly={viewOnly}
+      onEditBooking={onEditBooking}
     />
   );
 }

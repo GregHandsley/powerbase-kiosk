@@ -94,7 +94,10 @@ export default function App() {
     !pathname.startsWith('/kiosk') &&
     !pathname.startsWith('/login') &&
     !pathname.startsWith('/accept-invite');
-  const lockAppScroll = pathname.startsWith('/schedule') || pathname === '/';
+  const lockAppScroll =
+    pathname.startsWith('/schedule') ||
+    pathname.startsWith('/live-view') ||
+    pathname === '/';
 
   // Show only public kiosk + auth pages if not authenticated
   if (!loading && !user) {
@@ -195,7 +198,7 @@ export default function App() {
       )}
 
       <main className="flex-1 min-h-0 overflow-hidden">
-        <Routes>
+        <Routes key={pathname}>
           <Route
             path="/"
             element={

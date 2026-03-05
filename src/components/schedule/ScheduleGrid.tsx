@@ -1,8 +1,13 @@
 import { useMemo, useRef } from 'react';
 import { isSameDay } from 'date-fns';
 import type { ScheduleGridProps } from './grid/types';
-import { calculateBookingBlocksByRack } from './grid/utils/bookingBlocks';
+import {
+  calculateBookingBlocksByRack,
+  calculateMasterBlocks,
+  assignMasterBlocksToLanes,
+} from './grid/utils/bookingBlocks';
 import { calculateUnavailableBlocksByRack } from './grid/utils/unavailableBlocks';
+import type { UnavailableBlock } from './grid/types';
 import { useCurrentTimeIndicator } from './grid/hooks/useCurrentTimeIndicator';
 import { useDragSelection } from './grid/hooks/useDragSelection';
 import { ScheduleGridHeader } from './grid/components/ScheduleGridHeader';
@@ -19,38 +24,76 @@ export function ScheduleGrid({
   capacityExceededBySlot,
   onCellClick,
   onBookingClick,
+  onBookingDoubleClick,
   onDragSelection,
   selectedSide,
+  viewMode = 'platforms',
 }: ScheduleGridProps) {
-  const numRacks = racks.length;
-  // Use fixed width for rack columns (120px each) for better mobile/small screen support
-  // Time column is 120px, each rack column is 120px
-  const gridTemplateColumns = `120px repeat(${numRacks}, 120px)`;
+  const isMaster = viewMode === 'master';
+  const { masterLanesData } = useMemo(() => {
+    if (!isMaster)
+      return {
+        masterLanesData: null as ReturnType<
+          typeof assignMasterBlocksToLanes
+        > | null,
+      };
+    const blocks = calculateMasterBlocks(bookings, timeSlots, currentDate);
+    const lanesData = assignMasterBlocksToLanes(blocks, 15);
+    return { masterLanesData: lanesData };
+  }, [isMaster, bookings, timeSlots, currentDate]);
+
+  const displayRacks = useMemo(
+    () =>
+      isMaster && masterLanesData
+        ? Array.from({ length: masterLanesData.numLanes }, (_, i) => i)
+        : racks,
+    [isMaster, masterLanesData, racks]
+  );
+  const numRacks = displayRacks.length;
+  const gridTemplateColumns = isMaster
+    ? `120px repeat(${numRacks}, minmax(0, 1fr))`
+    : `120px repeat(${numRacks}, 120px)`;
 
   const isToday = isSameDay(currentDate, new Date());
 
-  // Calculate booking blocks for each rack
-  const bookingBlocksByRack = useMemo(
-    () => calculateBookingBlocksByRack(racks, bookings, timeSlots, currentDate),
-    [bookings, timeSlots, currentDate, racks]
-  );
+  const bookingBlocksByRack = useMemo(() => {
+    if (isMaster && masterLanesData) {
+      return masterLanesData.blocksByLane;
+    }
+    return calculateBookingBlocksByRack(
+      racks,
+      bookings,
+      timeSlots,
+      currentDate,
+      false
+    );
+  }, [isMaster, masterLanesData, racks, bookings, timeSlots, currentDate]);
 
   // Calculate unavailable blocks (General User/Closed) for each rack
   const unavailableBlocksByRack = useMemo(
     () =>
-      calculateUnavailableBlocksByRack(
-        racks,
-        timeSlots,
-        slotCapacityData,
-        bookingBlocksByRack
-      ),
-    [slotCapacityData, timeSlots, racks, bookingBlocksByRack]
+      isMaster
+        ? new Map<number, UnavailableBlock[]>(displayRacks.map((r) => [r, []]))
+        : calculateUnavailableBlocksByRack(
+            racks,
+            timeSlots,
+            slotCapacityData,
+            bookingBlocksByRack
+          ),
+    [
+      isMaster,
+      displayRacks,
+      racks,
+      timeSlots,
+      slotCapacityData,
+      bookingBlocksByRack,
+    ]
   );
 
   // Current time indicator
   const currentTimePosition = useCurrentTimeIndicator(currentDate, timeSlots);
 
-  // Drag selection
+  // Drag selection (for master view only one column is selectable)
   const {
     gridRef,
     isDragging,
@@ -62,7 +105,7 @@ export function ScheduleGrid({
     handleMouseUp,
     handleMouseLeave,
   } = useDragSelection(
-    racks,
+    displayRacks,
     timeSlots,
     bookingBlocksByRack,
     slotCapacityData,
@@ -73,6 +116,12 @@ export function ScheduleGrid({
 
   // Ref for the horizontal scrollable container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // In master view: view-only, empty cells not selectable. Platforms: use normal onCellClick.
+  const effectiveOnCellClick = useMemo(
+    () => (isMaster ? () => {} : onCellClick),
+    [isMaster, onCellClick]
+  );
 
   return (
     <div
@@ -96,11 +145,12 @@ export function ScheduleGrid({
         )}
 
         <div style={{ minWidth: 'max-content' }}>
-          {/* Racks Header - Sticky */}
+          {/* Racks Header - Sticky (or "Bookings" when master) */}
           <ScheduleGridHeader
-            racks={racks}
+            racks={displayRacks}
             selectedSide={selectedSide}
             gridTemplateColumns={gridTemplateColumns}
+            viewMode={viewMode}
           />
 
           {/* Time Slots */}
@@ -109,7 +159,7 @@ export function ScheduleGrid({
               key={slotIndex}
               slot={slot}
               slotIndex={slotIndex}
-              racks={racks}
+              racks={displayRacks}
               gridTemplateColumns={gridTemplateColumns}
               bookingBlocksByRack={bookingBlocksByRack}
               unavailableBlocksByRack={unavailableBlocksByRack}
@@ -120,8 +170,10 @@ export function ScheduleGrid({
               timeSlots={timeSlots}
               isSelectionValid={isSelectionValid}
               isCellSelected={isCellSelected}
-              onCellClick={onCellClick}
+              onCellClick={effectiveOnCellClick}
               onBookingClick={onBookingClick}
+              onBookingDoubleClick={onBookingDoubleClick}
+              viewMode={viewMode}
               onMouseDown={handleMouseDown}
               isDragging={isDragging}
             />

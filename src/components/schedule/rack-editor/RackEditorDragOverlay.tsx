@@ -18,8 +18,20 @@ export function RackEditorDragOverlay({
   if (!match) return null;
 
   const instanceId = Number(match[1]);
+  const fromRack = Number(match[2]);
   const booking = bookingById.get(instanceId);
   if (!booking) return null;
+
+  const rackKey = `rack_${fromRack}`;
+  const slot = booking.area_slots?.find((s) => s.area_key === rackKey);
+  const displayStart = slot?.start ?? booking.start;
+  const displayEnd = slot?.end ?? booking.end;
+  const startLabel = displayStart.includes('T')
+    ? displayStart.slice(11, 16)
+    : displayStart;
+  const endLabel = displayEnd.includes('T')
+    ? displayEnd.slice(11, 16)
+    : displayEnd;
 
   return (
     <div
@@ -46,7 +58,7 @@ export function RackEditorDragOverlay({
         <span>{booking.title}</span>
       </div>
       <div className="text-sm sm:text-base text-slate-300 whitespace-nowrap flex-shrink-0">
-        {booking.start.slice(11, 16)}–{booking.end.slice(11, 16)}
+        {startLabel}–{endLabel}
       </div>
     </div>
   );

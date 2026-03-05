@@ -9,6 +9,7 @@ import {
   type SideKey,
 } from '../../../nodes/data/sidesNodes';
 import { combineDateAndTime } from './utils';
+import { saveAreaSlotsForInstance } from '../../../nodes/data/areaSlotsNodes';
 import {
   isAfterNotificationWindow,
   isWithinHardRestriction,
@@ -61,7 +62,8 @@ export function useBookingSubmission(
   userId: string | null,
   timeRangeIsClosed: boolean,
   weekManagement: WeekManagement,
-  capacityValidation: CapacityValidation
+  capacityValidation: CapacityValidation,
+  options?: { allowNoRacksIfAreaSlots?: boolean }
 ) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -225,13 +227,27 @@ export function useBookingSubmission(
         throw new Error(errorParts.join('\n'));
       }
 
-      // Validate that all weeks have racks selected
-      for (let i = 0; i < values.weeks; i++) {
-        const weekRacks = weekManagement.racksByWeek.get(i) || [];
-        if (weekRacks.length === 0) {
-          throw new Error(
-            `Week ${i + 1} has no racks selected. Please select at least one rack for each week.`
-          );
+      // Validate that at least one allocation exists (platforms or area slots)
+      const hasAreaSlots = (values.areaSlots?.length ?? 0) > 0;
+      const hasRacks = Array.from(
+        { length: values.weeks },
+        (_, i) => (weekManagement.racksByWeek.get(i) ?? []).length
+      ).some((n) => n > 0);
+      const allowNoRacksIfAreaSlots =
+        options?.allowNoRacksIfAreaSlots && hasAreaSlots;
+      if (!hasRacks && !hasAreaSlots) {
+        throw new Error(
+          'Add at least one area or platform to create a booking.'
+        );
+      }
+      if (!allowNoRacksIfAreaSlots && !hasRacks) {
+        for (let i = 0; i < values.weeks; i++) {
+          const weekRacks = weekManagement.racksByWeek.get(i) || [];
+          if (weekRacks.length === 0) {
+            throw new Error(
+              `Week ${i + 1} has no platforms selected. Add at least one platform for each week, or add area slots instead.`
+            );
+          }
         }
       }
 
@@ -480,15 +496,15 @@ export function useBookingSubmission(
       for (let i = 0; i < values.weeks; i++) {
         const start = addWeeks(startTemplate, i);
         const end = addWeeks(endTemplate, i);
-        // Get racks for this week, or use empty array if not set
         const weekRacks = weekManagement.racksByWeek.get(i) || [];
-        // Get capacity for this week, or use default if not set
         const weekCapacity =
           weekManagement.capacityByWeek.get(i) || values.capacity || 1;
 
-        if (weekRacks.length === 0) {
+        // Allow empty racks when booking has area slots (e.g. cardio-only)
+        const hasAreaSlotsForBooking = (values.areaSlots?.length ?? 0) > 0;
+        if (weekRacks.length === 0 && !hasAreaSlotsForBooking) {
           throw new Error(
-            `Week ${i + 1} has no racks selected. Please select at least one rack for each week.`
+            'Add at least one area or platform to create a booking.'
           );
         }
 
@@ -503,9 +519,10 @@ export function useBookingSubmission(
         });
       }
 
-      const { error: instancesError } = await supabase
+      const { data: insertedInstances, error: instancesError } = await supabase
         .from('booking_instances')
-        .insert(instancesPayload);
+        .insert(instancesPayload)
+        .select('id');
 
       if (instancesError) {
         // If instances fail to create, delete the booking to avoid orphaned records
@@ -513,6 +530,41 @@ export function useBookingSubmission(
         throw new Error(
           `Failed to create booking instances: ${instancesError.message}. The booking was not created.`
         );
+      }
+
+      // Persist area slots (and platform slots) for each instance
+      const areaSlotsForm = values.areaSlots ?? [];
+      const platformSlotsForm = values.platformSlots ?? [];
+      const hasAnySlots =
+        areaSlotsForm.length > 0 || platformSlotsForm.length > 0;
+      if (insertedInstances?.length && hasAnySlots) {
+        for (let i = 0; i < insertedInstances.length; i++) {
+          const instanceId = insertedInstances[i]!.id;
+          const instanceStart = addWeeks(startTemplate, i);
+          const dateStr = format(instanceStart, 'yyyy-MM-dd');
+          const zoneSlots = areaSlotsForm.map((slot) => ({
+            area_key: slot.area_key,
+            start: combineDateAndTime(dateStr, slot.start).toISOString(),
+            end: combineDateAndTime(dateStr, slot.end).toISOString(),
+          }));
+          const platformSlotsAsAreaSlots = platformSlotsForm.map((p) => ({
+            area_key: `rack_${p.rackNumber}`,
+            start: combineDateAndTime(dateStr, p.start).toISOString(),
+            end: combineDateAndTime(dateStr, p.end).toISOString(),
+          }));
+          const slotsForInstance = [...zoneSlots, ...platformSlotsAsAreaSlots];
+          const { error: slotsError } = await saveAreaSlotsForInstance(
+            instanceId,
+            slotsForInstance
+          );
+          if (slotsError) {
+            console.error(
+              `Failed to save area slots for instance ${instanceId}:`,
+              slotsError
+            );
+            // Don't rollback booking; slots can be edited later
+          }
+        }
       }
 
       // Log activity: booking created
@@ -741,6 +793,8 @@ export function useBookingSubmission(
         racksInput: '',
         areas: [],
         capacity: 1,
+        areaSlots: [],
+        platformSlots: [],
       });
     } catch (err: unknown) {
       console.error('onSubmit error', err);

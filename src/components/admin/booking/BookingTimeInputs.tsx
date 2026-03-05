@@ -15,6 +15,8 @@ type Props = {
   firstAvailableTime: string;
   endTimeManuallyChanged: boolean;
   onEndTimeChange: () => void;
+  /** When true, Weeks field is not rendered (caller renders it elsewhere, e.g. next to another field) */
+  hideWeeks?: boolean;
 };
 
 /**
@@ -25,8 +27,8 @@ export function BookingTimeInputs({
   closedTimes,
   closedPeriods = [],
   firstAvailableTime,
-  // endTimeManuallyChanged,
   onEndTimeChange,
+  hideWeeks = false,
 }: Props) {
   const startTime = form.watch('startTime');
   const endTime = form.watch('endTime');
@@ -110,21 +112,23 @@ export function BookingTimeInputs({
           )}
         </div>
       </div>
-      <div>
-        <label className="block mb-1 font-medium">Weeks</label>
-        <input
-          type="number"
-          min={1}
-          max={16}
-          className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
-          {...form.register('weeks', { valueAsNumber: true })}
-        />
-        {form.formState.errors.weeks && (
-          <p className="text-red-400 mt-0.5">
-            {form.formState.errors.weeks.message}
-          </p>
-        )}
-      </div>
+      {!hideWeeks && (
+        <div>
+          <label className="block mb-1 font-medium">Weeks</label>
+          <input
+            type="number"
+            min={1}
+            max={16}
+            className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
+            {...form.register('weeks', { valueAsNumber: true })}
+          />
+          {form.formState.errors.weeks && (
+            <p className="text-red-400 mt-0.5">
+              {form.formState.errors.weeks.message}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

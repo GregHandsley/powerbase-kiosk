@@ -18,11 +18,15 @@ export type ScheduleGridProps = {
   capacityExceededBySlot?: Map<number, Set<number>>; // slotIndex -> Set of racks at capacity
   onCellClick: (rack: number, timeSlot: TimeSlot) => void;
   onBookingClick?: (booking: ActiveInstance) => void;
+  /** When in master view, double-click on a booking opens the read-only view (racks/areas). */
+  onBookingDoubleClick?: (booking: ActiveInstance) => void;
   onDragSelection?: (selection: {
     startTimeSlot: TimeSlot;
     endTimeSlot: TimeSlot;
     racks: number[];
   }) => void;
+  /** When 'master', blocks use the booking's master start/end (same colours, no per-platform times). */
+  viewMode?: 'master' | 'platforms';
 };
 
 export type BookingBlock = {

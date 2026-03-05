@@ -1,4 +1,4 @@
-import { formatDateTime } from '../../shared/dateUtils';
+import { formatDateTime } from '../../../shared/dateUtils';
 
 type SeriesInstance = {
   id: number;

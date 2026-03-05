@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import type { BookingStatus } from '../types/db';
 import { endOfDay, parseISO, isAfter } from 'date-fns';
 import { getUserNamesByIds } from '../utils/emailRecipients';
+import { getAreaSlotsForInstances } from '../nodes/data/areaSlotsNodes';
 
 export type BookingsTeamFilter = {
   status?: BookingStatus | 'all';
@@ -19,11 +20,13 @@ export type ProcessedSnapshot = {
   firstInstanceEnd: string;
   firstInstanceCapacity?: number; // Deprecated - use allInstanceCapacities instead
   firstInstanceRacks: number[]; // Deprecated - use allInstanceRacks instead
+  firstInstanceAreas?: string[]; // Deprecated - use allInstanceAreas instead
   allRacks: number[];
   allInstanceStarts?: string[]; // Store all instance start dates for accurate deletion detection
   allInstanceTimes?: Array<{ start: string; end: string }>; // Store all instance times for accurate time change detection
   allInstanceCapacities?: Array<{ start: string; capacity: number }>; // Store capacity for each instance by date
   allInstanceRacks?: Array<{ start: string; racks: number[] }>; // Store racks for each instance by date
+  allInstanceAreas?: Array<{ start: string; areas: string[] }>; // Store areas for each instance by date (for area change detection)
 };
 
 type BookingFromSupabase = {
@@ -38,6 +41,7 @@ type BookingFromSupabase = {
   processed_at: string | null;
   processed_by: string | null;
   processed_snapshot: ProcessedSnapshot | null;
+  processed_snapshot_signature: string | null;
   organization_id: number;
   side:
     | {
@@ -63,6 +67,7 @@ export type BookingForTeam = {
   processed_at: string | null;
   processed_by: string | null;
   processed_snapshot: ProcessedSnapshot | null;
+  processed_snapshot_signature: string | null;
   organization_id: number;
   side: {
     key: string;
@@ -83,6 +88,8 @@ export type BookingForTeam = {
     racks: number[];
     areas: string[];
     capacity?: number;
+    /** Per-area/rack time slots when available (from booking_instance_area_slots). */
+    area_slots?: Array<{ area_key: string; start: string; end: string }>;
   }>;
 };
 
@@ -106,6 +113,7 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
           processed_at,
           processed_by,
           processed_snapshot,
+          processed_snapshot_signature,
           organization_id,
           side:sides (
             key,
@@ -239,6 +247,8 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
             processed_snapshot: booking.processed_snapshot
               ? (booking.processed_snapshot as ProcessedSnapshot)
               : null,
+            processed_snapshot_signature:
+              booking.processed_snapshot_signature ?? null,
             organization_id: booking.organization_id,
             side,
             creator: creator
@@ -263,9 +273,43 @@ export function useBookingsTeam(filters: BookingsTeamFilter = {}) {
         (b) => b.instances.length > 0
       );
 
+      // Enrich instances with areas from booking_instance_area_slots when instance.areas is empty
+      // (new flow stores areas in area_slots only, so we need to derive areas for display)
+      const allInstanceIds = bookingsWithValidInstances.flatMap((b) =>
+        b.instances.map((i) => i.id)
+      );
+      const slotsByInstance = await getAreaSlotsForInstances(allInstanceIds);
+
+      const enrichedBookings: BookingForTeam[] = bookingsWithValidInstances.map(
+        (booking) => ({
+          ...booking,
+          instances: booking.instances.map((inst) => {
+            const slots = slotsByInstance[inst.id] ?? [];
+            const areaKeysFromSlots = [
+              ...new Set(
+                slots
+                  .filter((s) => !s.area_key.startsWith('rack_'))
+                  .map((s) => s.area_key)
+              ),
+            ].sort();
+            const areas =
+              inst.areas?.length > 0 ? inst.areas : areaKeysFromSlots;
+            const area_slots =
+              slots.length > 0
+                ? slots.map((s) => ({
+                    area_key: s.area_key,
+                    start: s.start,
+                    end: s.end,
+                  }))
+                : undefined;
+            return { ...inst, areas, area_slots };
+          }),
+        })
+      );
+
       // Sort by next session start time (earliest first)
       const now = new Date();
-      return bookingsWithValidInstances.sort((a, b) => {
+      return enrichedBookings.sort((a, b) => {
         // Find the next upcoming instance for each booking
         const getNextInstanceStart = (booking: BookingForTeam) => {
           const nextInstance = booking.instances.find((inst) => {

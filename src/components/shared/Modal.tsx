@@ -7,6 +7,8 @@ type ModalProps = {
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  /** Optional class for the overlay (e.g. z-[1100] for stacking above another modal) */
+  overlayClassName?: string;
   lockScroll?: boolean;
   maxWidth?:
     | 'sm'
@@ -44,6 +46,7 @@ export function Modal({
   onClose,
   children,
   className,
+  overlayClassName,
   lockScroll = false,
   maxWidth = 'md',
 }: ModalProps) {
@@ -59,7 +62,10 @@ export function Modal({
   return (
     <ModalPortal lockScroll={lockScroll}>
       <div
-        className="absolute inset-x-0 z-[1000] flex min-h-screen items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
+        className={clsx(
+          'absolute inset-x-0 z-[1000] flex min-h-screen items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center',
+          overlayClassName
+        )}
         style={{ top: `${viewportTop}px` }}
         onClick={(e) => {
           if (e.target === e.currentTarget) {
@@ -69,7 +75,7 @@ export function Modal({
       >
         <div
           className={clsx(
-            'my-6 w-full max-h-[90vh] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-6 sm:my-0',
+            'my-6 w-full max-h-[90vh] flex flex-col rounded-xl border border-slate-700 bg-slate-900 p-6 sm:my-0 min-h-0 overflow-y-auto',
             maxWidthClasses[maxWidth],
             className
           )}

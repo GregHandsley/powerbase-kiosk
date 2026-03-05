@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabaseClient';
 import type {
   BookingInstanceWithBookingRow,
+  BookingInstanceAreaSlotRow,
   BookingStatus,
 } from '../../types/db';
 
@@ -92,7 +93,8 @@ type RawInstanceRow = {
 // }
 
 function normalizeInstanceRow(
-  row: RawInstanceRow
+  row: RawInstanceRow,
+  areaSlots: BookingInstanceAreaSlotRow[] = []
 ): BookingInstanceWithBookingRow {
   const bookingRaw = row.booking ?? null;
   const bookingObj = Array.isArray(bookingRaw)
@@ -113,6 +115,7 @@ function normalizeInstanceRow(
       : [],
     created_at: row.created_at,
     updated_at: row.updated_at,
+    area_slots: areaSlots.length > 0 ? areaSlots : undefined,
     booking: bookingObj
       ? {
           title:
@@ -156,6 +159,44 @@ function normalizeInstanceRow(
         }
       : null,
   };
+}
+
+/**
+ * Fetches area slots for the given instance ids. Returns a map instanceId -> slots.
+ * If the table does not exist yet (migration not run), returns empty map.
+ */
+async function getAreaSlotsByInstanceIds(
+  instanceIds: number[]
+): Promise<Record<number, BookingInstanceAreaSlotRow[]>> {
+  if (instanceIds.length === 0) return {};
+  try {
+    const { data, error } = await supabase
+      .from('booking_instance_area_slots')
+      .select('id, booking_instance_id, area_key, start, end')
+      .in('booking_instance_id', instanceIds)
+      .order('start', { ascending: true });
+
+    if (error) {
+      if (
+        error.message?.includes('does not exist') ||
+        error.message?.includes('relation')
+      ) {
+        return {};
+      }
+      throw error;
+    }
+
+    const slots = (data ?? []) as BookingInstanceAreaSlotRow[];
+    const byInstance: Record<number, BookingInstanceAreaSlotRow[]> = {};
+    for (const slot of slots) {
+      const id = slot.booking_instance_id;
+      if (!byInstance[id]) byInstance[id] = [];
+      byInstance[id].push(slot);
+    }
+    return byInstance;
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -215,8 +256,10 @@ export async function getInstancesAtNode(
 
   // Normalize data if query succeeded
   if (!error && data) {
+    const instanceIds = (data ?? []).map((r: { id: number }) => r.id);
+    const slotsByInstance = await getAreaSlotsByInstanceIds(instanceIds);
     normalizedData = (data ?? []).map((row) =>
-      normalizeInstanceRow(row as RawInstanceRow)
+      normalizeInstanceRow(row as RawInstanceRow, slotsByInstance[row.id] ?? [])
     );
   }
 
@@ -256,8 +299,11 @@ export async function getInstancesAtNode(
     const fallbackResult = await fallbackQuery;
     if (!fallbackResult.error) {
       // Map fallback data to BookingInstanceWithBookingRow format
-      normalizedData = (fallbackResult.data ?? []).map((row) =>
-        normalizeInstanceRow(row as RawInstanceRow)
+      const fallbackData = fallbackResult.data ?? [];
+      const instanceIds = fallbackData.map((r: { id: number }) => r.id);
+      const slotsByInstance = await getAreaSlotsByInstanceIds(instanceIds);
+      normalizedData = fallbackData.map((row: RawInstanceRow) =>
+        normalizeInstanceRow(row, slotsByInstance[row.id] ?? [])
       );
       error = null;
     } else {
@@ -331,8 +377,10 @@ export async function getFutureInstancesForRackNode(
 
   // Normalize data if query succeeded
   if (!error && data) {
+    const instanceIds = (data ?? []).map((r: { id: number }) => r.id);
+    const slotsByInstance = await getAreaSlotsByInstanceIds(instanceIds);
     normalizedData = (data ?? []).map((row) =>
-      normalizeInstanceRow(row as RawInstanceRow)
+      normalizeInstanceRow(row as RawInstanceRow, slotsByInstance[row.id] ?? [])
     );
   }
 
@@ -372,9 +420,11 @@ export async function getFutureInstancesForRackNode(
 
     const fallbackResult = await fallbackQuery;
     if (!fallbackResult.error) {
-      // Map fallback data to BookingInstanceWithBookingRow format
-      normalizedData = (fallbackResult.data ?? []).map((row) =>
-        normalizeInstanceRow(row as RawInstanceRow)
+      const fallbackData = fallbackResult.data ?? [];
+      const instanceIds = fallbackData.map((r: { id: number }) => r.id);
+      const slotsByInstance = await getAreaSlotsByInstanceIds(instanceIds);
+      normalizedData = fallbackData.map((row: RawInstanceRow) =>
+        normalizeInstanceRow(row, slotsByInstance[row.id] ?? [])
       );
       error = null;
     } else {

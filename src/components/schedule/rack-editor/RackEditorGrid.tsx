@@ -32,6 +32,8 @@ type Props = {
   isClosedPeriod?: boolean;
   /** True when the session is in the past - disables all dragging */
   isPastSession?: boolean;
+  /** When true, single click opens booking (for read-only view); no drag. */
+  viewOnly?: boolean;
 };
 
 export function RackEditorGrid({
@@ -57,6 +59,7 @@ export function RackEditorGrid({
   availablePlatforms = null,
   isClosedPeriod = false,
   isPastSession = false,
+  viewOnly = false,
 }: Props) {
   const selectedSet = new Set(selectedRacks);
   return (
@@ -142,14 +145,27 @@ export function RackEditorGrid({
           isAvailableInSchedule;
 
         const content = booking ? (
-          <DraggableBooking
-            booking={booking}
-            fromRack={row.rackNumber!}
-            activeId={activeId}
-            onEdit={onEditBooking}
-            isSelectingRacks={isSelectingRacks}
-            isPastSession={isPastSession}
-          />
+          (() => {
+            const rackKey = `rack_${row.rackNumber!}`;
+            const slot = booking.area_slots?.find(
+              (s) => s.area_key === rackKey
+            );
+            const displayStart = slot?.start;
+            const displayEnd = slot?.end;
+            return (
+              <DraggableBooking
+                booking={booking}
+                fromRack={row.rackNumber!}
+                activeId={activeId}
+                onEdit={onEditBooking}
+                isSelectingRacks={isSelectingRacks}
+                isPastSession={isPastSession}
+                displayStart={displayStart}
+                displayEnd={displayEnd}
+                viewOnly={viewOnly}
+              />
+            );
+          })()
         ) : row.disabled ? (
           <span className="text-slate-600">Not bookable</span>
         ) : activeId && !isUnavailable ? (

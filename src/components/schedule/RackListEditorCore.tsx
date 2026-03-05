@@ -1,5 +1,10 @@
 import { useMemo, useState, useEffect, useRef, type ReactNode } from 'react';
-import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  type DragEndEvent,
+} from '@dnd-kit/core';
 import { supabase } from '../../lib/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
@@ -12,13 +17,16 @@ import { RackEditorHeader } from './rack-editor/RackEditorHeader';
 import { RackEditorGrid } from './rack-editor/RackEditorGrid';
 import { RackEditorDragOverlay } from './rack-editor/RackEditorDragOverlay';
 import { BookingEditorModal } from './BookingEditorModal';
+import { SessionBookingInfoModal } from './SessionBookingInfoModal';
 import { useRackEditorDimensions } from './rack-editor/hooks/useRackEditorDimensions';
 import { useRackAssignments } from './rack-editor/hooks/useRackAssignments';
 import { useDragSensors } from './rack-editor/hooks/useDragSensors';
 import { useDragHandlers } from './rack-editor/hooks/useDragHandlers';
 import { RackSelectionPanel } from './rack-editor/RackSelectionPanel';
-import { UpdateRacksConfirmationDialog } from './booking-editor/UpdateRacksConfirmationDialog';
+import { UpdateRacksConfirmationDialog } from './booking-editor/dialogs/UpdateRacksConfirmationDialog';
 import { useLiveViewCapacity } from './hooks/useLiveViewCapacity';
+import { MiniAreasFloorplan } from '../shared/MiniAreasFloorplan';
+import { saveAreaSlotsForInstance } from '../../nodes/data/areaSlotsNodes';
 
 export type RackRow = {
   id: string; // rack-<number> or platform-<number>
@@ -48,6 +56,10 @@ export type RackListEditorCoreProps = {
   date: string;
   /** Time for checking capacity schedules (HH:mm) */
   time: string;
+  /** When true, clicking a booking shows read-only info modal instead of opening the editor. */
+  viewOnly?: boolean;
+  /** When viewOnly and provided, clicking a booking calls this instead of opening the read-only modal (e.g. Session View edit). */
+  onEditBooking?: (booking: ActiveInstance) => void;
 };
 
 export function RackListEditorCore({
@@ -62,6 +74,8 @@ export function RackListEditorCore({
   side,
   date,
   time,
+  viewOnly = false,
+  onEditBooking,
 }: RackListEditorCoreProps) {
   const bookings = useMemo(() => snapshot?.currentInstances ?? [], [snapshot]);
   const queryClient = useQueryClient();
@@ -75,6 +89,9 @@ export function RackListEditorCore({
   });
 
   const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(
+    null
+  );
+  const [viewingBooking, setViewingBooking] = useState<ActiveInstance | null>(
     null
   );
   const [isSelectingRacks, setIsSelectingRacks] = useState(false);
@@ -92,6 +109,18 @@ export function RackListEditorCore({
   >(new Set());
   const [showUpdateRacksConfirm, setShowUpdateRacksConfirm] = useState(false);
   const [rackSelectionWeekIndex, setRackSelectionWeekIndex] = useState(0);
+  const [liveViewMode, setLiveViewMode] = useState<'areas' | 'platforms'>(
+    'areas'
+  );
+  const [areaAssignments, setAreaAssignments] = useState<Map<number, string[]>>(
+    new Map()
+  );
+  const [initialAreaAssignments, setInitialAreaAssignments] = useState<
+    Map<number, string[]>
+  >(new Map());
+  const [areaSaving, setAreaSaving] = useState(false);
+  const [areaSavedAt, setAreaSavedAt] = useState<Date | null>(null);
+  const [areaDragError, setAreaDragError] = useState<string | null>(null);
   const hasInitializedRacks = useRef(false);
   const isEnteringSelectionMode = useRef(false);
   const hasSelectionsFromModal = useRef(false);
@@ -99,6 +128,13 @@ export function RackListEditorCore({
   const handleEditBooking = (booking: ActiveInstance) => {
     setEditingBooking(booking);
   };
+
+  const handleViewBooking = (booking: ActiveInstance) => {
+    setViewingBooking(booking);
+  };
+
+  const onBookingClickWhenViewOnly =
+    viewOnly && onEditBooking ? onEditBooking : handleViewBooking;
 
   const handleCloseModal = () => {
     // Only clear editingBooking if we're not entering selection mode
@@ -752,6 +788,16 @@ export function RackListEditorCore({
     [date, time]
   );
 
+  useEffect(() => {
+    setLiveViewMode('areas');
+  }, [side, date, time]);
+
+  useEffect(() => {
+    if (isSelectingRacks) {
+      setLiveViewMode('platforms');
+    }
+  }, [isSelectingRacks]);
+
   // Use week-specific bookings when in rack selection mode, otherwise use snapshot bookings
   const bookingsForDisplay = useMemo(() => {
     if (isSelectingRacks && bookingsForCurrentWeek.length > 0) {
@@ -759,6 +805,157 @@ export function RackListEditorCore({
     }
     return bookings;
   }, [isSelectingRacks, bookingsForCurrentWeek, bookings]);
+
+  const getBookingAreaKeys = (booking: ActiveInstance): string[] => {
+    const keys = new Set<string>(booking.areas ?? []);
+    (booking.area_slots ?? []).forEach((slot) => {
+      if (!slot.area_key.startsWith('rack_')) {
+        keys.add(slot.area_key);
+      }
+    });
+    return Array.from(keys);
+  };
+
+  useEffect(() => {
+    const next = new Map<number, string[]>();
+    bookingsForDisplay.forEach((booking) => {
+      next.set(booking.instanceId, getBookingAreaKeys(booking));
+    });
+    setAreaAssignments(next);
+    setInitialAreaAssignments(new Map(next));
+    setAreaSavedAt(null);
+  }, [bookingsForDisplay]);
+
+  const areaBookingByKey = useMemo(() => {
+    const map = new Map<string, ActiveInstance>();
+    const sortedBookings = [...bookingsForDisplay].sort((a, b) =>
+      a.start.localeCompare(b.start)
+    );
+    for (const booking of sortedBookings) {
+      const areaKeys = areaAssignments.get(booking.instanceId) ?? [];
+      for (const areaKey of areaKeys) {
+        if (!map.has(areaKey)) {
+          map.set(areaKey, booking);
+        }
+      }
+    }
+    return map;
+  }, [bookingsForDisplay, areaAssignments]);
+
+  const highlightedAreas = useMemo(
+    () => Array.from(areaBookingByKey.keys()),
+    [areaBookingByKey]
+  );
+
+  const handleAreaDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const booking = active.data.current?.booking as ActiveInstance | undefined;
+    const fromAreaKey = active.data.current?.fromAreaKey as string | undefined;
+    const toAreaKey = over.data.current?.areaKey as string | undefined;
+    if (!booking || !fromAreaKey || !toAreaKey) return;
+    if (fromAreaKey === toAreaKey) return;
+
+    const occupied = areaBookingByKey.get(toAreaKey);
+    if (occupied && occupied.instanceId !== booking.instanceId) {
+      setAreaDragError('Target area is already occupied at this time.');
+      setTimeout(() => setAreaDragError(null), 3000);
+      return;
+    }
+
+    setAreaDragError(null);
+    setAreaAssignments((prev) => {
+      const current = prev.get(booking.instanceId) ?? [];
+      if (!current.includes(fromAreaKey)) return prev;
+      const replaced = current.map((key) =>
+        key === fromAreaKey ? toAreaKey : key
+      );
+      const deduped = Array.from(new Set(replaced));
+      const next = new Map(prev);
+      next.set(booking.instanceId, deduped);
+      return next;
+    });
+  };
+
+  const handleSaveAreaAssignments = async () => {
+    setAreaSaving(true);
+    try {
+      const changed: Array<{
+        instanceId: number;
+        oldAreas: string[];
+        newAreas: string[];
+        booking: ActiveInstance;
+      }> = [];
+
+      bookingsForDisplay.forEach((booking) => {
+        const oldAreas = initialAreaAssignments.get(booking.instanceId) ?? [];
+        const newAreas = areaAssignments.get(booking.instanceId) ?? oldAreas;
+        const same =
+          oldAreas.length === newAreas.length &&
+          oldAreas.every((k) => newAreas.includes(k)) &&
+          newAreas.every((k) => oldAreas.includes(k));
+        if (!same) {
+          changed.push({
+            instanceId: booking.instanceId,
+            oldAreas,
+            newAreas,
+            booking,
+          });
+        }
+      });
+
+      if (changed.length === 0) return;
+
+      for (const item of changed) {
+        const { error } = await supabase
+          .from('booking_instances')
+          .update({ areas: item.newAreas })
+          .eq('id', item.instanceId);
+
+        if (error) throw new Error(error.message);
+
+        const slots = item.booking.area_slots ?? [];
+        if (slots.length > 0) {
+          const removed = item.oldAreas.filter(
+            (k) => !item.newAreas.includes(k)
+          );
+          const added = item.newAreas.filter((k) => !item.oldAreas.includes(k));
+          const replacement = new Map<string, string>();
+          removed.forEach((from, idx) => {
+            const to = added[idx];
+            if (to) replacement.set(from, to);
+          });
+
+          const nextSlots = slots.map((slot) => {
+            if (slot.area_key.startsWith('rack_')) return slot;
+            const to = replacement.get(slot.area_key);
+            if (to) return { ...slot, area_key: to };
+            return slot;
+          });
+
+          await saveAreaSlotsForInstance(item.instanceId, nextSlots);
+        }
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: ['snapshot'],
+        exact: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['booking-instances-debug'],
+        exact: false,
+      });
+      setInitialAreaAssignments(new Map(areaAssignments));
+      setAreaSavedAt(new Date());
+    } catch (err) {
+      setAreaDragError(
+        err instanceof Error ? err.message : 'Failed to save area changes'
+      );
+    } finally {
+      setAreaSaving(false);
+    }
+  };
 
   const {
     bookingById,
@@ -780,17 +977,50 @@ export function RackListEditorCore({
     });
 
   return (
-    <div className="space-y-2">
+    <div className="h-full min-h-0 flex flex-col gap-2">
       {!isSelectingRacks && (
         <>
-          <RackEditorHeader
-            saving={saving}
-            savedAt={savedAt}
-            onSave={handleSave}
-          />
+          {liveViewMode === 'platforms' && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLiveViewMode('areas')}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs border-slate-700 bg-slate-900/60 text-slate-200 hover:bg-slate-800"
+                aria-label="Back to area map"
+              >
+                <span aria-hidden>←</span>
+                Back to area map
+              </button>
+            </div>
+          )}
+          {!viewOnly && liveViewMode === 'platforms' && (
+            <div className="flex justify-end">
+              <RackEditorHeader
+                saving={saving}
+                savedAt={savedAt}
+                onSave={handleSave}
+              />
+            </div>
+          )}
+          {!viewOnly && liveViewMode === 'areas' && (
+            <div className="flex justify-end">
+              <RackEditorHeader
+                saving={areaSaving}
+                savedAt={areaSavedAt}
+                onSave={handleSaveAreaAssignments}
+              />
+            </div>
+          )}
           {dragError && (
             <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-md">
               <p className="text-sm text-red-300 font-medium">{dragError}</p>
+            </div>
+          )}
+          {areaDragError && (
+            <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-md">
+              <p className="text-sm text-red-300 font-medium">
+                {areaDragError}
+              </p>
             </div>
           )}
           {isClosedPeriod && (
@@ -831,16 +1061,86 @@ export function RackListEditorCore({
       )}
       <div
         ref={containerRef}
-        className="rounded-lg border border-slate-700 bg-slate-900/60 p-2 overflow-hidden"
-        style={{ height: renderedHeight + 16 }}
+        className={`relative flex-1 min-h-0 rounded-lg p-2 overflow-hidden ${
+          !isSelectingRacks && liveViewMode === 'areas'
+            ? 'border border-slate-700 bg-[#020617]'
+            : 'border border-slate-700 bg-slate-900/60'
+        }`}
       >
+        {/* When viewOnly (e.g. Session View), show Save as overlay so it doesn't shrink the map */}
+        {viewOnly && !isSelectingRacks && liveViewMode === 'platforms' && (
+          <div className="absolute top-2 right-2 z-10">
+            <RackEditorHeader
+              saving={saving}
+              savedAt={savedAt}
+              onSave={handleSave}
+            />
+          </div>
+        )}
+        {viewOnly && !isSelectingRacks && liveViewMode === 'areas' && (
+          <div className="absolute top-2 right-2 z-10">
+            <RackEditorHeader
+              saving={areaSaving}
+              savedAt={areaSavedAt}
+              onSave={handleSaveAreaAssignments}
+            />
+          </div>
+        )}
         {layout.length === 0 ? (
           <div className="text-xs text-slate-400 py-4 text-center">
             No data for this snapshot.
           </div>
+        ) : !isSelectingRacks && liveViewMode === 'areas' ? (
+          isPastSession ? (
+            // Past session: show areas map but disable dragging (same as platforms)
+            <div className="w-full h-full session-floorplan-enter">
+              <MiniAreasFloorplan
+                sideKey={side === 'base' ? 'Base' : 'Power'}
+                selectedAreaKeys={highlightedAreas}
+                areaBookingByKey={areaBookingByKey}
+                enableAreaDrag={false}
+                onEditBooking={
+                  viewOnly ? onBookingClickWhenViewOnly : handleEditBooking
+                }
+                onAreaClick={() => {}}
+                onPlatformsClick={() => setLiveViewMode('platforms')}
+                areasInteractive={false}
+                platformLabel="Platforms"
+                platformOverlayFill="rgba(30, 58, 138, 0.22)"
+                platformOverlayStroke="rgba(96, 165, 250, 0.55)"
+                fit="contain"
+                showOuterFrame={false}
+              />
+            </div>
+          ) : (
+            <DndContext
+              collisionDetection={closestCenter}
+              onDragEnd={handleAreaDragEnd}
+            >
+              <div className="w-full h-full session-floorplan-enter">
+                <MiniAreasFloorplan
+                  sideKey={side === 'base' ? 'Base' : 'Power'}
+                  selectedAreaKeys={highlightedAreas}
+                  areaBookingByKey={areaBookingByKey}
+                  enableAreaDrag
+                  onEditBooking={
+                    viewOnly ? onBookingClickWhenViewOnly : handleEditBooking
+                  }
+                  onAreaClick={() => {}}
+                  onPlatformsClick={() => setLiveViewMode('platforms')}
+                  areasInteractive={false}
+                  platformLabel="Platforms"
+                  platformOverlayFill="rgba(30, 58, 138, 0.22)"
+                  platformOverlayStroke="rgba(96, 165, 250, 0.55)"
+                  fit="contain"
+                  showOuterFrame={false}
+                />
+              </div>
+            </DndContext>
+          )
         ) : isSelectingRacks ? (
           // When selecting racks, don't use DndContext to avoid interfering with clicks
-          <div className="w-full h-full">
+          <div className="w-full h-full session-floorplan-enter">
             <div
               className="relative overflow-hidden"
               style={{ width: renderedWidth, height: renderedHeight }}
@@ -859,7 +1159,9 @@ export function RackListEditorCore({
                 BASE_WIDTH={BASE_WIDTH}
                 BASE_HEIGHT={BASE_HEIGHT}
                 zoomLevel={zoomLevel}
-                onEditBooking={handleEditBooking}
+                onEditBooking={
+                  viewOnly ? onBookingClickWhenViewOnly : handleEditBooking
+                }
                 isSelectingRacks={isSelectingRacks}
                 selectedRacks={selectedRacks}
                 editingBookingId={editingBooking?.instanceId ?? null}
@@ -868,12 +1170,13 @@ export function RackListEditorCore({
                 availablePlatforms={availablePlatforms}
                 isClosedPeriod={isClosedPeriod}
                 isPastSession={false}
+                viewOnly={viewOnly}
               />
             </div>
           </div>
         ) : isPastSession ? (
           // When session is in the past, render without DndContext to disable all dragging
-          <div className="w-full h-full">
+          <div className="w-full h-full session-floorplan-enter">
             <div
               className="relative overflow-hidden"
               style={{ width: renderedWidth, height: renderedHeight }}
@@ -892,7 +1195,9 @@ export function RackListEditorCore({
                 BASE_WIDTH={BASE_WIDTH}
                 BASE_HEIGHT={BASE_HEIGHT}
                 zoomLevel={zoomLevel}
-                onEditBooking={handleEditBooking}
+                onEditBooking={
+                  viewOnly ? onBookingClickWhenViewOnly : handleEditBooking
+                }
                 isSelectingRacks={false}
                 selectedRacks={[]}
                 editingBookingId={editingBooking?.instanceId ?? null}
@@ -901,6 +1206,7 @@ export function RackListEditorCore({
                 availablePlatforms={availablePlatforms}
                 isClosedPeriod={isClosedPeriod}
                 isPastSession={true}
+                viewOnly={viewOnly}
               />
             </div>
           </div>
@@ -911,7 +1217,7 @@ export function RackListEditorCore({
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="w-full h-full">
+            <div className="w-full h-full session-floorplan-enter">
               <div
                 className="relative overflow-hidden"
                 style={{ width: renderedWidth, height: renderedHeight }}
@@ -930,7 +1236,9 @@ export function RackListEditorCore({
                   BASE_WIDTH={BASE_WIDTH}
                   BASE_HEIGHT={BASE_HEIGHT}
                   zoomLevel={zoomLevel}
-                  onEditBooking={handleEditBooking}
+                  onEditBooking={
+                    viewOnly ? onBookingClickWhenViewOnly : handleEditBooking
+                  }
                   isSelectingRacks={isSelectingRacks}
                   selectedRacks={selectedRacks}
                   editingBookingId={editingBooking?.instanceId ?? null}
@@ -939,6 +1247,7 @@ export function RackListEditorCore({
                   availablePlatforms={availablePlatforms}
                   isClosedPeriod={isClosedPeriod}
                   isPastSession={false}
+                  viewOnly={viewOnly}
                 />
               </div>
             </div>
@@ -953,16 +1262,26 @@ export function RackListEditorCore({
         )}
       </div>
 
-      {/* Booking Editor Modal */}
-      <BookingEditorModal
-        booking={editingBooking}
-        isOpen={editingBooking !== null && !isSelectingRacks}
-        onClose={handleCloseModal}
-        onClearRacks={handleEditRacks}
-        onSaveTime={handleSaveTime}
-        initialSelectedInstances={
-          savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined
-        }
+      {/* Booking Editor Modal (only when not viewOnly) */}
+      {!viewOnly && (
+        <BookingEditorModal
+          booking={editingBooking}
+          isOpen={editingBooking !== null && !isSelectingRacks}
+          onClose={handleCloseModal}
+          onClearRacks={handleEditRacks}
+          onSaveTime={handleSaveTime}
+          initialSelectedInstances={
+            savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined
+          }
+        />
+      )}
+
+      {/* Session View: read-only booking info modal */}
+      <SessionBookingInfoModal
+        booking={viewingBooking}
+        side={side}
+        isOpen={viewingBooking !== null}
+        onClose={() => setViewingBooking(null)}
       />
 
       {/* Update Racks Confirmation Dialog */}

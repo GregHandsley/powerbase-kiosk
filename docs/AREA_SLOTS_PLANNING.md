@@ -17,7 +17,7 @@
 
 ---
 
-## Sprint 1: Area reference & map keys (foundation)
+## Sprint 1: Area reference & map keys (foundation) ✅ Complete
 
 **Goal:** Single source of truth for area keys that match both the DB `areas` table and the wayfinding map. Floorplan areas can be identified by key for later highlighting.
 
@@ -30,9 +30,9 @@
 
 **Acceptance criteria:**
 
-- [ ] `areas` table contains rows with `key` values that match the floorplan (e.g. `dumbbell`, `cables`, …).
-- [ ] Base floorplan (and Power if applicable) has a clear mapping: this rect/group = this `areaKey`. Either via a constant list of `{ areaKey, label, position }` used to render, or by adding `data-area-key` (or similar) to the relevant SVG elements for future use.
-- [ ] No regression to existing booking or wayfinding behaviour.
+- [x] `areas` table contains rows with `key` values that match the floorplan (e.g. `dumbbell`, `cables`, …). _(Seed: `migrations/add_areas_table_and_seed.sql`; uses existing `areas` table with `site_id`.)_
+- [x] Base floorplan (and Power if applicable) has a clear mapping: this rect/group = this `areaKey`. _(`data-area-key` on areas in `FloorShell.tsx`, `PowerFloorplan.tsx`, and Power section of `EditableFloorplan.tsx`; shared constants in `floorplanAreaKeys.ts`.)_
+- [x] No regression to existing booking or wayfinding behaviour.
 
 **Technical notes:**
 
@@ -41,7 +41,7 @@
 
 ---
 
-## Sprint 2: Area slots data model
+## Sprint 2: Area slots data model ✅ Complete
 
 **Goal:** Store time-bound area usage per instance: “area X from 09:00 to 09:30” within a booking instance.
 
@@ -54,9 +54,9 @@
 
 **Acceptance criteria:**
 
-- [ ] Migration creates `booking_instance_area_slots` with correct FKs and constraints.
-- [ ] Types and API allow: get slots for instance(s); create/update/delete slots when saving a booking.
-- [ ] No change yet to UI or wayfinding; only data model and read/write of slots.
+- [x] Migration creates `booking_instance_area_slots` with correct FKs and constraints. _(`migrations/add_booking_instance_area_slots.sql`)_
+- [x] Types and API allow: get slots for instance(s); create/update/delete slots when saving a booking. _(`BookingInstanceAreaSlotRow` in `db.ts`; `area_slots` on instance; `getAreaSlotsByInstanceIds` in `instancesNodes.ts`; `saveAreaSlotsForInstance` and `getAreaSlotsForInstance` in `areaSlotsNodes.ts`.)_
+- [x] No change yet to UI or wayfinding; only data model and read/write of slots.
 
 **Technical notes:**
 
@@ -152,6 +152,53 @@ Use these as the **main instruction** when handing a sprint to an AI; paste the 
 
 **Sprint 5:**  
 “Implement Sprint 5 (optional) from docs/AREA_SLOTS_PLANNING.md: timeline view for area slots and conflict warning when two bookings use the same area at the same time. Warn only; do not block save.”
+
+**Sprint 6:**  
+“Implement Sprint 6 from docs/AREA_SLOTS_PLANNING.md: booking flow redesign. Restructure the create booking flow to be time-first (step 1: side, date, start/end time, weeks; capacity validated here) then equipment-equal (step 2: platforms and area slots as equal options, no assumption platforms are required). Capacity must depend only on the selected time. Update copy so platforms are not the implied main equipment; allow bookings with only area slots or only platforms or both. Apply the same order in the edit flow.”
+
+---
+
+## Sprint 6: Booking flow redesign – time-first, equipment-equal
+
+**Goal:** Rethink the booking modal so it is **multi-layered** and **time-first**. Capacity is assessed when the user selects time; equipment (platforms, areas, etc.) is chosen in a later step with no assumption that platforms are the “main” equipment.
+
+**Current problem:**
+
+- The flow is centred around **platforms (racks)** as the primary selection; areas/area slots feel secondary.
+- Capacity and time are mixed in one screen with platform selection, so it’s unclear that capacity is driven by **time** first.
+
+**Desired behaviour:**
+
+- **Layer 1 – Time:** Ask for the **time of the booking** first: side, date, start time, end time (and recurrence/weeks if applicable). Run **capacity validation** in this step based on the selected time. No equipment selection yet. User proceeds only when time is valid (or acknowledges capacity warnings).
+- **Layer 2 – Equipment:** After time is fixed, present **equal** options for what is being booked:
+  - **Platforms (racks)** – same as today (which platforms / which weeks), but not assumed to be the “main” choice.
+  - **Area slots** – which areas, with start/end within the instance window (as in Sprint 3).
+  - Other equipment types in future (e.g. courts, rooms) should slot in as equal choices.
+- **No default hierarchy:** Do not assume platforms form the main equipment; do not require platforms to be selected. A booking can be “time + area slots only”, “time + platforms only”, or “time + platforms + area slots”. All equipment is equal; at least one equipment type (or area slots) should be selected before submit, or product rule could allow “time only” – clarify in acceptance.
+
+**Scope:**
+
+- Restructure the **create booking** flow (e.g. `BookingFormPanel` or a new stepped modal) into **steps** or **layers**:
+  1. **Time step:** Side, start date, start time, end time, weeks. Show capacity validation here. “Next” or “Continue” when time is valid.
+  2. **Equipment step:** Show platforms (racks) and area slots as equal sections. User can add platforms (per week if recurring), add area slots (list form), or both. Validation: at least one of (platforms for each week, or at least one area slot) required before submit – or document if “time-only” bookings are allowed.
+- **Edit booking:** Apply the same mental model where appropriate (e.g. time/capacity first, then equipment). Editor modal can keep a single view but order sections: Time & capacity → Platforms → Area slots (or tabs/steps).
+- **Copy and labels:** Replace any “Platforms”-centric wording (e.g. “Select platforms”) with neutral “What are you booking?” or “Equipment & areas” so platforms and areas feel equal.
+- **Capacity:** Ensure capacity logic uses only the **selected time** (and existing instances in that window); it must not depend on which platforms or areas are chosen. Capacity is “athletes in the facility in this time window,” not “athletes on these platforms.”
+
+**Acceptance criteria:**
+
+- [ ] Create booking has a clear **time step** (or first section) where user sets side, date, start/end time, weeks; capacity is validated and shown in this step.
+- [ ] After time is set, user sees **equipment step** (or second section) with platforms and area slots as **equal** options (same visual weight, no “main” vs “optional”).
+- [ ] User can submit a booking with only area slots (no platforms), only platforms (no area slots), or both. No assumption that platforms are required.
+- [ ] Copy/labels do not imply platforms are the primary equipment (e.g. “Equipment & areas” or “What are you booking?”).
+- [ ] Capacity assessment is based solely on the selected time window; it does not change when user adds/removes platforms or area slots.
+- [ ] Edit flow reflects the same order: time/capacity first, then equipment (platforms + area slots) as equal.
+
+**Technical notes:**
+
+- Consider a stepped component (e.g. “Step 1: Time”, “Step 2: Equipment & areas”) or a single long form with clear sections and a single “time block” at the top. Stepped flow can simplify validation (e.g. disable “Next” until time is valid).
+- Existing `useCapacityValidation` and closed-times logic should be driven by form time fields only; keep platform/area state out of capacity calculation.
+- If “time only” bookings are not allowed, enforce “at least one equipment type” in submit (e.g. at least one rack per week **or** at least one area slot).
 
 ---
 

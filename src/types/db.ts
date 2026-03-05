@@ -17,6 +17,17 @@ export interface BookingInstanceRow {
   racks: number[]; // JSONB array
   created_at: string;
   updated_at: string;
+  /** Time-bound area slots (Sprint 2). Loaded when fetching instances. */
+  area_slots?: BookingInstanceAreaSlotRow[];
+}
+
+/** One area + time window within a booking instance. */
+export interface BookingInstanceAreaSlotRow {
+  id: number;
+  booking_instance_id: number;
+  area_key: string;
+  start: string; // ISO
+  end: string; // ISO (column is "end" in DB)
 }
 
 export interface BookingInstanceWithBookingRow extends BookingInstanceRow {

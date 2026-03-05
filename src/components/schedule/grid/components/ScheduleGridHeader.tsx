@@ -9,6 +9,7 @@ type Props = {
   racks: number[];
   selectedSide: 'Power' | 'Base';
   gridTemplateColumns: string;
+  viewMode?: 'master' | 'platforms';
 };
 
 /** Tooltip styling to match home screen */
@@ -19,6 +20,7 @@ export function ScheduleGridHeader({
   racks,
   selectedSide,
   gridTemplateColumns,
+  viewMode = 'platforms',
 }: Props) {
   const sideKey = selectedSide === 'Power' ? 'power' : 'base';
   const [tooltip, setTooltip] = useState<{
@@ -61,47 +63,54 @@ export function ScheduleGridHeader({
         <div className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-r from-transparent to-slate-950/72" />
         <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-slate-300/12" />
       </div>
-      {racks.map((rack) => {
-        const label = getRackOrPlatformLabel(sideKey, rack);
-        const showTooltipIcon = isOpenPlatform(sideKey, rack);
-        return (
-          <div
-            key={rack}
-            className="p-3 border-r border-slate-700 last:border-r-0 bg-indigo-500/10 text-center min-w-[120px]"
-          >
-            <div className="text-sm font-semibold text-slate-100 flex items-center justify-center gap-1">
-              <span>{label}</span>
-              {showTooltipIcon && (
-                <span
-                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-600/80 text-slate-300 text-xs font-normal flex-shrink-0"
-                  aria-label="Open platform without a rack"
-                  onMouseEnter={(e) => handleIconEnter(e, rack)}
-                  onMouseMove={(e) => handleIconMove(e, rack)}
-                  onMouseLeave={handleIconLeave}
-                >
-                  i
-                </span>
-              )}
+      {viewMode === 'master' ? (
+        <div
+          className="border-r border-slate-700 border-l-0 bg-slate-900/90 min-w-0"
+          style={{ gridColumn: '2 / -1' }}
+        />
+      ) : (
+        racks.map((rack) => {
+          const label = getRackOrPlatformLabel(sideKey, rack);
+          const showTooltipIcon = isOpenPlatform(sideKey, rack);
+          return (
+            <div
+              key={rack}
+              className="p-3 border-r border-slate-700 last:border-r-0 bg-indigo-500/10 text-center min-w-[120px]"
+            >
+              <div className="text-sm font-semibold text-slate-100 flex items-center justify-center gap-1">
+                <span>{label}</span>
+                {showTooltipIcon && (
+                  <span
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-600/80 text-slate-300 text-xs font-normal flex-shrink-0"
+                    aria-label="Open platform without a rack"
+                    onMouseEnter={(e) => handleIconEnter(e, rack)}
+                    onMouseMove={(e) => handleIconMove(e, rack)}
+                    onMouseLeave={handleIconLeave}
+                  >
+                    i
+                  </span>
+                )}
+              </div>
+              {tooltip?.rack === rack &&
+                createPortal(
+                  <div
+                    className={OPEN_PLATFORM_TOOLTIP_CLASS}
+                    style={{
+                      left: tooltip.x + 12,
+                      top: tooltip.y - 12,
+                      transform: 'translateY(-100%)',
+                    }}
+                  >
+                    <div className="font-semibold">
+                      Open platform without a rack
+                    </div>
+                  </div>,
+                  document.body
+                )}
             </div>
-            {tooltip?.rack === rack &&
-              createPortal(
-                <div
-                  className={OPEN_PLATFORM_TOOLTIP_CLASS}
-                  style={{
-                    left: tooltip.x + 12,
-                    top: tooltip.y - 12,
-                    transform: 'translateY(-100%)',
-                  }}
-                >
-                  <div className="font-semibold">
-                    Open platform without a rack
-                  </div>
-                </div>,
-                document.body
-              )}
-          </div>
-        );
-      })}
+          );
+        })
+      )}
     </div>
   );
 }

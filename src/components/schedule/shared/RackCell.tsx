@@ -20,7 +20,7 @@ type Props = {
   /** Size variant - 'full' for live view, 'mini' for compact view */
   variant?: 'full' | 'mini';
   /** Reason why the platform is unavailable - for display purposes */
-  unavailableReason?: 'booked' | 'not-in-schedule' | null;
+  unavailableReason?: 'booked' | 'not-in-schedule' | 'partially-booked' | null;
 };
 
 /**
@@ -81,9 +81,11 @@ export function RackCell({
     ? 'border-red-500'
     : isSelected
       ? 'border-indigo-500'
-      : isDisabled
-        ? 'border-slate-600'
-        : 'border-slate-700';
+      : unavailableReason === 'partially-booked'
+        ? 'border-amber-500/70'
+        : isDisabled
+          ? 'border-slate-600'
+          : 'border-slate-700';
 
   const backgroundColor = hasConflict
     ? variant === 'mini'
@@ -93,13 +95,17 @@ export function RackCell({
       ? variant === 'mini'
         ? 'bg-indigo-900/30'
         : 'bg-indigo-600/20'
-      : isDisabled
+      : unavailableReason === 'partially-booked'
         ? variant === 'mini'
-          ? 'bg-slate-800/50'
-          : 'bg-slate-900/40 opacity-50'
-        : variant === 'mini'
-          ? 'bg-slate-800/30'
-          : 'bg-slate-900/80';
+          ? 'bg-amber-900/25'
+          : 'bg-amber-900/20'
+        : isDisabled
+          ? variant === 'mini'
+            ? 'bg-slate-800/50'
+            : 'bg-slate-900/40 opacity-50'
+          : variant === 'mini'
+            ? 'bg-slate-800/30'
+            : 'bg-slate-900/80';
 
   if (variant === 'mini') {
     return (
@@ -146,15 +152,25 @@ export function RackCell({
             </div>,
             document.body
           )}
-        {!row.disabled && isDisabled && (
-          <span className="text-[8px] text-slate-400 mt-0.5 leading-none">
-            {unavailableReason === 'booked'
-              ? 'Booked'
-              : unavailableReason === 'not-in-schedule'
-                ? 'Unavailable'
-                : 'Unavailable'}
-          </span>
-        )}
+        {!row.disabled &&
+          (isDisabled || unavailableReason === 'partially-booked') && (
+            <span
+              className={clsx(
+                'text-[8px] mt-0.5 leading-none',
+                unavailableReason === 'partially-booked'
+                  ? 'text-amber-400'
+                  : 'text-slate-400'
+              )}
+            >
+              {unavailableReason === 'partially-booked'
+                ? 'Partially booked'
+                : unavailableReason === 'booked'
+                  ? 'Booked'
+                  : unavailableReason === 'not-in-schedule'
+                    ? 'Unavailable'
+                    : 'Unavailable'}
+            </span>
+          )}
       </div>
     );
   }

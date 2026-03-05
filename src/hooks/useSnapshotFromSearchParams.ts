@@ -12,26 +12,25 @@ export function useSnapshotFromSearchParams() {
   const [search, setSearch] = useSearchParams();
   const hasInitialized = useRef(false);
 
-  // Only set default date/time if not provided in URL
+  // When navigating from nav (no date/time in URL), set date/time to current so Session View shows "now".
+  // When navigating from My Bookings (e.g. View session with ?date=...&time=...), preserve those params.
   useEffect(() => {
     if (hasInitialized.current) return;
 
+    const dateParam = search.get('date');
+    const timeParam = search.get('time');
+    const hasValidDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam);
+    const hasValidTime = timeParam && /^\d{2}:\d{2}$/.test(timeParam);
+
+    if (hasValidDate && hasValidTime) {
+      hasInitialized.current = true;
+      return;
+    }
+
     const params = new URLSearchParams(search);
-    const hasDate = params.has('date');
-    const hasTime = params.has('time');
-
-    // Only set defaults if params are missing
-    if (!hasDate) {
-      params.set('date', todayString());
-    }
-    if (!hasTime) {
-      params.set('time', currentTimeString());
-    }
-
-    // Only update if we added defaults
-    if (!hasDate || !hasTime) {
-      setSearch(params, { replace: true });
-    }
+    if (!hasValidDate) params.set('date', todayString());
+    if (!hasValidTime) params.set('time', currentTimeString());
+    setSearch(params, { replace: true });
 
     hasInitialized.current = true;
   }, [search, setSearch]);

@@ -18,6 +18,7 @@ import {
   usePermission,
   usePrimaryOrganizationId,
 } from '../hooks/usePermissions';
+import { getProcessedSnapshotSignature } from '../utils/processedSnapshotSignature';
 
 function InfoTooltip({ content }: { content: string }) {
   const [show, setShow] = useState(false);
@@ -178,6 +179,7 @@ export function BookingsTeam() {
         firstInstanceEnd: firstInstance?.end || '',
         firstInstanceCapacity: firstInstance?.capacity, // Keep for backward compatibility
         firstInstanceRacks: firstInstance?.racks || [], // Keep for backward compatibility
+        firstInstanceAreas: firstInstance?.areas || [], // Keep for backward compatibility
         allRacks: Array.from(allRacks).sort((a, b) => a - b),
         // Store all instance start dates for accurate deletion detection
         allInstanceStarts: booking.instances.map((inst) => inst.start).sort(),
@@ -202,6 +204,13 @@ export function BookingsTeam() {
             racks: inst.racks || [],
           }))
           .sort((a, b) => a.start.localeCompare(b.start)),
+        // Store areas for each instance by date (for accurate area change detection after reprocessing)
+        allInstanceAreas: booking.instances
+          .map((inst) => ({
+            start: inst.start,
+            areas: inst.areas || [],
+          }))
+          .sort((a, b) => a.start.localeCompare(b.start)),
       };
 
       const { error } = await supabase
@@ -211,6 +220,7 @@ export function BookingsTeam() {
           processed_by: user.id,
           processed_at: new Date().toISOString(),
           processed_snapshot: snapshot,
+          processed_snapshot_signature: getProcessedSnapshotSignature(snapshot),
         })
         .eq('id', booking.id);
 
@@ -416,6 +426,7 @@ export function BookingsTeam() {
           firstInstanceEnd: firstInstance?.end || '',
           firstInstanceCapacity: firstInstance?.capacity, // Keep for backward compatibility
           firstInstanceRacks: firstInstance?.racks || [], // Keep for backward compatibility
+          firstInstanceAreas: firstInstance?.areas || [], // Keep for backward compatibility
           allRacks: Array.from(allRacks).sort((a, b) => a - b),
           // Store all instance start dates for accurate deletion detection
           allInstanceStarts: booking.instances.map((inst) => inst.start).sort(),
@@ -440,6 +451,13 @@ export function BookingsTeam() {
               racks: inst.racks || [],
             }))
             .sort((a, b) => a.start.localeCompare(b.start)),
+          // Store areas for each instance by date (for accurate area change detection after reprocessing)
+          allInstanceAreas: booking.instances
+            .map((inst) => ({
+              start: inst.start,
+              areas: inst.areas || [],
+            }))
+            .sort((a, b) => a.start.localeCompare(b.start)),
         };
 
         return supabase
@@ -449,6 +467,8 @@ export function BookingsTeam() {
             processed_by: user.id,
             processed_at: new Date().toISOString(),
             processed_snapshot: snapshot,
+            processed_snapshot_signature:
+              getProcessedSnapshotSignature(snapshot),
           })
           .eq('id', booking.id);
       });

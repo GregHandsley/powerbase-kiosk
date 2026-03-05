@@ -4,6 +4,11 @@ import type { ActiveInstance } from '../../types/snapshot';
 import { useAuth } from '../../context/AuthContext';
 import { canMoveBooking } from '../../utils/bookingPermissions';
 
+/** Format start/end for display (ISO or HH:mm). */
+function timeLabel(s: string): string {
+  return s.includes('T') ? s.slice(11, 16) : s;
+}
+
 type Props = {
   booking: ActiveInstance;
   fromRack: number;
@@ -11,6 +16,11 @@ type Props = {
   onEdit?: (booking: ActiveInstance) => void;
   isSelectingRacks?: boolean;
   isPastSession?: boolean;
+  /** When set, show this time range instead of the master booking start/end (e.g. per-rack slot time). */
+  displayStart?: string;
+  displayEnd?: string;
+  /** When true, single click opens view (onEdit); no drag. Used for Session View. */
+  viewOnly?: boolean;
 };
 
 export function DraggableBooking({
@@ -20,20 +30,24 @@ export function DraggableBooking({
   onEdit,
   isSelectingRacks = false,
   isPastSession = false,
+  displayStart,
+  displayEnd,
+  viewOnly = false,
 }: Props) {
   const { role } = useAuth();
   const dragId = `booking-${booking.instanceId}-${fromRack}`;
 
+  // In viewOnly mode, no dragging; single click opens view
+  const canMove = !viewOnly && canMoveBooking(role);
   // Only admins can move bookings in live view
-  const canMove = canMoveBooking(role);
-  // Admins can always drag, coaches cannot drag locked bookings
   const isLocked = booking.isLocked && role !== 'admin';
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: dragId,
       data: { bookingId: booking.instanceId, fromRack },
-      disabled: !canMove || isLocked || isSelectingRacks || isPastSession, // Disable dragging if not admin, locked, selecting racks, or session is past
+      disabled:
+        viewOnly || !canMove || isLocked || isSelectingRacks || isPastSession,
     });
 
   // Only hide if this item is being dragged (use hook's isDragging state)
@@ -46,30 +60,40 @@ export function DraggableBooking({
     <div
       ref={setNodeRef}
       style={style}
-      {...(isLocked || !canMove || isSelectingRacks || isPastSession
+      {...(viewOnly
         ? {}
-        : { ...listeners, ...attributes })}
+        : isLocked || !canMove || isSelectingRacks || isPastSession
+          ? {}
+          : { ...listeners, ...attributes })}
+      onClick={(e) => {
+        if (isSelectingRacks) {
+          e.stopPropagation();
+          return;
+        }
+        if (viewOnly && onEdit) {
+          e.stopPropagation();
+          onEdit(booking);
+          return;
+        }
+      }}
       onDoubleClick={(e) => {
-        // Open booking modal on double-click (for live view)
+        if (viewOnly) return;
+        // Open booking modal on double-click (for live view when not viewOnly)
         if (onEdit && !isSelectingRacks) {
           e.stopPropagation();
           onEdit(booking);
         }
       }}
-      onClick={(e) => {
-        // Prevent clicks from bubbling up when selecting racks
-        if (isSelectingRacks) {
-          e.stopPropagation();
-        }
-      }}
       className={`inline-flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-3 rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-base sm:text-lg w-full border-2 ${
-        isLocked || isPastSession
-          ? 'bg-slate-800/40 border-slate-600/50 text-slate-400 cursor-not-allowed opacity-75'
-          : !canMove
-            ? 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-pointer hover:bg-slate-800/80'
-            : isSelectingRacks
-              ? 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-default'
-              : 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-grab active:cursor-grabbing'
+        viewOnly
+          ? 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-pointer hover:bg-slate-800/80'
+          : isLocked || isPastSession
+            ? 'bg-slate-800/40 border-slate-600/50 text-slate-400 cursor-not-allowed opacity-75'
+            : !canMove
+              ? 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-pointer hover:bg-slate-800/80'
+              : isSelectingRacks
+                ? 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-default'
+                : 'bg-slate-800/60 border-slate-700 text-slate-100 cursor-grab active:cursor-grabbing'
       }`}
     >
       <div className="font-semibold line-clamp-2 break-words flex-1 min-w-0 flex items-center gap-2">
@@ -93,7 +117,8 @@ export function DraggableBooking({
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="text-sm sm:text-base text-slate-300 whitespace-nowrap">
-          {booking.start.slice(11, 16)}–{booking.end.slice(11, 16)}
+          {timeLabel(displayStart ?? booking.start)}–
+          {timeLabel(displayEnd ?? booking.end)}
         </div>
       </div>
     </div>

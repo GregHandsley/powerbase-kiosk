@@ -13,13 +13,14 @@ import {
 } from '../schedule/shared/layouts';
 import { getGridConfig } from '../schedule/shared/gridConfig';
 import { RackCell } from '../schedule/shared/RackCell';
+import { isOpenPlatform } from '../schedule/utils/platformUtils';
 import {
   doesScheduleApply,
   parseExcludedDates,
   type ScheduleData,
 } from '../admin/capacity/scheduleUtils';
 
-type Props = {
+export type MiniPlatformFloorplanProps = {
   /** Which side this floorplan is for */
   sideKey: 'Power' | 'Base';
   /** Selected rack numbers */
@@ -44,6 +45,10 @@ type Props = {
   }>;
   /** Instance IDs to exclude from booked racks (e.g., current booking being edited) */
   excludeInstanceIds?: Set<number>;
+  /** Called when free intervals per rack are computed (for partially available racks). Used to set default slot times. */
+  onFreeIntervalsComputed?: (
+    freeIntervalsByRack: Map<number, Array<{ start: string; end: string }>>
+  ) => void;
 };
 
 /**
@@ -51,7 +56,7 @@ type Props = {
  * Shows a compact grid layout matching the live view, with clickable racks,
  * highlighting selected ones and graying out racks that are booked at the requested time.
  */
-export function MiniScheduleFloorplan({
+export function MiniPlatformFloorplan({
   sideKey,
   selectedRacks,
   onRackClick,
@@ -61,7 +66,8 @@ export function MiniScheduleFloorplan({
   allowConflictingRacks = false,
   ignoreBookings = false,
   excludeInstanceIds,
-}: Props) {
+  onFreeIntervalsComputed,
+}: MiniPlatformFloorplanProps) {
   const side = sideKey === 'Base' ? 'base' : 'power';
   const selectedSet = new Set(selectedRacks);
 
@@ -372,16 +378,112 @@ export function MiniScheduleFloorplan({
     return booked;
   }, [instances, ignoreBookings, excludeInstanceIds]);
 
-  // Build a set of selected racks that have conflicts (are booked by others OR not available in schedule)
-  // If ignoreBookings is true, no conflicts should be detected
+  /** Free time intervals per rack within [startTime, endTime] (HH:mm). Empty = fully booked. */
+  const freeIntervalsByRack = useMemo(() => {
+    const map = new Map<number, Array<{ start: string; end: string }>>();
+    if (ignoreBookings || !startTime || !endTime) return map;
+
+    const windowStartMs = new Date(startTime).getTime();
+    const windowEndMs = new Date(endTime).getTime();
+
+    const mergeAndSubtract = (
+      busy: Array<{ start: string; end: string }>
+    ): Array<{ start: string; end: string }> => {
+      if (busy.length === 0)
+        return [
+          {
+            start: format(new Date(windowStartMs), 'HH:mm'),
+            end: format(new Date(windowEndMs), 'HH:mm'),
+          },
+        ];
+      const sorted = [...busy].sort(
+        (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+      );
+      const merged: Array<{ start: string; end: string }> = [];
+      for (const b of sorted) {
+        const bStart = new Date(b.start).getTime();
+        const bEnd = new Date(b.end).getTime();
+        const last = merged[merged.length - 1];
+        if (!last) {
+          merged.push({ start: b.start, end: b.end });
+          continue;
+        }
+        const lastEnd = new Date(last.end).getTime();
+        if (bStart <= lastEnd) {
+          if (bEnd > lastEnd) last.end = b.end;
+        } else {
+          merged.push({ start: b.start, end: b.end });
+        }
+      }
+      const free: Array<{ start: string; end: string }> = [];
+      let pos = windowStartMs;
+      for (const seg of merged) {
+        const segStart = new Date(seg.start).getTime();
+        const segEnd = new Date(seg.end).getTime();
+        if (segStart > pos) {
+          const freeEnd = Math.min(segStart, windowEndMs);
+          free.push({
+            start: format(new Date(pos), 'HH:mm'),
+            end: format(new Date(freeEnd), 'HH:mm'),
+          });
+        }
+        pos = Math.max(pos, segEnd);
+        if (pos >= windowEndMs) break;
+      }
+      if (pos < windowEndMs) {
+        free.push({
+          start: format(new Date(pos), 'HH:mm'),
+          end: format(new Date(windowEndMs), 'HH:mm'),
+        });
+      }
+      return free;
+    };
+
+    for (const rack of bookedRacks) {
+      const busy = instances
+        .filter(
+          (inst) =>
+            !excludeInstanceIds?.has(inst.instanceId) &&
+            inst.racks.includes(rack)
+        )
+        .map((inst) => ({ start: inst.start, end: inst.end }));
+      const free = mergeAndSubtract(busy);
+      if (free.length > 0) map.set(rack, free);
+    }
+    return map;
+  }, [
+    ignoreBookings,
+    startTime,
+    endTime,
+    instances,
+    bookedRacks,
+    excludeInstanceIds,
+  ]);
+
+  const partiallyAvailableRacks = useMemo(
+    () =>
+      new Set(
+        Array.from(bookedRacks).filter(
+          (r) => (freeIntervalsByRack.get(r)?.length ?? 0) > 0
+        )
+      ),
+    [bookedRacks, freeIntervalsByRack]
+  );
+
+  useEffect(() => {
+    onFreeIntervalsComputed?.(freeIntervalsByRack);
+  }, [onFreeIntervalsComputed, freeIntervalsByRack]);
+
+  // Build a set of selected racks that have conflicts (fully booked by others OR not available in schedule)
+  // Partially available racks are NOT conflicts so multiple can be selected
   const conflictingSelectedRacks = useMemo(() => {
     if (ignoreBookings) {
       return new Set<number>();
     }
     const conflicting = new Set<number>();
     for (const rack of selectedRacks) {
-      // Conflict if booked by another booking
-      if (bookedRacks.has(rack)) {
+      // Conflict only if fully booked (not partially available)
+      if (bookedRacks.has(rack) && !partiallyAvailableRacks.has(rack)) {
         conflicting.add(rack);
       }
       // Conflict if not available in capacity schedule (when schedule restricts platforms)
@@ -390,7 +492,13 @@ export function MiniScheduleFloorplan({
       }
     }
     return conflicting;
-  }, [selectedRacks, bookedRacks, availablePlatforms, ignoreBookings]);
+  }, [
+    selectedRacks,
+    bookedRacks,
+    partiallyAvailableRacks,
+    availablePlatforms,
+    ignoreBookings,
+  ]);
 
   // Build a map of current instance by rack (excluding current booking being edited)
   const bookingByRack = useMemo(() => {
@@ -470,6 +578,11 @@ export function MiniScheduleFloorplan({
                 !ignoreBookings &&
                 row.rackNumber !== null &&
                 bookedRacks.has(row.rackNumber);
+              const isPartiallyAvailable =
+                row.rackNumber !== null &&
+                partiallyAvailableRacks.has(row.rackNumber);
+              const isFullyBooked =
+                isUsedByOtherBooking && !isPartiallyAvailable;
               // Check if platform is available in capacity schedule
               // If ignoreBookings is true (capacity management), don't check capacity schedules - all platforms are available
               const isAvailableInSchedule = ignoreBookings
@@ -477,19 +590,23 @@ export function MiniScheduleFloorplan({
                 : row.rackNumber === null ||
                   availablePlatforms === null ||
                   availablePlatforms.has(row.rackNumber);
-              // Platform is unavailable if it's booked OR not in the capacity schedule
-              // For capacity management (ignoreBookings), platforms are never unavailable - we can select any platform
+              // Platform is unavailable if it's fully booked (no free time) OR not in the capacity schedule
+              // Partially available racks (some free time) are clickable
               const isUnavailable = ignoreBookings
                 ? false
                 : row.rackNumber !== null &&
-                  (!isAvailableInSchedule || isUsedByOtherBooking);
-              // Determine why it's unavailable for display purposes
+                  (!isAvailableInSchedule || isFullyBooked);
+              // Determine why it's unavailable for display purposes; also show 'partially-booked' when clickable
               const unavailableReason =
-                row.rackNumber !== null && isUnavailable && !ignoreBookings
-                  ? isUsedByOtherBooking
-                    ? 'booked'
-                    : !isAvailableInSchedule
-                      ? 'not-in-schedule'
+                row.rackNumber !== null && !ignoreBookings
+                  ? isPartiallyAvailable
+                    ? 'partially-booked'
+                    : isUnavailable
+                      ? isFullyBooked
+                        ? 'booked'
+                        : !isAvailableInSchedule
+                          ? 'not-in-schedule'
+                          : null
                       : null
                   : null;
               const isSelected =
@@ -502,7 +619,7 @@ export function MiniScheduleFloorplan({
                   isSelected &&
                   (conflictingSelectedRacks.has(row.rackNumber) ||
                     !isAvailableInSchedule);
-              // Conflicting racks are NOT clickable - only available racks can be clicked
+              // Conflicting racks are NOT clickable - only available or partially available racks can be clicked
               // If there are conflicts in the selection and clicking an available rack, it will clear the week
               // Selected racks are always clickable so they can be unselected, even if marked as unavailable
               const isClickable =
@@ -522,15 +639,18 @@ export function MiniScheduleFloorplan({
                   unavailableReason={unavailableReason}
                   onClick={() => {
                     if (isClickable && row.rackNumber !== null) {
+                      // If already selected, always toggle (deselect) so user can click to remove
+                      if (isSelected) {
+                        onRackClick(row.rackNumber, false);
+                        return;
+                      }
                       // If there are conflicts in the current week's selection and clicking an available rack,
                       // replace the entire selection with just this rack
                       const weekHasConflicts =
                         conflictingSelectedRacks.size > 0;
                       if (weekHasConflicts) {
-                        // When there are conflicts, clicking an available rack should replace the entire selection
                         onRackClick(row.rackNumber, true);
                       } else {
-                        // Normal selection behavior when no conflicts
                         onRackClick(row.rackNumber, false);
                       }
                     }
@@ -557,13 +677,41 @@ export function MiniScheduleFloorplan({
               </p>
             </div>
           )}
-        {selectedRacks.length > 0 && (
-          <p className="text-xs text-slate-300 mt-1 text-center">
-            {selectedRacks.length} rack{selectedRacks.length !== 1 ? 's' : ''}{' '}
-            selected
-          </p>
-        )}
+        {/* Always show count to avoid layout jump when selection changes */}
+        {(() => {
+          const platformCount = selectedRacks.filter((n) =>
+            isOpenPlatform(side, n)
+          ).length;
+          const rackCount = selectedRacks.length - platformCount;
+          const parts: string[] = [];
+          if (platformCount > 0)
+            parts.push(
+              `${platformCount} platform${platformCount !== 1 ? 's' : ''}`
+            );
+          if (rackCount > 0)
+            parts.push(`${rackCount} rack${rackCount !== 1 ? 's' : ''}`);
+          const text =
+            selectedRacks.length === 0
+              ? '0 racks selected'
+              : parts.length > 0
+                ? `${parts.join(' and ')} selected`
+                : '0 racks selected';
+          return (
+            <p
+              className={`text-xs mt-1 text-center min-h-[1.25rem] ${
+                selectedRacks.length > 0 ? 'text-slate-300' : 'text-slate-400'
+              }`}
+            >
+              {text}
+            </p>
+          );
+        })()}
       </div>
     </div>
   );
 }
+
+/**
+ * Backward-compatible alias while the old name is phased out.
+ */
+export const MiniScheduleFloorplan = MiniPlatformFloorplan;

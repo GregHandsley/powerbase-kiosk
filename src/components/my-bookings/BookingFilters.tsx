@@ -1,18 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { BookingFilter } from '../../hooks/useMyBookings';
 import type { BookingStatus } from '../../types/db';
 import { format } from 'date-fns';
 
+/** Status options for My Bookings filter. Excludes 'confirmed' as it is not used. */
+const STATUS_OPTIONS: { value: BookingStatus; label: string }[] = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'processed', label: 'Processed' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'pending_cancellation', label: 'Pending cancellation' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
 type Props = {
   filters: BookingFilter;
   onFiltersChange: (filters: BookingFilter) => void;
+  /** When set, "Clear all" resets to this instead of status-only default. */
+  defaultFilters?: BookingFilter;
 };
 
-export function BookingFilters({ filters, onFiltersChange }: Props) {
+export function BookingFilters({
+  filters,
+  onFiltersChange,
+  defaultFilters,
+}: Props) {
   const [localFilters, setLocalFilters] = useState<BookingFilter>(filters);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
 
-  const handleStatusChange = (status: BookingStatus | 'all') => {
-    const newFilters = { ...localFilters, status };
+  useEffect(() => {
+    setLocalFilters(filters);
+  }, [filters]);
+
+  useEffect(() => {
+    if (!statusDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        statusDropdownRef.current &&
+        !statusDropdownRef.current.contains(e.target as Node)
+      ) {
+        setStatusDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [statusDropdownOpen]);
+
+  const handleStatusToggle = (status: BookingStatus) => {
+    const current = localFilters.status ?? [];
+    const next = current.includes(status)
+      ? current.filter((s) => s !== status)
+      : [...current, status];
+    const newFilters = { ...localFilters, status: next };
     setLocalFilters(newFilters);
     onFiltersChange(newFilters);
   };
@@ -38,9 +78,9 @@ export function BookingFilters({ filters, onFiltersChange }: Props) {
   };
 
   const clearFilters = () => {
-    const cleared = {
-      status: 'all' as const,
-      side: 'all' as const,
+    const cleared: BookingFilter = defaultFilters ?? {
+      status: ['pending', 'processed'],
+      side: 'all',
       dateFrom: undefined,
       dateTo: undefined,
     };
@@ -48,11 +88,22 @@ export function BookingFilters({ filters, onFiltersChange }: Props) {
     onFiltersChange(cleared);
   };
 
+  const selectedStatuses = new Set(localFilters.status ?? []);
+  const defaultStatusSet =
+    defaultFilters?.status && defaultFilters.status.length > 0
+      ? new Set(defaultFilters.status)
+      : new Set<BookingStatus>(['pending', 'processed']);
+  const sameStatus =
+    selectedStatuses.size === defaultStatusSet.size &&
+    [...selectedStatuses].every((s) => defaultStatusSet.has(s));
+  const sameSide =
+    (localFilters.side ?? 'all') === (defaultFilters?.side ?? 'all');
+  const sameDateFrom =
+    localFilters.dateFrom?.getTime() === defaultFilters?.dateFrom?.getTime();
+  const sameDateTo =
+    localFilters.dateTo?.getTime() === defaultFilters?.dateTo?.getTime();
   const hasActiveFilters =
-    localFilters.status !== 'all' ||
-    localFilters.side !== 'all' ||
-    localFilters.dateFrom !== undefined ||
-    localFilters.dateTo !== undefined;
+    !sameStatus || !sameSide || !sameDateFrom || !sameDateTo;
 
   return (
     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 mb-6">
@@ -70,26 +121,64 @@ export function BookingFilters({ filters, onFiltersChange }: Props) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Status Filter */}
-        <div>
+        {/* Status multi-select dropdown */}
+        <div ref={statusDropdownRef} className="relative">
           <label className="block text-sm font-medium text-slate-300 mb-2">
             Status
           </label>
-          <select
-            value={localFilters.status || 'all'}
-            onChange={(e) =>
-              handleStatusChange(e.target.value as BookingStatus | 'all')
-            }
-            className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          <button
+            type="button"
+            onClick={() => setStatusDropdownOpen((open) => !open)}
+            className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-left text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between"
           >
-            <option value="all">All Statuses</option>
-            <option value="draft">Draft</option>
-            <option value="pending">Pending</option>
-            <option value="processed">Processed</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+            <span className="truncate">
+              {(localFilters.status?.length ?? 0) === 0
+                ? 'Select statuses...'
+                : STATUS_OPTIONS.filter((opt) =>
+                    selectedStatuses.has(opt.value)
+                  )
+                    .map((opt) => opt.label)
+                    .join(', ')}
+            </span>
+            <svg
+              className={`w-4 h-4 text-slate-400 shrink-0 ml-1 transition-transform ${
+                statusDropdownOpen ? 'rotate-180' : ''
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+          {statusDropdownOpen && (
+            <div className="absolute z-10 mt-1 w-full rounded-md border border-slate-600 bg-slate-900 shadow-lg py-1 max-h-48 overflow-auto">
+              {STATUS_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-800 text-sm text-slate-200"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedStatuses.has(opt.value)}
+                    onChange={() => handleStatusToggle(opt.value)}
+                    className="rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500"
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          )}
+          {(localFilters.status?.length ?? 0) === 0 && (
+            <p className="text-xs text-slate-500 mt-1">
+              Select at least one status to see bookings.
+            </p>
+          )}
         </div>
 
         {/* Side Filter */}

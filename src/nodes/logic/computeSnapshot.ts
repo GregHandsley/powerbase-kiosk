@@ -47,6 +47,11 @@ export function computeSnapshotFromInstances(
         end: inst.end,
         racks,
         areas,
+        area_slots: inst.area_slots?.map((slot) => ({
+          area_key: slot.area_key,
+          start: slot.start,
+          end: slot.end,
+        })),
         title: bookingTitle,
         color: bookingColor,
         isLocked,

@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Remove any shadow/glow from capacity card */
+.capacity-card-no-shadow {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
 /* Custom scrollbar for time picker */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
@@ -584,4 +590,41 @@ body.kiosk-mode * {
     transform: translate3d(2%, -3%, 0) scale(1.06);
     opacity: 0.6;
   }
+}
+
+@keyframes sessionFloorplanEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.session-floorplan-enter {
+  animation: sessionFloorplanEnter 240ms ease-out;
+}
+
+@keyframes sessionPlatformPulse {
+  0%,
+  100% {
+    stroke-opacity: 0.45;
+  }
+  50% {
+    stroke-opacity: 0.95;
+  }
+}
+
+.session-platform-hotspot {
+  animation: sessionPlatformPulse 1.5s ease-in-out infinite;
+  transition:
+    stroke-width 120ms ease,
+    fill-opacity 120ms ease;
+}
+
+.session-platform-hotspot:hover {
+  stroke-width: 0.45;
+  fill-opacity: 0.92;
 }

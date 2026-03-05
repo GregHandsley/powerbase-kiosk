@@ -1,7 +1,7 @@
 import type { UseFormReturn } from 'react-hook-form';
 import { addWeeks } from 'date-fns';
 import type { BookingFormValues } from '../../../schemas/bookingForm';
-import { MiniScheduleFloorplan } from '../../shared/MiniScheduleFloorplan';
+import { MiniPlatformFloorplan } from '../../shared/MiniPlatformFloorplan';
 import { combineDateAndTime } from './utils';
 import clsx from 'clsx';
 
@@ -21,6 +21,16 @@ type Props = {
   form: UseFormReturn<BookingFormValues>;
   sideKey: 'Power' | 'Base';
   weekManagement: WeekManagement;
+  /** When true, hide the Number of Athletes input (e.g. already in Step 1) */
+  hideCapacityInput?: boolean;
+  /** When true, hide the "Platforms" label (e.g. when parent shows "Platforms & racks") */
+  hideLabel?: boolean;
+  /** When true, hide the racksInput error (e.g. when parent shows it in footer) */
+  hideRacksInputError?: boolean;
+  /** Called when free intervals per rack are computed (for partially available racks). */
+  onFreeIntervalsComputed?: (
+    freeIntervalsByRack: Map<number, Array<{ start: string; end: string }>>
+  ) => void;
 };
 
 /**
@@ -30,6 +40,10 @@ export function BookingPlatformSelection({
   form,
   sideKey,
   weekManagement,
+  hideCapacityInput = false,
+  hideLabel = false,
+  hideRacksInputError = false,
+  onFreeIntervalsComputed,
 }: Props) {
   const {
     currentWeekIndex,
@@ -69,7 +83,12 @@ export function BookingPlatformSelection({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <label className="block font-medium text-xs">Platforms</label>
+        {!hideLabel && (
+          <label className="block font-medium text-xs">Platforms</label>
+        )}
+        {hideLabel && weeksCount > 1 && timeRange.start && timeRange.end && (
+          <div className="flex-1" />
+        )}
         {weeksCount > 1 && timeRange.start && timeRange.end && (
           <div className="flex items-center gap-2">
             <button
@@ -146,7 +165,7 @@ export function BookingPlatformSelection({
       )}
 
       {timeRange.start && timeRange.end ? (
-        <MiniScheduleFloorplan
+        <MiniPlatformFloorplan
           sideKey={sideKey}
           selectedRacks={selectedPlatforms}
           onRackClick={(rackNumber, replaceSelection = false) => {
@@ -167,6 +186,7 @@ export function BookingPlatformSelection({
           endTime={timeRange.end}
           showTitle={false}
           allowConflictingRacks={false}
+          onFreeIntervalsComputed={onFreeIntervalsComputed}
         />
       ) : (
         <div className="w-full">
@@ -177,7 +197,7 @@ export function BookingPlatformSelection({
           </div>
         </div>
       )}
-      {form.formState.errors.racksInput && (
+      {!hideRacksInputError && form.formState.errors.racksInput && (
         <p className="text-red-400 mt-1 text-xs">
           {form.formState.errors.racksInput.message}
         </p>
@@ -201,27 +221,29 @@ export function BookingPlatformSelection({
         </div>
       )}
 
-      {/* Number of Athletes input - under Platforms */}
-      <div className="mt-3">
-        <label className="block mb-1 font-medium text-xs">
-          Number of Athletes
-        </label>
-        <input
-          type="number"
-          min={1}
-          max={100}
-          value={currentWeekCapacity}
-          className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500"
-          onChange={(e) => {
-            handleCapacityChange(parseInt(e.target.value) || 1);
-          }}
-        />
-        {form.formState.errors.capacity && (
-          <p className="text-red-400 mt-0.5 text-xs">
-            {form.formState.errors.capacity.message}
-          </p>
-        )}
-      </div>
+      {/* Number of Athletes input - under Platforms (optional, e.g. hidden in create flow Step 2) */}
+      {!hideCapacityInput && (
+        <div className="mt-3">
+          <label className="block mb-1 font-medium text-xs">
+            Number of Athletes
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={currentWeekCapacity}
+            className="w-full rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500"
+            onChange={(e) => {
+              handleCapacityChange(parseInt(e.target.value) || 1);
+            }}
+          />
+          {form.formState.errors.capacity && (
+            <p className="text-red-400 mt-0.5 text-xs">
+              {form.formState.errors.capacity.message}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

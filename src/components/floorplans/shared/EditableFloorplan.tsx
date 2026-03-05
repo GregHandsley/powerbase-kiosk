@@ -10,6 +10,16 @@ import type { RackLayoutSlot } from './RackSlot';
 import { FloorShell } from '../base/FloorShell';
 import '../../../styles/floorplan.css';
 
+/** Power floorplan area keys for data-area-key (match PowerFloorplan.tsx and DB) */
+const POWER_AREA_KEY = {
+  DUMBBELL: 'dumbbell',
+  CABLES: 'cables',
+  FIXED_MACHINES: 'fixed_machines',
+  WEIGHT_LIFTING: 'weight_lifting',
+  FUNCTIONAL: 'functional',
+  TRACK: 'track',
+} as const;
+
 type Props = {
   snapshot: SideSnapshot | null;
   /** Selected rack numbers */
@@ -242,7 +252,10 @@ export function EditableFloorplan({
             `}
           />
           {/* LEFT: Dumbbell Area */}
-          <g transform={`translate(${floorMargin + 2} ${floorMargin + 17})`}>
+          <g
+            data-area-key={POWER_AREA_KEY.DUMBBELL}
+            transform={`translate(${floorMargin + 2} ${floorMargin + 17})`}
+          >
             <rect className="fp-area" width={15} height={42} />
             <text
               className="fp-area-label"
@@ -259,6 +272,7 @@ export function EditableFloorplan({
           </g>
           {/* LEFT: Cables */}
           <g
+            data-area-key={POWER_AREA_KEY.CABLES}
             transform={`translate(${floorMargin + 2} ${viewBoxHeight - floorMargin - 22})`}
           >
             <rect className="fp-area" width={15} height={20} />
@@ -273,7 +287,10 @@ export function EditableFloorplan({
             </text>
           </g>
           {/* MID-LEFT: Fixed Resistance Machines */}
-          <g transform={`translate(${floorMargin + 24} ${floorMargin + 40})`}>
+          <g
+            data-area-key={POWER_AREA_KEY.FIXED_MACHINES}
+            transform={`translate(${floorMargin + 24} ${floorMargin + 40})`}
+          >
             <rect className="fp-area" width={23} height={42} />
             <text
               className="fp-area-label"
@@ -295,61 +312,67 @@ export function EditableFloorplan({
             </text>
           </g>
           {/* TOP BAND: Weight Lifting Area */}
-          <rect
-            className="fp-banner"
-            x={floorMargin + 47.5}
-            y={floorMargin + 2}
-            width={viewBoxWidth - floorMargin - 65}
-            height={10}
-            rx={4}
-            ry={4}
-          />
-          <text
-            className="fp-banner-text"
-            x={100.5}
-            y={floorMargin + 8}
-            textAnchor="middle"
-            fontSize={2}
-          >
-            Weight Lifting Area
-          </text>
+          <g data-area-key={POWER_AREA_KEY.WEIGHT_LIFTING}>
+            <rect
+              className="fp-banner"
+              x={floorMargin + 47.5}
+              y={floorMargin + 2}
+              width={viewBoxWidth - floorMargin - 65}
+              height={10}
+              rx={4}
+              ry={4}
+            />
+            <text
+              className="fp-banner-text"
+              x={100.5}
+              y={floorMargin + 8}
+              textAnchor="middle"
+              fontSize={2}
+            >
+              Weight Lifting Area
+            </text>
+          </g>
           {/* BOTTOM BAND: Functional Area */}
-          <rect
-            className="fp-banner"
-            x={floorMargin + 48.5}
-            y={viewBoxHeight - floorMargin - 14}
-            width={viewBoxWidth - floorMargin - 66}
-            height={12}
-            rx={4}
-            ry={4}
-          />
-          <text
-            className="fp-banner-text"
-            x={floorMargin + 45 + (viewBoxWidth - floorMargin - 40 - 17) / 2}
-            y={viewBoxHeight - floorMargin - 7}
-            textAnchor="middle"
-            fontSize={2}
-          >
-            Functional Area
-          </text>
+          <g data-area-key={POWER_AREA_KEY.FUNCTIONAL}>
+            <rect
+              className="fp-banner"
+              x={floorMargin + 48.5}
+              y={viewBoxHeight - floorMargin - 14}
+              width={viewBoxWidth - floorMargin - 66}
+              height={12}
+              rx={4}
+              ry={4}
+            />
+            <text
+              className="fp-banner-text"
+              x={floorMargin + 45 + (viewBoxWidth - floorMargin - 40 - 17) / 2}
+              y={viewBoxHeight - floorMargin - 7}
+              textAnchor="middle"
+              fontSize={2}
+            >
+              Functional Area
+            </text>
+          </g>
           {/* RIGHT: Track */}
-          <rect
-            className="fp-track"
-            x={viewBoxWidth - floorMargin - 13}
-            y={floorMargin + 2}
-            width={11}
-            height={viewBoxHeight - floorMargin * 2 - 4}
-          />
-          <text
-            className="fp-track-text"
-            x={viewBoxWidth - floorMargin - 9}
-            y={viewBoxHeight / 2 + 2.5}
-            textAnchor="middle"
-            fontSize={3}
-            transform={`rotate(-90 ${viewBoxWidth - floorMargin - 9} ${viewBoxHeight / 2})`}
-          >
-            Track
-          </text>
+          <g data-area-key={POWER_AREA_KEY.TRACK}>
+            <rect
+              className="fp-track"
+              x={viewBoxWidth - floorMargin - 13}
+              y={floorMargin + 2}
+              width={11}
+              height={viewBoxHeight - floorMargin * 2 - 4}
+            />
+            <text
+              className="fp-track-text"
+              x={viewBoxWidth - floorMargin - 9}
+              y={viewBoxHeight / 2 + 2.5}
+              textAnchor="middle"
+              fontSize={3}
+              transform={`rotate(-90 ${viewBoxWidth - floorMargin - 9} ${viewBoxHeight / 2})`}
+            >
+              Track
+            </text>
+          </g>
           {/* YELLOW STAIRS – top centre */}
           <rect
             className="fp-stairs-main"

@@ -6,11 +6,13 @@ import { Modal } from '../shared/Modal';
 import { BookingEditorHeader } from './booking-editor/BookingEditorHeader';
 import { TimeInputSection } from './booking-editor/TimeInputSection';
 import { SeriesInstancesList } from './booking-editor/SeriesInstancesList';
-import { ExtendBookingDialog } from './booking-editor/ExtendBookingDialog';
-import { CancelBookingDialog } from './booking-editor/CancelBookingDialog';
-import { UpdateTimeConfirmationDialog } from './booking-editor/UpdateTimeConfirmationDialog';
+import { ExtendBookingDialog } from './booking-editor/dialogs/ExtendBookingDialog';
+import { CancelBookingDialog } from './booking-editor/dialogs/CancelBookingDialog';
+import { UpdateTimeConfirmationDialog } from './booking-editor/dialogs/UpdateTimeConfirmationDialog';
 import { BookingEditorActions } from './booking-editor/BookingEditorActions';
-import { useBookingEditor } from './booking-editor/useBookingEditor';
+import { AreaSlotsField } from '../admin/booking/AreaSlotsField';
+import { useAreas } from '../admin/booking/useAreas';
+import { useBookingEditor } from './booking-editor/hooks/useBookingEditor';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabaseClient';
 import { useClosedTimes } from '../admin/capacity/useClosedTimes';
@@ -78,7 +80,12 @@ export function BookingEditorModal({
     handleCancelBooking,
     handleExtendBooking,
     handleInstanceToggle,
+    areaSlotsForm,
+    setAreaSlotsForm,
+    firstSelectedInstanceForSlots,
   } = useBookingEditor(booking, isOpen, initialSelectedInstances);
+
+  const { areas } = useAreas();
 
   // Open directly into the extend dialog when requested (e.g., Extend from MyBookings)
   useEffect(() => {
@@ -231,6 +238,24 @@ export function BookingEditorModal({
             className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
+
+        {firstSelectedInstanceForSlots && canEdit && (
+          <AreaSlotsField
+            areas={areas.filter(
+              (a) => a.side_id === firstSelectedInstanceForSlots.sideId
+            )}
+            windowStartTime={formatTimeForInput(
+              firstSelectedInstanceForSlots.start
+            )}
+            windowEndTime={formatTimeForInput(
+              firstSelectedInstanceForSlots.end
+            )}
+            value={areaSlotsForm}
+            onChange={setAreaSlotsForm}
+            disabled={isLocked || saving}
+            slotTimeMode="time-only"
+          />
+        )}
 
         <SeriesInstancesList
           instances={seriesInstances}

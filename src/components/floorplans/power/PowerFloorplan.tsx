@@ -11,6 +11,17 @@ import {
 import { type RackAppearance } from '../shared/theme';
 import '../../../styles/floorplan.css';
 
+/** Area keys for SVG data-area-key; must match floorplanAreaKeys.ts and DB areas.key for Power */
+const POWER_AREA_KEY = {
+  DUMBBELL: 'dumbbell',
+  CABLES: 'cables',
+  FIXED_MACHINES: 'fixed_machines',
+  WEIGHT_LIFTING: 'weight_lifting',
+  FUNCTIONAL: 'functional',
+  TRACK: 'track',
+  PLATFORMS: 'platforms',
+} as const;
+
 type Props = {
   snapshot?: SideSnapshot | null;
   appearance?: RackAppearance;
@@ -129,7 +140,10 @@ export function PowerbaseFloorSvg({
       />
 
       {/* LEFT: Dumbbell Area */}
-      <g transform={`translate(${floorMargin + 2} ${floorMargin + 17})`}>
+      <g
+        data-area-key={POWER_AREA_KEY.DUMBBELL}
+        transform={`translate(${floorMargin + 2} ${floorMargin + 17})`}
+      >
         <rect className="fp-area" width={15} height={42} />
         <text
           className="fp-area-label"
@@ -147,6 +161,7 @@ export function PowerbaseFloorSvg({
 
       {/* LEFT: Cables */}
       <g
+        data-area-key={POWER_AREA_KEY.CABLES}
         transform={`translate(${floorMargin + 2} ${viewBoxHeight - floorMargin - 22})`}
       >
         <rect className="fp-area" width={15} height={20} />
@@ -162,7 +177,10 @@ export function PowerbaseFloorSvg({
       </g>
 
       {/* MID-LEFT: Fixed Resistance Machines */}
-      <g transform={`translate(${floorMargin + 24} ${floorMargin + 40})`}>
+      <g
+        data-area-key={POWER_AREA_KEY.FIXED_MACHINES}
+        transform={`translate(${floorMargin + 24} ${floorMargin + 40})`}
+      >
         <rect className="fp-area" width={23} height={42} />
         <text
           className="fp-area-label"
@@ -185,63 +203,69 @@ export function PowerbaseFloorSvg({
       </g>
 
       {/* TOP BAND: Weight Lifting Area */}
-      <rect
-        className="fp-banner"
-        x={floorMargin + 47.5}
-        y={floorMargin + 2}
-        width={viewBoxWidth - floorMargin - 65}
-        height={10}
-        rx={4}
-        ry={4}
-      />
-      <text
-        className="fp-banner-text"
-        x={100.5}
-        y={floorMargin + 8}
-        textAnchor="middle"
-        fontSize={2}
-      >
-        Weight Lifting Area
-      </text>
+      <g data-area-key={POWER_AREA_KEY.WEIGHT_LIFTING}>
+        <rect
+          className="fp-banner"
+          x={floorMargin + 47.5}
+          y={floorMargin + 2}
+          width={viewBoxWidth - floorMargin - 65}
+          height={10}
+          rx={4}
+          ry={4}
+        />
+        <text
+          className="fp-banner-text"
+          x={100.5}
+          y={floorMargin + 8}
+          textAnchor="middle"
+          fontSize={2}
+        >
+          Weight Lifting Area
+        </text>
+      </g>
 
       {/* BOTTOM BAND: Functional Area */}
-      <rect
-        className="fp-banner"
-        x={floorMargin + 48.5}
-        y={viewBoxHeight - floorMargin - 14}
-        width={viewBoxWidth - floorMargin - 66}
-        height={12}
-        rx={4}
-        ry={4}
-      />
-      <text
-        className="fp-banner-text"
-        x={floorMargin + 45 + (viewBoxWidth - floorMargin - 40 - 17) / 2}
-        y={viewBoxHeight - floorMargin - 7}
-        textAnchor="middle"
-        fontSize={2}
-      >
-        Functional Area
-      </text>
+      <g data-area-key={POWER_AREA_KEY.FUNCTIONAL}>
+        <rect
+          className="fp-banner"
+          x={floorMargin + 48.5}
+          y={viewBoxHeight - floorMargin - 14}
+          width={viewBoxWidth - floorMargin - 66}
+          height={12}
+          rx={4}
+          ry={4}
+        />
+        <text
+          className="fp-banner-text"
+          x={floorMargin + 45 + (viewBoxWidth - floorMargin - 40 - 17) / 2}
+          y={viewBoxHeight - floorMargin - 7}
+          textAnchor="middle"
+          fontSize={2}
+        >
+          Functional Area
+        </text>
+      </g>
 
       {/* RIGHT: Track */}
-      <rect
-        className="fp-track"
-        x={viewBoxWidth - floorMargin - 13}
-        y={floorMargin + 2}
-        width={11}
-        height={viewBoxHeight - floorMargin * 2 - 4}
-      />
-      <text
-        className="fp-track-text"
-        x={viewBoxWidth - floorMargin - 9}
-        y={viewBoxHeight / 2 + 2.5}
-        textAnchor="middle"
-        fontSize={3}
-        transform={`rotate(-90 ${viewBoxWidth - floorMargin - 9} ${viewBoxHeight / 2})`}
-      >
-        Track
-      </text>
+      <g data-area-key={POWER_AREA_KEY.TRACK}>
+        <rect
+          className="fp-track"
+          x={viewBoxWidth - floorMargin - 13}
+          y={floorMargin + 2}
+          width={11}
+          height={viewBoxHeight - floorMargin * 2 - 4}
+        />
+        <text
+          className="fp-track-text"
+          x={viewBoxWidth - floorMargin - 9}
+          y={viewBoxHeight / 2 + 2.5}
+          textAnchor="middle"
+          fontSize={3}
+          transform={`rotate(-90 ${viewBoxWidth - floorMargin - 9} ${viewBoxHeight / 2})`}
+        >
+          Track
+        </text>
+      </g>
 
       {/* YELLOW STAIRS – top centre */}
       <rect
@@ -263,72 +287,73 @@ export function PowerbaseFloorSvg({
       ))}
 
       {/* ---------- RACK / PLATFORM GRID (BIG) ---------- */}
+      <g data-area-key={POWER_AREA_KEY.PLATFORMS}>
+        {/* Column 1: RACK K14–18 */}
+        {col1Racks.map((code, row) => {
+          const x = col1X;
+          const y = rowY(row);
+          return renderRackSlot({
+            number: code,
+            x,
+            y,
+            width: rackWidth,
+            height: rackHeight,
+          });
+        })}
 
-      {/* Column 1: RACK K14–18 */}
-      {col1Racks.map((code, row) => {
-        const x = col1X;
-        const y = rowY(row);
-        return renderRackSlot({
-          number: code,
-          x,
-          y,
-          width: rackWidth,
-          height: rackHeight,
-        });
-      })}
+        {/* Column 2: RACK K9–13 */}
+        {col2Racks.map((code, row) => {
+          const x = col2X;
+          const y = rowY(row);
+          return renderRackSlot({
+            number: code,
+            x,
+            y,
+            width: rackWidth,
+            height: rackHeight,
+          });
+        })}
 
-      {/* Column 2: RACK K9–13 */}
-      {col2Racks.map((code, row) => {
-        const x = col2X;
-        const y = rowY(row);
-        return renderRackSlot({
-          number: code,
-          x,
-          y,
-          width: rackWidth,
-          height: rackHeight,
-        });
-      })}
+        {/* Column 3: PLATFORM 1–2 (bookable) + RACK K6–8 */}
+        {[
+          {
+            number: POWER_OPEN_PLATFORM_1,
+            label: 'Platform 1',
+            x: col3X,
+            y: rowY(0),
+            width: rackWidth,
+            height: rackHeight,
+          },
+          {
+            number: POWER_OPEN_PLATFORM_2,
+            label: 'Platform 2',
+            x: col3X,
+            y: rowY(1),
+            width: rackWidth,
+            height: rackHeight,
+          },
+          ...([6, 7, 8] as const).map((code, row) => ({
+            number: code,
+            x: col3X,
+            y: rowY(row + 2),
+            width: rackWidth,
+            height: rackHeight,
+          })),
+        ].map((slot) => renderRackSlot(slot))}
 
-      {/* Column 3: PLATFORM 1–2 (bookable) + RACK K6–8 */}
-      {[
-        {
-          number: POWER_OPEN_PLATFORM_1,
-          label: 'Platform 1',
-          x: col3X,
-          y: rowY(0),
-          width: rackWidth,
-          height: rackHeight,
-        },
-        {
-          number: POWER_OPEN_PLATFORM_2,
-          label: 'Platform 2',
-          x: col3X,
-          y: rowY(1),
-          width: rackWidth,
-          height: rackHeight,
-        },
-        ...([6, 7, 8] as const).map((code, row) => ({
-          number: code,
-          x: col3X,
-          y: rowY(row + 2),
-          width: rackWidth,
-          height: rackHeight,
-        })),
-      ].map((slot) => renderRackSlot(slot))}
-
-      {/* Column 4: RACK K1–5 */}
-      {col4Racks.map((code, row) => {
-        const x = col4X;
-        const y = rowY(row);
-        return renderRackSlot({
-          number: code,
-          x,
-          y,
-          width: rackWidth,
-          height: rackHeight,
-        });
-      })}
+        {/* Column 4: RACK K1–5 */}
+        {col4Racks.map((code, row) => {
+          const x = col4X;
+          const y = rowY(row);
+          return renderRackSlot({
+            number: code,
+            x,
+            y,
+            width: rackWidth,
+            height: rackHeight,
+          });
+        })}
+      </g>
     </svg>
   );
 }

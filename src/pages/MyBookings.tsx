@@ -1,36 +1,50 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMyBookings, type BookingFilter } from '../hooks/useMyBookings';
 import { BookingCard } from '../components/my-bookings/BookingCard';
 import { BookingLifecycleModal } from '../components/my-bookings/BookingLifecycleModal';
 import { BookingFilters } from '../components/my-bookings/BookingFilters';
-import { BookingEditorModal } from '../components/schedule/BookingEditorModal';
-import { RackSelectionPanel } from '../components/schedule/rack-editor/RackSelectionPanel';
-import { MiniScheduleFloorplan } from '../components/shared/MiniScheduleFloorplan';
-import { UpdateRacksConfirmationDialog } from '../components/schedule/booking-editor/UpdateRacksConfirmationDialog';
-import { useRackSelection } from '../components/schedule/rack-editor/useRackSelection';
+import { EditSessionScopeModal } from '../components/my-bookings/EditSessionScopeModal';
+import { EditBookingSimpleModal } from '../components/my-bookings/EditBookingSimpleModal';
+import { CreateBookingFlowModal } from '../components/schedule/CreateBookingFlowModal';
 import { useQueryClient } from '@tanstack/react-query';
-import type { ActiveInstance } from '../types/snapshot';
 import type { BookingWithInstances } from '../hooks/useMyBookings';
+import type { BookingStatus } from '../types/db';
 import { canEditBooking } from '../utils/bookingPermissions';
+import { startOfWeek, endOfWeek, addWeeks } from 'date-fns';
+
+/** Default date range: current week through 6 weeks ahead so new bookings (future sessions) appear. */
+function getDefaultDateRange(): { dateFrom: Date; dateTo: Date } {
+  const now = new Date();
+  return {
+    dateFrom: startOfWeek(now, { weekStartsOn: 1 }),
+    dateTo: endOfWeek(addWeeks(now, 6), { weekStartsOn: 1 }),
+  };
+}
+
+const DEFAULT_STATUS: BookingStatus[] = ['pending', 'processed'];
 
 export function MyBookings() {
   const { user, role } = useAuth();
   const queryClient = useQueryClient();
-  // Default to today's date to filter out completed sessions
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const [filters, setFilters] = useState<BookingFilter>({
-    status: 'all',
+  const defaultDateRange = useMemo(() => getDefaultDateRange(), []);
+
+  const [filters, setFilters] = useState<BookingFilter>(() => ({
+    status: [...DEFAULT_STATUS],
     side: 'all',
-    dateFrom: today,
-  });
-  const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(
-    null
-  );
+    dateFrom: defaultDateRange.dateFrom,
+    dateTo: defaultDateRange.dateTo,
+  }));
+  const [editingBookingFull, setEditingBookingFull] =
+    useState<BookingWithInstances | null>(null);
+  const [editingSelectedInstanceIds, setEditingSelectedInstanceIds] = useState<
+    number[]
+  >([]);
+  const [scopeModalBooking, setScopeModalBooking] =
+    useState<BookingWithInstances | null>(null);
   const [lifecycleBooking, setLifecycleBooking] =
     useState<BookingWithInstances | null>(null);
-  const [showExtendDialogOnOpen, setShowExtendDialogOnOpen] = useState(false);
+  const [showCreateBookingFlow, setShowCreateBookingFlow] = useState(false);
 
   const {
     data: bookings = [],
@@ -38,88 +52,51 @@ export function MyBookings() {
     error,
   } = useMyBookings(user?.id || null, filters);
 
-  const {
-    isSelectingRacks,
-    selectedRacks,
-    savingRacks,
-    applyRacksToAll,
-    setApplyRacksToAll,
-    rackValidationError,
-    seriesInstancesForRacks,
-    weeksForRacks,
-    rackSelectionWeekIndex,
-    setRackSelectionWeekIndex,
-    currentWeekInstancesForRacks,
-    selectedInstancesForRacks,
-    setSelectedInstancesForRacks,
-    currentWeekTimeRange,
-    bookingSide,
-    savedSelectedInstances,
-    showUpdateRacksConfirm,
-    setShowUpdateRacksConfirm,
-    setSelectedRacks,
-    setRackValidationError,
-    startRackSelection: handleEditRacksRacks,
-    handleCancelRackSelection,
-    handleSaveRacks,
-    performRackUpdate,
-    handleRackClick,
-    enteringSelectionModeRef,
-  } = useRackSelection({
-    editingBooking,
-    setEditingBooking,
-    onAfterRackUpdate: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
-      await queryClient.invalidateQueries({ queryKey: ['snapshot'] });
-      await queryClient.invalidateQueries({ queryKey: ['booking-series'] });
-    },
-  });
-
-  const convertToActiveInstance = (
-    booking: BookingWithInstances
-  ): ActiveInstance | null => {
-    const firstInstance = booking.instances[0];
-    if (!firstInstance) return null;
-    return {
-      instanceId: firstInstance.id,
-      bookingId: booking.id,
-      start: firstInstance.start,
-      end: firstInstance.end,
-      racks: firstInstance.racks,
-      areas: firstInstance.areas,
-      title: booking.title,
-      color: booking.color,
-      isLocked: booking.is_locked,
-      createdBy: booking.created_by,
-      capacity: firstInstance.capacity,
-      status: booking.status,
-    };
-  };
-
   const handleEdit = (booking: BookingWithInstances) => {
-    const activeInstance = convertToActiveInstance(booking);
-    if (!activeInstance) return;
-
-    // Check if user has permission to edit this booking
-    if (!canEditBooking(activeInstance, user?.id || null, role)) {
-      // This shouldn't happen in MyBookings since it only shows user's bookings,
-      // but check anyway for safety
+    const firstInstance = booking.instances[0];
+    if (!firstInstance) return;
+    if (
+      !canEditBooking(
+        {
+          instanceId: firstInstance.id,
+          bookingId: booking.id,
+          start: firstInstance.start,
+          end: firstInstance.end,
+          racks: firstInstance.racks,
+          areas: firstInstance.areas,
+          title: booking.title,
+          color: booking.color,
+          isLocked: booking.is_locked,
+          createdBy: booking.created_by,
+          capacity: firstInstance.capacity,
+          status: booking.status,
+        },
+        user?.id || null,
+        role
+      )
+    ) {
       alert("You don't have permission to edit this booking.");
       return;
     }
-
-    setShowExtendDialogOnOpen(false);
-    setEditingBooking(activeInstance);
+    if (booking.instances.length > 1) {
+      setScopeModalBooking(booking);
+    } else {
+      setEditingBookingFull(booking);
+      setEditingSelectedInstanceIds([firstInstance.id]);
+    }
   };
 
-  const handleBookingModalClose = () => {
-    if (!isSelectingRacks && !enteringSelectionModeRef.current) {
-      setEditingBooking(null);
-    } else {
-      enteringSelectionModeRef.current = false;
-    }
+  const handleScopeConfirm = (instanceIds: number[]) => {
+    if (!scopeModalBooking) return;
+    setEditingSelectedInstanceIds(instanceIds);
+    setEditingBookingFull(scopeModalBooking);
+    setScopeModalBooking(null);
+  };
+
+  const handleSimpleEditClose = () => {
+    setEditingBookingFull(null);
+    setEditingSelectedInstanceIds([]);
     queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
-    setShowExtendDialogOnOpen(false);
   };
 
   if (!user) {
@@ -134,152 +111,92 @@ export function MyBookings() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {isSelectingRacks && editingBooking ? (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Edit Racks</h1>
-              <p className="text-slate-400 text-sm">
-                Choose the platforms for your booking. This matches the Schedule
-                flow.
-              </p>
-            </div>
-          </div>
-
-          <RackSelectionPanel
-            editingBooking={editingBooking}
-            selectedRacks={selectedRacks}
-            rackValidationError={rackValidationError}
-            savingRacks={savingRacks}
-            applyRacksToAll={applyRacksToAll}
-            setApplyRacksToAll={(value) => {
-              setApplyRacksToAll(value);
-              if (rackValidationError) {
-                setRackValidationError(null);
-              }
-            }}
-            seriesInstancesForRacks={seriesInstancesForRacks}
-            weeksForRacks={weeksForRacks}
-            rackSelectionWeekIndex={rackSelectionWeekIndex}
-            setRackSelectionWeekIndex={setRackSelectionWeekIndex}
-            currentWeekInstancesForRacks={currentWeekInstancesForRacks}
-            selectedInstancesForRacks={selectedInstancesForRacks}
-            setSelectedInstancesForRacks={setSelectedInstancesForRacks}
-            handleCancelRackSelection={handleCancelRackSelection}
-            handleSaveRacks={handleSaveRacks}
-          />
-
-          {currentWeekTimeRange && bookingSide && (
-            <div className="border border-slate-700 rounded-lg bg-slate-900/60 p-4">
-              <MiniScheduleFloorplan
-                sideKey={
-                  bookingSide === 'Power' || bookingSide === 'Base'
-                    ? bookingSide
-                    : 'Power'
-                }
-                selectedRacks={selectedRacks}
-                onRackClick={(rackNumber, replaceSelection = false) => {
-                  if (replaceSelection) {
-                    setSelectedRacks([rackNumber]);
-                    setRackValidationError(null);
-                    return;
-                  }
-                  handleRackClick(rackNumber);
-                }}
-                startTime={currentWeekTimeRange.start}
-                endTime={currentWeekTimeRange.end}
-                showTitle={true}
-                allowConflictingRacks={false}
-                ignoreBookings={false}
-                excludeInstanceIds={
-                  new Set(seriesInstancesForRacks.map((inst) => inst.id))
-                }
-              />
-            </div>
-          )}
-          {currentWeekTimeRange && !bookingSide && (
-            <div className="text-sm text-slate-400">
-              Loading layout for this side...
-            </div>
-          )}
-
-          <UpdateRacksConfirmationDialog
-            isOpen={showUpdateRacksConfirm}
-            sessionCount={selectedInstancesForRacks.size}
-            racks={selectedRacks}
-            onCancel={() => setShowUpdateRacksConfirm(false)}
-            onConfirm={performRackUpdate}
-            saving={savingRacks}
-          />
+      <>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-3xl font-bold text-white">My Bookings</h1>
+          <button
+            type="button"
+            onClick={() => setShowCreateBookingFlow(true)}
+            className="rounded-xl border border-indigo-500 bg-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
+          >
+            Create Booking
+          </button>
         </div>
-      ) : (
-        <>
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-white mb-2">My Bookings</h1>
-            <p className="text-slate-400">
-              View and manage all your bookings. Filter by status, date, or
-              side.
-            </p>
+
+        <BookingFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          defaultFilters={{
+            status: [...DEFAULT_STATUS],
+            side: 'all',
+            dateFrom: defaultDateRange.dateFrom,
+            dateTo: defaultDateRange.dateTo,
+          }}
+        />
+
+        {isLoading && (
+          <div className="text-center py-12 text-slate-400">
+            Loading your bookings...
           </div>
+        )}
 
-          <BookingFilters filters={filters} onFiltersChange={setFilters} />
+        {error && (
+          <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-300">
+            Error loading bookings:{' '}
+            {error instanceof Error ? error.message : 'Unknown error'}
+          </div>
+        )}
 
-          {isLoading && (
-            <div className="text-center py-12 text-slate-400">
-              Loading your bookings...
+        {!isLoading && !error && bookings.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-slate-400 mb-4">No bookings found.</div>
+            <a
+              href="/schedule"
+              className="text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              Create your first booking →
+            </a>
+          </div>
+        )}
+
+        {!isLoading && !error && bookings.length > 0 && (
+          <div className="space-y-4">
+            <div className="text-sm text-slate-400 mb-4">
+              Showing {bookings.length} booking
+              {bookings.length !== 1 ? 's' : ''}
             </div>
-          )}
+            {bookings.map((booking) => (
+              <BookingCard
+                key={booking.id}
+                booking={booking}
+                onEdit={handleEdit}
+                onViewLifecycle={setLifecycleBooking}
+              />
+            ))}
+          </div>
+        )}
+      </>
 
-          {error && (
-            <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-300">
-              Error loading bookings:{' '}
-              {error instanceof Error ? error.message : 'Unknown error'}
-            </div>
-          )}
-
-          {!isLoading && !error && bookings.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-slate-400 mb-4">No bookings found.</div>
-              <a
-                href="/schedule"
-                className="text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                Create your first booking →
-              </a>
-            </div>
-          )}
-
-          {!isLoading && !error && bookings.length > 0 && (
-            <div className="space-y-4">
-              <div className="text-sm text-slate-400 mb-4">
-                Showing {bookings.length} booking
-                {bookings.length !== 1 ? 's' : ''}
-              </div>
-              {bookings.map((booking) => (
-                <BookingCard
-                  key={booking.id}
-                  booking={booking}
-                  onEdit={handleEdit}
-                  onViewLifecycle={setLifecycleBooking}
-                />
-              ))}
-            </div>
-          )}
-        </>
+      {scopeModalBooking && (
+        <EditSessionScopeModal
+          booking={scopeModalBooking}
+          isOpen
+          onClose={() => setScopeModalBooking(null)}
+          onConfirm={handleScopeConfirm}
+        />
       )}
 
-      {/* Booking Editor Modal */}
-      {editingBooking && (
-        <BookingEditorModal
-          booking={editingBooking}
-          isOpen={!!editingBooking && !isSelectingRacks}
-          onClose={handleBookingModalClose}
-          onClearRacks={handleEditRacksRacks}
-          onSaveTime={async () => {}}
-          initialSelectedInstances={
-            savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined
-          }
-          initialShowExtendDialog={showExtendDialogOnOpen}
+      {editingBookingFull && editingSelectedInstanceIds.length > 0 && (
+        <EditBookingSimpleModal
+          key={`${editingBookingFull.id}-${editingSelectedInstanceIds.join(',')}`}
+          booking={editingBookingFull}
+          selectedInstanceIds={editingSelectedInstanceIds}
+          isOpen
+          onClose={handleSimpleEditClose}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+            queryClient.invalidateQueries({ queryKey: ['snapshot'] });
+          }}
         />
       )}
 
@@ -287,6 +204,16 @@ export function MyBookings() {
         booking={lifecycleBooking}
         isOpen={!!lifecycleBooking}
         onClose={() => setLifecycleBooking(null)}
+      />
+
+      <CreateBookingFlowModal
+        isOpen={showCreateBookingFlow}
+        onClose={() => setShowCreateBookingFlow(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+          queryClient.invalidateQueries({ queryKey: ['snapshot'] });
+        }}
+        role={role ?? 'bookings_team'}
       />
     </div>
   );

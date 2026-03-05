@@ -5,6 +5,14 @@ import type { BookingStatus } from '../../../../types/db';
 type Props = {
   block: BookingBlockType;
   onClick?: (booking: BookingBlockType['booking']) => void;
+  /** In master view: double-click opens read-only view; single-click does nothing. */
+  onDoubleClick?: (booking: BookingBlockType['booking']) => void;
+  /** When true, block is view-only (no edit on click); use with onDoubleClick for view modal. */
+  viewOnly?: boolean;
+  /** When multiple blocks start at the same slot, stack them vertically. */
+  stackOffsetPx?: number;
+  /** Override rowSpan height so stacked blocks fit in the same slot range. */
+  rowSpanOverride?: number;
 };
 
 function getPendingChangeTag(
@@ -70,13 +78,21 @@ function withAlpha(color: string | null | undefined, alpha: number): string {
   return fallback;
 }
 
-export function BookingBlock({ block, onClick }: Props) {
+export function BookingBlock({
+  block,
+  onClick,
+  onDoubleClick,
+  viewOnly = false,
+  stackOffsetPx = 0,
+  rowSpanOverride,
+}: Props) {
   const accentColor = block.booking.color || 'rgb(99, 102, 241)';
   const rowHeightPx = 50;
   const endAlignmentFudgePx = 1;
+  const span = rowSpanOverride ?? block.rowSpan;
   const blockHeightPx = Math.max(
     1,
-    block.rowSpan * rowHeightPx + endAlignmentFudgePx
+    span * rowHeightPx + (rowSpanOverride != null ? 0 : endAlignmentFudgePx)
   );
   const changeTag = getPendingChangeTag(block.booking.status);
   const showChangeTag = Boolean(changeTag) && blockHeightPx >= 110;
@@ -88,9 +104,9 @@ export function BookingBlock({ block, onClick }: Props) {
 
   return (
     <div
-      className="absolute left-0 right-0 border-l-[5px] border-t border-b border-r rounded-sm cursor-pointer transition-all hover:brightness-110 shadow-lg flex flex-col items-center justify-center p-2 z-5"
+      className={`absolute left-0 right-0 border-l-[5px] border-t border-b border-r rounded-sm transition-all hover:brightness-110 shadow-lg flex flex-col items-center justify-center p-2 z-5 ${viewOnly ? 'cursor-default' : 'cursor-pointer'}`}
       style={{
-        top: `${block.startOffsetInSlot * rowHeightPx}px`,
+        top: `${stackOffsetPx + block.startOffsetInSlot * rowHeightPx}px`,
         height: `${blockHeightPx}px`,
         zIndex: 6, // Bookings on top
         left: '4px',
@@ -101,8 +117,14 @@ export function BookingBlock({ block, onClick }: Props) {
       }}
       onClick={(e) => {
         e.stopPropagation();
-        if (onClick) {
+        if (!viewOnly && onClick) {
           onClick(block.booking);
+        }
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (onDoubleClick) {
+          onDoubleClick(block.booking);
         }
       }}
     >

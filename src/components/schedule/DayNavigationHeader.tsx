@@ -28,6 +28,8 @@ type Props = {
   onDateChange?: (date: Date) => void;
   /** If provided, locks the side selector to this side and disables changes */
   lockedSide?: 'Power' | 'Base';
+  /** Optional content to show on the right after the Side selector (e.g. View: Master / Platforms) */
+  trailing?: React.ReactNode;
 };
 
 export function DayNavigationHeader({
@@ -38,6 +40,7 @@ export function DayNavigationHeader({
   onSideChange,
   onDateChange,
   lockedSide,
+  trailing,
 }: Props) {
   const isToday =
     format(currentDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
@@ -169,6 +172,7 @@ export function DayNavigationHeader({
             Base
           </button>
         </div>
+        {trailing}
       </div>
     </div>
   );

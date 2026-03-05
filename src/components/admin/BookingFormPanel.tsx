@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import {
+  useForm,
+  useWatch,
+  type UseFormReturn,
+  type Resolver,
+} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +22,7 @@ import { useCapacityValidation } from './booking/useCapacityValidation';
 import { BookingTimeInputs } from './booking/BookingTimeInputs';
 import { BookingPlatformSelection } from './booking/BookingPlatformSelection';
 import { CapacityDisplay } from './booking/CapacityDisplay';
+import { AreaSlotsField } from './booking/AreaSlotsField';
 import { useNotificationSettings } from '../../hooks/useNotificationSettings';
 import {
   usePermission,
@@ -74,7 +80,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   }, []);
 
   const form = useForm<BookingFormValues>({
-    resolver: zodResolver(BookingFormSchema),
+    resolver: zodResolver(BookingFormSchema) as Resolver<BookingFormValues>,
     defaultValues: {
       bookingType: 'catalogue',
       squadFamilyId: null,
@@ -91,6 +97,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
       isLocked: false,
       emergencyReason: '',
       capacity: 1,
+      areaSlots: [],
       ...initialValues,
     },
   });
@@ -120,10 +127,15 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
         isLocked: false,
         emergencyReason: '',
         capacity: 1,
+        areaSlots: [],
+        platformSlots: [],
         ...initialValues,
-        // Ensure sideKey is properly typed after spread (override if needed)
         sideKey: sideKeyValue,
       };
+      valuesToSet.areaSlots =
+        initialValues.areaSlots ?? valuesToSet.areaSlots ?? [];
+      valuesToSet.platformSlots =
+        initialValues.platformSlots ?? valuesToSet.platformSlots ?? [];
       form.reset(valuesToSet, { keepDefaultValues: false });
     }
   }, [initialValues, form, todayStr]);
@@ -262,6 +274,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   const endTime = useWatch({ control: form.control, name: 'endTime' });
   const capacity = useWatch({ control: form.control, name: 'capacity' });
   const weeks = useWatch({ control: form.control, name: 'weeks' });
+  const areaSlots = useWatch({ control: form.control, name: 'areaSlots' });
   const canCreateOneOff = useMemo(() => {
     const allowedRoles = notificationSettings?.one_off_allowed_roles;
     if (!allowedRoles || allowedRoles.length === 0) return true;
@@ -288,7 +301,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
     setEndTimeManuallyChanged,
     firstAvailableTime,
   } = useTimeDefaults(
-    form,
+    form as unknown as UseFormReturn<BookingFormValues>,
     sideId,
     startDate,
     closedTimes,
@@ -297,7 +310,9 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   );
 
   // Week-by-week management
-  const weekManagement = useWeekManagement(form);
+  const weekManagement = useWeekManagement(
+    form as unknown as UseFormReturn<BookingFormValues>
+  );
 
   // Capacity validation
   const capacityValidation = useCapacityValidation(
@@ -314,7 +329,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
   // Booking submission
   const { onSubmit, submitMessage, submitError, submitting } =
     useBookingSubmission(
-      form,
+      form as unknown as UseFormReturn<BookingFormValues>,
       role,
       user?.id || null,
       timeRangeIsClosed,
@@ -324,21 +339,22 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
 
   // Wrapper to enforce cutoff UX before calling onSubmit
   const handleSubmitWithCutoff = form.handleSubmit((vals) => {
-    if (vals.bookingType === 'catalogue') {
-      if (!vals.squadFamilyId) {
+    const data = vals as unknown as BookingFormValues;
+    if (data.bookingType === 'catalogue') {
+      if (!data.squadFamilyId) {
         setInlineError(
           'Please select a family before creating a squad booking.'
         );
         return;
       }
-      if (!vals.squadId) {
+      if (!data.squadId) {
         setInlineError(
           'Please select a squad before creating a squad booking.'
         );
         return;
       }
     } else {
-      if (!vals.oneOffName?.trim()) {
+      if (!data.oneOffName?.trim()) {
         setInlineError(
           'Please enter a one-off booking name before creating the booking.'
         );
@@ -357,7 +373,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
 
       // Admins must supply a reason; show modal if missing
       const reason =
-        overrideReason.trim() || vals.emergencyReason?.trim() || '';
+        overrideReason.trim() || data.emergencyReason?.trim() || '';
       if (!reason) {
         setInlineError(null);
         setOverrideReason('');
@@ -366,13 +382,13 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
         return;
       }
 
-      vals.emergencyReason = reason;
+      data.emergencyReason = reason;
     }
 
     setInlineError(null);
     setOverrideModalOpen(false);
     setOverrideReasonError(null);
-    onSubmit(vals);
+    onSubmit(data);
   });
 
   // Call onSuccess when booking is successfully created
@@ -605,7 +621,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
 
           {/* Time inputs */}
           <BookingTimeInputs
-            form={form}
+            form={form as unknown as UseFormReturn<BookingFormValues>}
             closedTimes={closedTimes}
             closedPeriods={closedPeriods}
             firstAvailableTime={firstAvailableTime}
@@ -617,7 +633,7 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
         {/* Middle column: platforms */}
         <div className="space-y-2">
           <BookingPlatformSelection
-            form={form}
+            form={form as unknown as UseFormReturn<BookingFormValues>}
             sideKey={sideKey}
             weekManagement={weekManagement}
           />
@@ -678,6 +694,18 @@ export function BookingFormPanel({ role, initialValues, onSuccess }: Props) {
               Area selection will be available in a later update
             </p>
           </div>
+
+          {/* Area slots (time-bound area usage per instance) */}
+          {sideId != null && (
+            <AreaSlotsField
+              areas={areas.filter((a) => a.side_id === sideId)}
+              windowStartTime={startTime ?? '07:00'}
+              windowEndTime={endTime ?? '08:30'}
+              value={areaSlots ?? []}
+              onChange={(slots) => form.setValue('areaSlots', slots)}
+              slotTimeMode="time-only"
+            />
+          )}
 
           {/* Locked booking */}
           {isAdminRole(role) && (

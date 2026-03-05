@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { ModalPortal } from '../../shared/ModalPortal';
+import { ModalPortal } from '../../../shared/ModalPortal';
 
 // type SeriesInstance = {
 //   id: number;

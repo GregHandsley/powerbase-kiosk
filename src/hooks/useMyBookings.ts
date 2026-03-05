@@ -2,9 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { BookingRow, BookingStatus } from '../types/db';
 import { endOfDay, parseISO, isAfter } from 'date-fns';
+import { getAreaSlotsForInstances } from '../nodes/data/areaSlotsNodes';
 
 export type BookingFilter = {
-  status?: BookingStatus | 'all';
+  /** When non-empty, only bookings with status in this array are shown. Empty = all. */
+  status?: BookingStatus[];
   side?: 'Power' | 'Base' | 'all';
   dateFrom?: Date;
   dateTo?: Date;
@@ -31,6 +33,8 @@ export type BookingWithInstances = BookingRow & {
     racks: number[];
     areas: string[];
     capacity?: number;
+    /** Per-area/rack time slots when available (from booking_instance_area_slots). */
+    area_slots?: Array<{ area_key: string; start: string; end: string }>;
   }>;
   side: {
     key: string;
@@ -63,8 +67,12 @@ export function useMyBookings(
         .order('created_at', { ascending: false });
 
       // Apply status filter (only if status column exists)
-      if (filters.status && filters.status !== 'all') {
-        query = query.eq('status', filters.status);
+      const statusList =
+        Array.isArray(filters.status) && filters.status.length > 0
+          ? filters.status
+          : null;
+      if (statusList) {
+        query = query.in('status', statusList);
       }
 
       let { data: bookings, error } = await query;
@@ -75,7 +83,7 @@ export function useMyBookings(
         (error.message?.includes('does not exist') ||
           error.message?.includes('column'))
       ) {
-        if (filters.status && filters.status !== 'all') {
+        if (statusList) {
           // Can't filter by status if column doesn't exist, so ignore status filter
           query = supabase
             .from('bookings')
@@ -122,17 +130,16 @@ export function useMyBookings(
 
       // Filter by status in memory if status column doesn't exist in DB
       let statusFilteredBookings = bookings as BookingFromSupabase[];
-      if (filters.status && filters.status !== 'all') {
-        // Check if status field exists in the data
+      if (statusList) {
         const hasStatusField = statusFilteredBookings.some(
           (b) => 'status' in b
         );
         if (hasStatusField) {
-          statusFilteredBookings = statusFilteredBookings.filter(
-            (b) => b.status === filters.status
+          const statusSet = new Set(statusList);
+          statusFilteredBookings = statusFilteredBookings.filter((b) =>
+            statusSet.has(b.status)
           );
         }
-        // If status field doesn't exist, we can't filter - show all
       }
 
       // Fetch instances for each booking
@@ -179,9 +186,51 @@ export function useMyBookings(
         (b) => b.instances.length > 0
       );
 
+      // Enrich instances with area_slots when available (non-blocking: keep bookings if this fails)
+      let enrichedBookings: BookingWithInstances[] = bookingsWithValidInstances;
+      try {
+        const allInstanceIds = bookingsWithValidInstances.flatMap((b) =>
+          b.instances.map((i) => i.id)
+        );
+        const slotsByInstance =
+          allInstanceIds.length > 0
+            ? await getAreaSlotsForInstances(allInstanceIds)
+            : {};
+
+        enrichedBookings = bookingsWithValidInstances.map((booking) => ({
+          ...booking,
+          instances: booking.instances.map((inst) => {
+            const slots = slotsByInstance[inst.id] ?? [];
+            const areaKeysFromSlots = [
+              ...new Set(
+                slots
+                  .filter((s) => !s.area_key.startsWith('rack_'))
+                  .map((s) => s.area_key)
+              ),
+            ].sort();
+            const areas =
+              inst.areas?.length > 0 ? inst.areas : areaKeysFromSlots;
+            const area_slots =
+              slots.length > 0
+                ? slots.map((s) => ({
+                    area_key: s.area_key,
+                    start: s.start,
+                    end: s.end,
+                  }))
+                : undefined;
+            return { ...inst, areas, area_slots };
+          }),
+        }));
+      } catch (e) {
+        console.warn(
+          'My Bookings: could not load area slots, showing bookings without per-slot times.',
+          e
+        );
+      }
+
       // Sort by next session start time (earliest first)
       const now = new Date();
-      return bookingsWithValidInstances.sort((a, b) => {
+      return enrichedBookings.sort((a, b) => {
         // Find the next upcoming instance for each booking
         const getNextInstanceStart = (booking: BookingWithInstances) => {
           const nextInstance = booking.instances.find((inst) => {
@@ -201,5 +250,80 @@ export function useMyBookings(
       });
     },
     enabled: !!userId,
+  });
+}
+
+/** Fetch a single booking with all instances by id (for Schedule/Session View edit). */
+export function useBookingWithInstances(bookingId: number | null) {
+  return useQuery({
+    queryKey: ['booking-with-instances', bookingId],
+    queryFn: async (): Promise<BookingWithInstances | null> => {
+      if (!bookingId) return null;
+
+      const { data: booking, error } = await supabase
+        .from('bookings')
+        .select(
+          `
+          *,
+          side:sides (
+            key,
+            name
+          )
+        `
+        )
+        .eq('id', bookingId)
+        .maybeSingle();
+
+      if (error || !booking) return null;
+
+      const { data: instances } = await supabase
+        .from('booking_instances')
+        .select('id, start, end, racks, areas, capacity')
+        .eq('booking_id', bookingId)
+        .order('start', { ascending: true });
+
+      const sideData = Array.isArray(booking.side)
+        ? booking.side[0]
+        : booking.side;
+      const side = sideData || { key: '', name: '' };
+
+      const instancesList = instances ?? [];
+      let enrichedInstances = instancesList;
+
+      try {
+        const slotsByInstance = await getAreaSlotsForInstances(
+          instancesList.map((i) => i.id)
+        );
+        enrichedInstances = instancesList.map((inst) => {
+          const slots = slotsByInstance[inst.id] ?? [];
+          const areaKeysFromSlots = [
+            ...new Set(
+              slots
+                .filter((s) => !s.area_key.startsWith('rack_'))
+                .map((s) => s.area_key)
+            ),
+          ].sort();
+          const areas = inst.areas?.length ? inst.areas : areaKeysFromSlots;
+          const area_slots =
+            slots.length > 0
+              ? slots.map((s) => ({
+                  area_key: s.area_key,
+                  start: s.start,
+                  end: s.end,
+                }))
+              : undefined;
+          return { ...inst, areas, area_slots };
+        });
+      } catch {
+        // keep instances as-is
+      }
+
+      return {
+        ...booking,
+        instances: enrichedInstances,
+        side,
+      } as BookingWithInstances;
+    },
+    enabled: !!bookingId,
   });
 }

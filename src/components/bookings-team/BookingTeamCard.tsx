@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import clsx from 'clsx';
 import { formatDateBritish, formatDateBritishShort } from '../shared/dateUtils';
@@ -11,6 +11,36 @@ import {
 import { usePermission } from '../../hooks/usePermissions';
 import type { BookingForTeam } from '../../hooks/useBookingsTeam';
 import type { BookingStatus } from '../../types/db';
+import type { ActiveInstance } from '../../types/snapshot';
+import { SessionBookingInfoModal } from '../schedule/SessionBookingInfoModal';
+import { areaKeyToLabel } from '../schedule/utils/areaKeyUtils';
+import { getRackOrPlatformLabel } from '../schedule/utils/platformUtils';
+
+/** Format sorted rack numbers as compact ranges, e.g. "Racks 1 – 6" or "Rack 1, Racks 9 – 10". Same as BookingBuilderPanel. */
+function formatRackRange(numbers: number[], side: 'power' | 'base'): string {
+  if (numbers.length === 0) return '';
+  const sorted = [...numbers].sort((a, b) => a - b);
+  if (sorted.length === 1) return getRackOrPlatformLabel(side, sorted[0]!);
+  const runs: { start: number; end: number }[] = [];
+  let start = sorted[0]!;
+  let end = sorted[0]!;
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === end + 1) {
+      end = sorted[i]!;
+    } else {
+      runs.push({ start, end });
+      start = sorted[i]!;
+      end = sorted[i]!;
+    }
+  }
+  runs.push({ start, end });
+  const parts = runs.map((r) =>
+    r.start === r.end
+      ? getRackOrPlatformLabel(side, r.start)
+      : `Racks ${r.start} – ${r.end}`
+  );
+  return parts.length === 1 ? parts[0]! : parts.join(', ');
+}
 
 type Props = {
   booking: BookingForTeam;
@@ -77,7 +107,7 @@ function ProcessButton({
 
 export function BookingTeamCard({
   booking,
-  onView,
+  // onView,
   onProcess,
   onConfirmCancellation,
   isSelected = false,
@@ -112,7 +142,7 @@ export function BookingTeamCard({
   const totalInstances = booking.instances.length;
 
   const firstDate = firstInstance ? parseISO(firstInstance.start) : null;
-  const lastDate = lastInstance ? parseISO(lastInstance.end) : null;
+  // const lastDate = lastInstance ? parseISO(lastInstance.end) : null;
 
   // Determine if single or block booking
   const isSingleBooking = totalInstances === 1;
@@ -148,24 +178,26 @@ export function BookingTeamCard({
     return null;
   }, [isSingleBooking, booking.instances]);
 
-  // Get all session dates for block bookings
-  const allSessionDates = useMemo(() => {
-    if (isSingleBooking) return [];
-    return booking.instances.map((inst) => formatDateBritish(inst.start));
-  }, [isSingleBooking, booking.instances]);
-
-  const [showAllDates, setShowAllDates] = useState(false);
-
   // Format date display - for single bookings, just show the date, not a range
-  const dateDisplay = useMemo(() => {
-    if (!firstDate) return null;
-    if (isSingleBooking) {
-      return formatDateBritish(firstDate);
-    } else if (lastDate) {
-      return `${formatDateBritishShort(firstDate)} - ${formatDateBritish(lastDate)}`;
-    }
-    return formatDateBritish(firstDate);
-  }, [firstDate, lastDate, isSingleBooking]);
+  // const dateDisplay = useMemo(() => {
+  //   if (!firstDate) return null;
+  //   if (isSingleBooking) {
+  //     return formatDateBritish(firstDate);
+  //   } else if (lastDate) {
+  //     return `${formatDateBritishShort(firstDate)} - ${formatDateBritish(lastDate)}`;
+  //   }
+  //   return formatDateBritish(firstDate);
+  // }, [firstDate, lastDate, isSingleBooking]);
+
+  // Sort instances for stable week-by-week summary
+  const sortedInstances = useMemo(
+    () =>
+      [...booking.instances].sort(
+        (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+      ),
+    [booking.instances]
+  );
+  const [showAllWeeks, setShowAllWeeks] = useState(false);
 
   // Get unique racks across all instances
   const allRacks = new Set<number>();
@@ -174,69 +206,216 @@ export function BookingTeamCard({
   });
   const racksList = Array.from(allRacks).sort((a, b) => a - b);
 
-  // Check if different weeks have different racks or capacities
-  const weekVariations = useMemo(() => {
-    if (isSingleBooking || booking.instances.length < 2) return null;
+  const formatTimeRange = (startIso: string, endIso: string) =>
+    `${format(parseISO(startIso), 'HH:mm')} - ${format(parseISO(endIso), 'HH:mm')}`;
 
-    const variations: {
-      racks: Map<string, string[]>; // rack list -> dates
-      capacity: Map<number, string[]>; // capacity -> dates
-    } = {
-      racks: new Map(),
-      capacity: new Map(),
-    };
+  const masterSessionTime = firstInstance
+    ? formatTimeRange(firstInstance.start, firstInstance.end)
+    : 'N/A';
 
-    booking.instances.forEach((inst) => {
-      const date = formatDateBritish(inst.start);
-      const racksKey = inst.racks.sort((a, b) => a - b).join(', ');
-      const capacity = inst.capacity ?? 1;
-
-      // Group by racks
-      if (!variations.racks.has(racksKey)) {
-        variations.racks.set(racksKey, []);
-      }
-      variations.racks.get(racksKey)!.push(date);
-
-      // Group by capacity
-      if (!variations.capacity.has(capacity)) {
-        variations.capacity.set(capacity, []);
-      }
-      variations.capacity.get(capacity)!.push(date);
-    });
-
-    // Only return if there are actual variations
-    const hasRackVariations = variations.racks.size > 1;
-    const hasCapacityVariations = variations.capacity.size > 1;
-
-    if (hasRackVariations || hasCapacityVariations) {
-      return {
-        racks: hasRackVariations ? variations.racks : null,
-        capacity: hasCapacityVariations ? variations.capacity : null,
-      };
-    }
-
-    return null;
-  }, [isSingleBooking, booking.instances]);
-
-  // Sort instances for stable week-by-week preview
-  const sortedInstances = useMemo(
+  const rackPatterns = useMemo(
     () =>
-      [...booking.instances].sort(
-        (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+      new Set(
+        sortedInstances.map((inst) =>
+          [...inst.racks].sort((a, b) => a - b).join(',')
+        )
       ),
-    [booking.instances]
+    [sortedInstances]
   );
-  const weekCount = sortedInstances.length;
-  const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
+  const capacityPatterns = useMemo(
+    () => new Set(sortedInstances.map((inst) => inst.capacity ?? 1)),
+    [sortedInstances]
+  );
+  const timePatterns = useMemo(
+    () =>
+      new Set(
+        sortedInstances.map((inst) => formatTimeRange(inst.start, inst.end))
+      ),
+    [sortedInstances]
+  );
 
-  // Reset week index when booking changes
-  useEffect(() => {
-    setSelectedWeekIndex(0);
-  }, [booking.id]);
+  const hasRackVariations = rackPatterns.size > 1;
+  const hasCapacityVariations = capacityPatterns.size > 1;
+  const hasTimeVariations = timePatterns.size > 1;
+  const hasWeeklyDifferences =
+    hasRackVariations || hasCapacityVariations || hasTimeVariations;
 
-  const selectedInstance =
-    sortedInstances[selectedWeekIndex] ?? sortedInstances[0];
-  const [showVariationDetails, setShowVariationDetails] = useState(false);
+  const uniqueCapacities = Array.from(capacityPatterns).sort((a, b) => a - b);
+  const athletesSummary =
+    uniqueCapacities.length <= 1
+      ? `${uniqueCapacities[0] ?? 1}`
+      : `${uniqueCapacities[0]}-${uniqueCapacities[uniqueCapacities.length - 1]} (varies by week)`;
+
+  const weeklyRows = useMemo(() => {
+    if (sortedInstances.length === 0) return [];
+
+    const baseline = sortedInstances[0];
+    const baselineRacks = [...baseline.racks].sort((a, b) => a - b).join(',');
+    const baselineCapacity = baseline.capacity ?? 1;
+    const baselineTime = formatTimeRange(baseline.start, baseline.end);
+    const baselineAreas = [...baseline.areas].sort().join(',');
+
+    return sortedInstances.map((inst, index) => {
+      const racks = [...inst.racks].sort((a, b) => a - b);
+      const rackKey = racks.join(',');
+      const capacity = inst.capacity ?? 1;
+      const time = formatTimeRange(inst.start, inst.end);
+      const areaKey = [...inst.areas].sort().join(',');
+
+      return {
+        key: inst.id,
+        inst,
+        week: index + 1,
+        date: formatDateBritish(inst.start),
+        time,
+        capacity,
+        rackCount: racks.length,
+        hasDifference:
+          index > 0 &&
+          (rackKey !== baselineRacks ||
+            capacity !== baselineCapacity ||
+            time !== baselineTime ||
+            areaKey !== baselineAreas),
+      };
+    });
+  }, [sortedInstances]);
+
+  // Unique areas across all instances for card display
+  const allAreaKeys = useMemo(() => {
+    const set = new Set<string>();
+    booking.instances.forEach((inst) => inst.areas.forEach((a) => set.add(a)));
+    return Array.from(set).sort();
+  }, [booking.instances]);
+  const areaPatterns = useMemo(
+    () =>
+      new Set(sortedInstances.map((inst) => [...inst.areas].sort().join(','))),
+    [sortedInstances]
+  );
+  const hasAreaVariations = areaPatterns.size > 1;
+  const areasSummary =
+    allAreaKeys.length === 0
+      ? 'None'
+      : allAreaKeys.map(areaKeyToLabel).join(', ') +
+        (hasAreaVariations ? ' (varies by week)' : '');
+
+  const hasAnyWeeklyDifference = hasWeeklyDifferences || hasAreaVariations;
+  const variesByWeekLabel = useMemo(() => {
+    if (!hasAnyWeeklyDifference) return null;
+    const parts: string[] = [];
+    if (hasRackVariations) parts.push('Platforms');
+    if (hasAreaVariations) parts.push('Areas');
+    if (hasCapacityVariations) parts.push('Athletes');
+    if (hasTimeVariations) parts.push('Times');
+    return parts.length > 0 ? parts.join(', ') : null;
+  }, [
+    hasAnyWeeklyDifference,
+    hasRackVariations,
+    hasAreaVariations,
+    hasCapacityVariations,
+    hasTimeVariations,
+  ]);
+
+  const sideKey = (booking.side.key?.toLowerCase() ?? 'power') as
+    | 'power'
+    | 'base';
+
+  // Per-slot times for racks and areas when area_slots are available (user-specified times, not master window)
+  // Group rack slots by time and format as combined ranges (e.g. "Racks 1 – 6 (09:00–10:00), Rack 9 & 10 (10:00–10:30)")
+  const rackSlotsWithTime = useMemo(() => {
+    if (!firstInstance || racksList.length === 0) return null;
+    const slots = firstInstance.area_slots;
+    if (slots?.length) {
+      const rackSlots = slots.filter((s) => s.area_key.startsWith('rack_'));
+      if (rackSlots.length === 0) return null;
+      const byTime = new Map<string, number[]>();
+      for (const s of rackSlots) {
+        const timeKey = `${format(parseISO(s.start), 'HH:mm')}–${format(parseISO(s.end), 'HH:mm')}`;
+        const num = parseInt(s.area_key.replace('rack_', ''), 10);
+        if (!Number.isNaN(num)) {
+          const list = byTime.get(timeKey) ?? [];
+          list.push(num);
+          byTime.set(timeKey, list);
+        }
+      }
+      return Array.from(byTime.entries()).map(([time, nums]) => {
+        const sorted = [...new Set(nums)].sort((a, b) => a - b);
+        return { rangeLabel: formatRackRange(sorted, sideKey), time };
+      });
+    }
+    return null;
+  }, [firstInstance, racksList, sideKey]);
+
+  const areaSlotsWithTime = useMemo(() => {
+    if (
+      !firstInstance ||
+      !firstInstance.area_slots?.length ||
+      allAreaKeys.length === 0
+    )
+      return null;
+    const slots = firstInstance.area_slots.filter(
+      (s) => !s.area_key.startsWith('rack_')
+    );
+    if (slots.length === 0) return null;
+    return allAreaKeys.map((area_key) => {
+      const areaSlots = slots.filter((s) => s.area_key === area_key);
+      const times =
+        areaSlots.length > 0
+          ? areaSlots.map(
+              (s) =>
+                `${format(parseISO(s.start), 'HH:mm')}–${format(parseISO(s.end), 'HH:mm')}`
+            )
+          : [
+              `${format(parseISO(firstInstance.start), 'HH:mm')}–${format(parseISO(firstInstance.end), 'HH:mm')}`,
+            ];
+      return {
+        label: areaKeyToLabel(area_key),
+        times,
+      };
+    });
+  }, [firstInstance, allAreaKeys]);
+
+  // Session detail modal (same as Session View: double-click a week to see specifics)
+  const [viewingSession, setViewingSession] = useState<{
+    active: ActiveInstance;
+    side: 'power' | 'base';
+  } | null>(null);
+
+  const openSessionDetail = (inst: (typeof booking.instances)[0]) => {
+    const sideKey = (booking.side.key?.toLowerCase() ?? 'power') as
+      | 'power'
+      | 'base';
+    const area_slots: Array<{ area_key: string; start: string; end: string }> =
+      inst.area_slots?.length
+        ? inst.area_slots
+        : [
+            ...inst.racks.map((r) => ({
+              area_key: `rack_${r}`,
+              start: inst.start,
+              end: inst.end,
+            })),
+            ...inst.areas.map((area_key) => ({
+              area_key,
+              start: inst.start,
+              end: inst.end,
+            })),
+          ];
+    const active: ActiveInstance = {
+      instanceId: inst.id,
+      bookingId: booking.id,
+      start: inst.start,
+      end: inst.end,
+      racks: inst.racks,
+      areas: inst.areas,
+      title: booking.title,
+      color: booking.color,
+      isLocked: false,
+      createdBy: booking.creator?.full_name ?? null,
+      capacity: inst.capacity,
+      status: booking.status,
+      area_slots: area_slots.length > 0 ? area_slots : undefined,
+    };
+    setViewingSession({ active, side: sideKey });
+  };
 
   const isPending = booking.status === 'pending';
   const wasEditedAfterProcessing = Boolean(
@@ -270,16 +449,29 @@ export function BookingTeamCard({
       <div className="mb-4 pb-3 border-b border-slate-700">
         <div className="flex items-start justify-between gap-4 mb-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
               <h3 className="text-lg font-semibold text-white truncate">
                 {booking.title}
               </h3>
-              <StatusBadge
-                status={booking.status as BookingStatus}
-                size="sm"
-                isPast={bookingIsPast}
-                isUnprocessedPast={isUnprocessedPast}
-              />
+              <span className="text-slate-400 font-normal text-base shrink-0">
+                {masterSessionTime}
+              </span>
+              {!hasCapacityVariations && (
+                <span className="px-2.5 py-1 text-sm font-semibold bg-emerald-900/50 text-emerald-200 rounded-md border border-emerald-700/50 shrink-0">
+                  {athletesSummary}{' '}
+                  {uniqueCapacities.length === 1 && uniqueCapacities[0] === 1
+                    ? 'athlete'
+                    : 'athletes'}
+                </span>
+              )}
+              {booking.status && (
+                <StatusBadge
+                  status={booking.status as BookingStatus}
+                  size="sm"
+                  isPast={bookingIsPast}
+                  isUnprocessedPast={isUnprocessedPast}
+                />
+              )}
               {bookingIsPast && (
                 <span className="px-2 py-0.5 text-xs font-medium rounded border bg-green-900/30 text-green-300 border-green-600/50">
                   Completed
@@ -304,217 +496,143 @@ export function BookingTeamCard({
               </span>
             </div>
 
-            {/* Date Information */}
-            {dateDisplay && (
-              <div className="space-y-1">
-                {isSingleBooking ? (
-                  <div className="text-sm">
-                    <span className="text-slate-400">Date:</span>{' '}
-                    <span className="text-slate-200 font-medium">
-                      {dateDisplay}
+            {/* 2x3 grid: Start/End/Frequency | Racks/Areas/Created By */}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mt-3">
+              <div>
+                <div className="text-slate-500 mb-0.5">
+                  {isSingleBooking ? 'Date' : 'Start Date'}
+                </div>
+                <div className="text-slate-200 font-medium">
+                  {firstDate ? formatDateBritish(firstDate) : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-500 mb-0.5">Racks</div>
+                <div className="text-slate-200 font-medium">
+                  {rackSlotsWithTime
+                    ? rackSlotsWithTime
+                        .map((g) => `${g.rangeLabel} (${g.time})`)
+                        .join('; ')
+                    : racksList.length > 0
+                      ? formatRackRange(racksList, sideKey)
+                      : 'None assigned'}
+                  {hasRackVariations && (
+                    <span className="text-amber-300 ml-1">
+                      (Varies by week)
                     </span>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="text-sm">
-                      <span className="text-slate-400">Start Date:</span>{' '}
-                      <span className="text-slate-200 font-medium">
-                        {formatDateBritish(firstDate!)}
-                      </span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-slate-400">End Date:</span>{' '}
-                      <span className="text-slate-200 font-medium">
-                        {formatDateBritish(lastInstance.start)}
-                      </span>
-                    </div>
-                    {frequency && (
-                      <div className="text-sm">
-                        <span className="text-slate-400">Frequency:</span>{' '}
-                        <span className="text-slate-200 font-medium">
-                          {frequency}
-                        </span>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setShowAllDates(!showAllDates)}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 underline"
-                    >
-                      {showAllDates ? 'Hide' : 'Show'} all session dates (
-                      {allSessionDates.length})
-                    </button>
-                    {showAllDates && (
-                      <div className="mt-2 p-2 bg-slate-900/50 rounded border border-slate-700">
-                        <div className="text-xs text-slate-400 mb-1">
-                          All Session Dates:
-                        </div>
-                        <div className="text-xs text-slate-300 font-mono space-y-0.5">
-                          {allSessionDates.map((date, idx) => (
-                            <div key={idx}>• {date}</div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-500 mb-0.5">
+                  {isSingleBooking ? '—' : 'End Date'}
+                </div>
+                <div className="text-slate-200 font-medium">
+                  {isSingleBooking
+                    ? '—'
+                    : lastInstance
+                      ? formatDateBritish(lastInstance.start)
+                      : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-500 mb-0.5">Areas</div>
+                <div className="text-slate-200 font-medium">
+                  {allAreaKeys.length > 0
+                    ? areaSlotsWithTime
+                      ? areaSlotsWithTime
+                          .map((a) => `${a.label} (${a.times.join(', ')})`)
+                          .join('; ')
+                      : areasSummary
+                    : 'None'}
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-500 mb-0.5">
+                  {isSingleBooking ? '—' : 'Frequency'}
+                </div>
+                <div className="text-slate-200 font-medium">
+                  {isSingleBooking ? '—' : frequency || '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-500 mb-0.5">Created By</div>
+                <div className="text-slate-200 font-medium">
+                  {booking.creator?.full_name || 'Unknown'}
+                  <span className="text-slate-500 font-normal ml-1">
+                    {formatDateBritishShort(booking.created_at)} at{' '}
+                    {format(parseISO(booking.created_at), 'HH:mm')}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {!hasAnyWeeklyDifference && bookingIsPast && (
+              <div className="text-xs text-slate-500 mt-2">
+                All sessions completed
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Week variations summary (compact) */}
-      {!isSingleBooking && (
+      {/* Weekly setup - only when weeks differ */}
+      {!isSingleBooking && hasAnyWeeklyDifference && (
         <div className="mb-4 p-3 bg-blue-900/15 border border-blue-700/40 rounded-md">
-          {weekVariations ? (
-            <>
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-semibold text-blue-300">
-                  Differences across weeks
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowVariationDetails((v) => !v)}
-                  className="text-xs text-indigo-300 hover:text-indigo-200 underline"
-                >
-                  {showVariationDetails ? 'Hide details' : 'Show details'}
-                </button>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                {weekVariations.racks && (
-                  <span className="px-2 py-1 rounded bg-blue-900/30 border border-blue-700/50 text-blue-200">
-                    Racks vary ({weekVariations.racks.size} pattern
-                    {weekVariations.racks.size > 1 ? 's' : ''})
-                  </span>
-                )}
-                {weekVariations.capacity && (
-                  <span className="px-2 py-1 rounded bg-blue-900/30 border border-blue-700/50 text-blue-200">
-                    Athletes vary ({weekVariations.capacity.size} pattern
-                    {weekVariations.capacity.size > 1 ? 's' : ''})
-                  </span>
-                )}
-              </div>
-              {showVariationDetails && (
-                <div className="mt-3 space-y-2 text-xs text-blue-100">
-                  {weekVariations.racks && (
-                    <div>
-                      <div className="text-blue-300 font-medium mb-1">
-                        Racks by week
-                      </div>
-                      <div className="space-y-1 ml-2">
-                        {Array.from(weekVariations.racks.entries()).map(
-                          ([racks, dates], idx) => (
-                            <div key={idx} className="font-mono">
-                              <span className="text-blue-400">
-                                Racks {racks}:
-                              </span>{' '}
-                              <span className="text-blue-200">
-                                {dates.join(' • ')}
-                              </span>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {weekVariations.capacity && (
-                    <div>
-                      <div className="text-blue-300 font-medium mb-1">
-                        Athletes by week
-                      </div>
-                      <div className="space-y-1 ml-2">
-                        {Array.from(weekVariations.capacity.entries()).map(
-                          ([capacity, dates], idx) => (
-                            <div key={idx} className="font-mono">
-                              <span className="text-blue-400">
-                                {capacity} athletes:
-                              </span>{' '}
-                              <span className="text-blue-200">
-                                {dates.join(' • ')}
-                              </span>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-xs font-semibold text-blue-300">
-              All weeks are identical (same racks and athletes)
+          {variesByWeekLabel && (
+            <div className="text-xs text-blue-200 mb-3">
+              Varies: {variesByWeekLabel}
             </div>
+          )}
+          <div className="space-y-1.5">
+            {(showAllWeeks ? weeklyRows : weeklyRows.slice(0, 4)).map((row) => (
+              <div
+                key={row.key}
+                role="button"
+                tabIndex={0}
+                onDoubleClick={() => openSessionDetail(row.inst)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openSessionDetail(row.inst);
+                  }
+                }}
+                className={clsx(
+                  'text-xs rounded border px-2 py-1.5 cursor-pointer hover:bg-slate-800/60 transition-colors',
+                  row.hasDifference
+                    ? 'bg-amber-900/20 border-amber-700/50 text-amber-200'
+                    : 'bg-slate-900/40 border-slate-700 text-slate-300'
+                )}
+                title="Double-click to view session details"
+              >
+                <span className="font-medium">
+                  Week {row.week} ({row.date})
+                </span>
+                <span className="text-slate-400"> - </span>
+                <span>{row.time}</span>
+                <span className="text-slate-400"> - </span>
+                <span>
+                  {row.capacity} athlete{row.capacity === 1 ? '' : 's'}
+                </span>
+                <span className="text-slate-400"> - </span>
+                <span>
+                  {row.rackCount} rack{row.rackCount === 1 ? '' : 's'}
+                </span>
+              </div>
+            ))}
+          </div>
+          {weeklyRows.length > 4 && (
+            <button
+              type="button"
+              onClick={() => setShowAllWeeks((prev) => !prev)}
+              className="mt-2 text-xs text-indigo-300 hover:text-indigo-200 underline"
+            >
+              {showAllWeeks
+                ? 'Show fewer weeks'
+                : `Show all ${weeklyRows.length} weeks`}
+            </button>
           )}
         </div>
       )}
-
-      {/* Week-by-week preview for varying weeks */}
-      {!isSingleBooking &&
-        (weekVariations?.racks || weekVariations?.capacity) &&
-        selectedInstance && (
-          <div className="mb-4 p-3 bg-slate-900/40 border border-slate-700 rounded-md">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-semibold text-slate-200">
-                Week-by-week preview
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedWeekIndex(Math.max(0, selectedWeekIndex - 1))
-                  }
-                  disabled={selectedWeekIndex === 0}
-                  className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-slate-200"
-                >
-                  ←
-                </button>
-                <div className="text-xs text-slate-400">
-                  Week {selectedWeekIndex + 1} of {weekCount}
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedWeekIndex(
-                      Math.min(weekCount - 1, selectedWeekIndex + 1)
-                    )
-                  }
-                  disabled={selectedWeekIndex === weekCount - 1}
-                  className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-slate-200"
-                >
-                  →
-                </button>
-              </div>
-            </div>
-            <div className="text-xs text-slate-300 mb-2">
-              {formatDateBritish(selectedInstance.start)}
-            </div>
-            <div className="space-y-1 text-sm text-slate-200">
-              <div>
-                <span className="text-slate-400">Racks:</span>{' '}
-                <span className="font-mono">
-                  {selectedInstance.racks.length > 0
-                    ? [...selectedInstance.racks]
-                        .sort((a, b) => a - b)
-                        .join(', ')
-                    : 'None assigned'}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400">Athletes:</span>{' '}
-                <span>{selectedInstance.capacity ?? 'Not specified'}</span>
-              </div>
-              <div>
-                <span className="text-slate-400">Time:</span>{' '}
-                <span>
-                  {format(parseISO(selectedInstance.start), 'HH:mm')} -{' '}
-                  {format(parseISO(selectedInstance.end), 'HH:mm')}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
 
       {/* Processing Status Alert for Unprocessed Past Bookings */}
       {isUnprocessedPast && (
@@ -527,62 +645,21 @@ export function BookingTeamCard({
         </div>
       )}
 
-      {/* Booking Details */}
-      <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-        <div>
-          <div className="text-slate-500 mb-1">Session Time</div>
-          <div className="text-slate-300">
-            {firstInstance
-              ? `${format(parseISO(firstInstance.start), 'HH:mm')} - ${format(parseISO(firstInstance.end), 'HH:mm')}`
-              : 'N/A'}
-          </div>
-          {bookingIsPast && (
-            <div className="text-xs text-slate-500 mt-1">
-              All sessions completed
-            </div>
-          )}
-        </div>
-        <div>
-          <div className="text-slate-500 mb-1">Assigned Racks</div>
-          <div className="text-slate-300">
-            {weekVariations?.racks
-              ? 'Racks vary by week — see preview above'
-              : racksList.length > 0
-                ? racksList.join(', ')
-                : 'None assigned'}
-          </div>
-        </div>
-        {!weekVariations?.capacity && (
-          <div>
-            <div className="text-slate-500 mb-1">Athletes</div>
-            <div className="text-slate-300">
-              {firstInstance?.capacity ?? 'Not specified'}
-            </div>
-          </div>
-        )}
-        <div>
-          <div className="text-slate-500 mb-1">Created By</div>
-          <div className="text-slate-300">
-            {booking.creator?.full_name || 'Unknown'}
-          </div>
-          <div className="text-xs text-slate-500 mt-1">
-            {formatDateBritishShort(booking.created_at)} at{' '}
-            {format(parseISO(booking.created_at), 'HH:mm')}
-          </div>
-        </div>
-        {booking.processed_at && (
-          <div>
-            <div className="text-slate-500 mb-1">Processed By</div>
-            <div className="text-slate-300">
+      {/* Processed By (when processed) */}
+      {booking.processed_at && (
+        <div className="space-y-2 mb-4 text-sm">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="text-slate-500 shrink-0">Processed By:</span>
+            <span className="text-slate-300">
               {booking.processor?.full_name || 'Unknown'}
-            </div>
-            <div className="text-xs text-slate-500 mt-1">
-              {formatDateBritishShort(booking.processed_at)} at{' '}
-              {format(parseISO(booking.processed_at), 'HH:mm')}
-            </div>
+              <span className="text-slate-500 ml-1">
+                {formatDateBritishShort(booking.processed_at)} at{' '}
+                {format(parseISO(booking.processed_at), 'HH:mm')}
+              </span>
+            </span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Show changes if edited after processing */}
       {wasEditedAfterProcessing && booking.processed_snapshot && (
@@ -598,13 +675,6 @@ export function BookingTeamCard({
 
       {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onClick={() => onView(booking)}
-          className="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded-md transition-colors"
-        >
-          View Details
-        </button>
         {booking.status === 'pending_cancellation' && onConfirmCancellation && (
           <button
             type="button"
@@ -624,6 +694,16 @@ export function BookingTeamCard({
           />
         )}
       </div>
+
+      {/* Session details modal (same component as Session View) */}
+      {viewingSession && (
+        <SessionBookingInfoModal
+          booking={viewingSession.active}
+          side={viewingSession.side}
+          isOpen
+          onClose={() => setViewingSession(null)}
+        />
+      )}
     </div>
   );
 }

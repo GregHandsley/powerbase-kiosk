@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { addDays, format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   generateTimeSlots,
+  formatTimeSlot,
   type TimeSlot,
 } from '../components/admin/capacity/scheduleUtils';
 import { isTimeSlotInPast } from '../components/admin/booking/utils';
@@ -18,6 +19,7 @@ type SlotCapacityData = {
   periodEndTime?: string;
 };
 import { ScheduleGrid } from '../components/schedule/ScheduleGrid';
+import { SessionBookingInfoModal } from '../components/schedule/SessionBookingInfoModal';
 import { DayNavigationHeader } from '../components/schedule/DayNavigationHeader';
 import {
   makeBaseLayout,
@@ -26,16 +28,18 @@ import {
 import { useScheduleDayCapacity } from '../components/schedule/hooks/useScheduleDayCapacity';
 import { calculateCapacityExceededSlots } from '../components/schedule/grid/utils/capacityExceeded';
 import type { ScheduleData } from '../components/admin/capacity/scheduleUtils';
-import { BookingEditorModal } from '../components/schedule/BookingEditorModal';
-import { MiniScheduleFloorplan } from '../components/shared/MiniScheduleFloorplan';
-import { RackSelectionPanel } from '../components/schedule/rack-editor/RackSelectionPanel';
-import { CreateBookingModal } from '../components/schedule/CreateBookingModal';
-import { UpdateRacksConfirmationDialog } from '../components/schedule/booking-editor/UpdateRacksConfirmationDialog';
-import { useRackSelection } from '../components/schedule/rack-editor/useRackSelection';
+import { CreateBookingFlowModal } from '../components/schedule/CreateBookingFlowModal';
+import { EditSessionScopeModal } from '../components/my-bookings/EditSessionScopeModal';
+import { EditBookingSimpleModal } from '../components/my-bookings/EditBookingSimpleModal';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
+import { getAreaSlotsForInstances } from '../nodes/data/areaSlotsNodes';
 import type { ActiveInstance } from '../types/snapshot';
 import { canEditBooking } from '../utils/bookingPermissions';
+import {
+  useBookingWithInstances,
+  type BookingWithInstances,
+} from '../hooks/useMyBookings';
 
 type NewBookingContext = {
   date: Date;
@@ -46,50 +50,64 @@ type NewBookingContext = {
   endTimeSlot?: TimeSlot; // For drag selection end time
 } | null;
 
+/** Default end time 90 minutes after start (15-min rounded). */
+function getDefaultEndTimeFromSlot(start: TimeSlot): string {
+  const totalM = start.hour * 60 + start.minute + 90;
+  const h = Math.floor(totalM / 60) % 24;
+  const m = totalM % 60;
+  const rounded = Math.round(m / 15) * 15;
+  const finalM = rounded === 60 ? 0 : rounded;
+  const finalH = rounded === 60 ? h + 1 : h;
+  return `${String(finalH).padStart(2, '0')}:${String(finalM).padStart(2, '0')}`;
+}
+
 export function Schedule() {
   const { user, role } = useAuth();
   const [selectedSide, setSelectedSide] = useState<'Power' | 'Base'>('Power');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [editingBooking, setEditingBooking] = useState<ActiveInstance | null>(
-    null
-  );
   const [newBookingContext, setNewBookingContext] =
     useState<NewBookingContext>(null);
+  /** When user clicks a booking we fetch by id; when loaded we open scope or edit modal */
+  const [pendingEditBookingId, setPendingEditBookingId] = useState<
+    number | null
+  >(null);
+  /** Master view: double-click opens read-only view (racks + areas). */
+  const [viewingBooking, setViewingBooking] = useState<ActiveInstance | null>(
+    null
+  );
+  const [scopeModalBooking, setScopeModalBooking] =
+    useState<BookingWithInstances | null>(null);
+  const [editingBookingFull, setEditingBookingFull] =
+    useState<BookingWithInstances | null>(null);
+  const [editingSelectedInstanceIds, setEditingSelectedInstanceIds] = useState<
+    number[]
+  >([]);
   const queryClient = useQueryClient();
   const allTimeSlots = generateTimeSlots();
   const sideKey = selectedSide === 'Power' ? 'power' : 'base';
 
-  const {
-    isSelectingRacks,
-    selectedRacks,
-    savingRacks,
-    applyRacksToAll,
-    setApplyRacksToAll,
-    rackValidationError,
-    seriesInstancesForRacks,
-    weeksForRacks,
-    rackSelectionWeekIndex,
-    setRackSelectionWeekIndex,
-    currentWeekInstancesForRacks,
-    selectedInstancesForRacks,
-    setSelectedInstancesForRacks,
-    setSelectedRacks,
-    currentWeekTimeRange,
-    bookingSide,
-    savedSelectedInstances,
-    showUpdateRacksConfirm,
-    setShowUpdateRacksConfirm,
-    setRackValidationError,
-    startRackSelection: handleEditRacks,
-    handleCancelRackSelection,
-    handleSaveRacks,
-    performRackUpdate,
-    handleRackClick,
-    enteringSelectionModeRef,
-  } = useRackSelection({
-    editingBooking,
-    setEditingBooking,
-  });
+  /** 'master' = one block per booking using master start/end (same colours); 'platforms' = per-platform times from area_slots */
+  const [scheduleViewMode, setScheduleViewMode] = useState<
+    'master' | 'platforms'
+  >('master');
+
+  const { data: fetchedBookingForEdit } =
+    useBookingWithInstances(pendingEditBookingId);
+
+  // When we've fetched a booking for edit, open scope modal (block) or edit modal (single)
+  useEffect(() => {
+    if (!pendingEditBookingId || !fetchedBookingForEdit) return;
+    if (fetchedBookingForEdit.instances.length > 1) {
+      setScopeModalBooking(fetchedBookingForEdit);
+    } else {
+      const inst = fetchedBookingForEdit.instances[0];
+      if (inst) {
+        setEditingBookingFull(fetchedBookingForEdit);
+        setEditingSelectedInstanceIds([inst.id]);
+      }
+    }
+    setPendingEditBookingId(null);
+  }, [pendingEditBookingId, fetchedBookingForEdit]);
 
   // Get capacity data for the day
   const {
@@ -222,6 +240,12 @@ export function Schedule() {
         return !isCancelled;
       });
 
+      // Fetch area_slots so schedule can show per-rack times (e.g. racks 09:00–10:00 within 09:00–10:30 instance)
+      const instanceIds = validBookings.map(
+        (row: unknown) => (row as { id: number }).id
+      );
+      const slotsByInstance = await getAreaSlotsForInstances(instanceIds);
+
       // Normalize to ActiveInstance format
       return validBookings.map((row: unknown) => {
         const r = row as {
@@ -240,6 +264,12 @@ export function Schedule() {
             status?: string;
           } | null;
         };
+        const areaSlotsRaw = slotsByInstance[r.id] ?? [];
+        const area_slots = areaSlotsRaw.map((s) => ({
+          area_key: s.area_key,
+          start: s.start,
+          end: s.end,
+        }));
         return {
           instanceId: r.id,
           bookingId: r.booking_id,
@@ -253,6 +283,7 @@ export function Schedule() {
           createdBy: r.booking?.created_by ?? null,
           capacity: typeof r.capacity === 'number' ? r.capacity : undefined,
           status: r.booking?.status as ActiveInstance['status'],
+          area_slots: area_slots.length > 0 ? area_slots : undefined,
         };
       }) as ActiveInstance[];
     },
@@ -333,25 +364,25 @@ export function Schedule() {
   };
 
   const handleEditBooking = (booking: ActiveInstance) => {
-    // Check if user has permission to edit this booking
     if (!canEditBooking(booking, user?.id || null, role)) {
-      // Show error message or prevent opening modal
       alert(
         "You don't have permission to edit this booking. Only the coach who created it or an admin can edit it."
       );
       return;
     }
-    setEditingBooking(booking);
+    setPendingEditBookingId(booking.bookingId);
   };
 
-  const handleModalClose = () => {
-    // Only clear editingBooking if we're not entering selection mode
-    if (!isSelectingRacks && !enteringSelectionModeRef.current) {
-      setEditingBooking(null);
-    } else {
-      enteringSelectionModeRef.current = false; // Reset the flag
-    }
-    // Invalidate schedule bookings query when modal closes to refresh the grid
+  const handleScopeConfirm = (instanceIds: number[]) => {
+    if (!scopeModalBooking) return;
+    setEditingSelectedInstanceIds(instanceIds);
+    setEditingBookingFull(scopeModalBooking);
+    setScopeModalBooking(null);
+  };
+
+  const handleSimpleEditClose = () => {
+    setEditingBookingFull(null);
+    setEditingSelectedInstanceIds([]);
     queryClient.invalidateQueries({
       queryKey: ['schedule-bookings'],
       exact: false,
@@ -370,7 +401,7 @@ export function Schedule() {
             </p>
           </div>
 
-          {/* Day Navigation */}
+          {/* Day Navigation + View mode on one row */}
           <DayNavigationHeader
             currentDate={currentDate}
             selectedSide={selectedSide}
@@ -378,142 +409,115 @@ export function Schedule() {
             onGoToToday={goToToday}
             onSideChange={setSelectedSide}
             onDateChange={setCurrentDate}
-            lockedSide={
-              isSelectingRacks && bookingSide
-                ? bookingSide === 'Power' || bookingSide === 'Base'
-                  ? bookingSide
-                  : undefined
-                : undefined
+            trailing={
+              <div className="flex items-center gap-2 ml-2">
+                <span className="text-sm text-slate-300">View:</span>
+                <div className="flex rounded-md border border-slate-600 bg-slate-950 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setScheduleViewMode('master')}
+                    className={`px-3 py-1.5 text-xs font-medium transition ${
+                      scheduleViewMode === 'master'
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-300 hover:bg-slate-800'
+                    }`}
+                    title="Show booking master time range (same colours)"
+                  >
+                    Bookings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleViewMode('platforms')}
+                    className={`px-3 py-1.5 text-xs font-medium transition ${
+                      scheduleViewMode === 'platforms'
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-300 hover:bg-slate-800'
+                    }`}
+                    title="Show per-platform allocated times"
+                  >
+                    Platforms
+                  </button>
+                </div>
+              </div>
             }
           />
         </header>
 
-        {/* Rack Selection Panel */}
-        {isSelectingRacks && editingBooking && (
-          <div className="shrink-0 space-y-4">
-            <RackSelectionPanel
-              editingBooking={editingBooking}
-              selectedRacks={selectedRacks}
-              rackValidationError={rackValidationError}
-              savingRacks={savingRacks}
-              applyRacksToAll={applyRacksToAll}
-              setApplyRacksToAll={(value) => {
-                setApplyRacksToAll(value);
-                if (rackValidationError) {
-                  setRackValidationError(null);
-                }
-              }}
-              seriesInstancesForRacks={seriesInstancesForRacks}
-              weeksForRacks={weeksForRacks}
-              rackSelectionWeekIndex={rackSelectionWeekIndex}
-              setRackSelectionWeekIndex={setRackSelectionWeekIndex}
-              currentWeekInstancesForRacks={currentWeekInstancesForRacks}
-              selectedInstancesForRacks={selectedInstancesForRacks}
-              setSelectedInstancesForRacks={setSelectedInstancesForRacks}
-              handleCancelRackSelection={handleCancelRackSelection}
-              handleSaveRacks={handleSaveRacks}
-            />
-
-            {/* Mini Schedule Floorplan for rack selection */}
-            {currentWeekTimeRange &&
-              (() => {
-                const bookingSideKey: 'Power' | 'Base' | undefined =
-                  bookingSide === 'Power' || bookingSide === 'Base'
-                    ? bookingSide
-                    : undefined;
-                const finalSideKey: 'Power' | 'Base' =
-                  bookingSideKey ?? selectedSide;
-
-                return (
-                  <div className="border border-slate-700 rounded-lg bg-slate-900/60 p-4">
-                    <MiniScheduleFloorplan
-                      sideKey={finalSideKey}
-                      selectedRacks={selectedRacks}
-                      onRackClick={(rackNumber, replaceSelection = false) => {
-                        if (replaceSelection) {
-                          setSelectedRacks([rackNumber]);
-                          setRackValidationError(null);
-                          return;
-                        }
-                        handleRackClick(rackNumber);
-                      }}
-                      startTime={currentWeekTimeRange.start}
-                      endTime={currentWeekTimeRange.end}
-                      showTitle={true}
-                      allowConflictingRacks={false}
-                      ignoreBookings={false}
-                      excludeInstanceIds={
-                        new Set(seriesInstancesForRacks.map((inst) => inst.id))
-                      }
-                    />
-                  </div>
-                );
-              })()}
-          </div>
-        )}
-
         {/* Schedule Grid */}
-        {!isSelectingRacks && (
-          <div className="flex-1 min-h-0">
-            {bookingsLoading || capacityLoading ? (
-              <div className="flex h-full items-center justify-center p-8">
-                <p className="text-sm text-slate-400">Loading...</p>
-              </div>
-            ) : (
-              <ScheduleGrid
-                racks={rackNumbers}
-                timeSlots={timeSlots}
-                selectedSide={selectedSide}
-                bookings={bookings}
-                currentDate={currentDate}
-                slotCapacityData={filteredSlotCapacityData}
-                capacityExceededBySlot={capacityExceededBySlot}
-                onCellClick={handleCellClick}
-                onBookingClick={handleEditBooking}
-                onDragSelection={handleDragSelection}
-              />
-            )}
-          </div>
-        )}
+        <div className="flex-1 min-h-0">
+          {bookingsLoading || capacityLoading ? (
+            <div className="flex h-full items-center justify-center p-8">
+              <p className="text-sm text-slate-400">Loading...</p>
+            </div>
+          ) : (
+            <ScheduleGrid
+              racks={rackNumbers}
+              timeSlots={timeSlots}
+              selectedSide={selectedSide}
+              bookings={bookings}
+              currentDate={currentDate}
+              slotCapacityData={filteredSlotCapacityData}
+              capacityExceededBySlot={capacityExceededBySlot}
+              onCellClick={handleCellClick}
+              onBookingClick={handleEditBooking}
+              onBookingDoubleClick={
+                scheduleViewMode === 'master'
+                  ? (booking) => setViewingBooking(booking)
+                  : undefined
+              }
+              onDragSelection={handleDragSelection}
+              viewMode={scheduleViewMode}
+            />
+          )}
+        </div>
 
-        {/* Booking Editor Modal */}
-        <BookingEditorModal
-          booking={editingBooking}
-          isOpen={editingBooking !== null && !isSelectingRacks}
-          onClose={handleModalClose}
-          onClearRacks={handleEditRacks}
-          initialSelectedInstances={
-            savedSelectedInstances.size > 0 ? savedSelectedInstances : undefined
-          }
-        />
-
-        {/* Create Booking Modal */}
+        {/* Create booking flow (from cell/drag) */}
         {newBookingContext && (
-          <CreateBookingModal
+          <CreateBookingFlowModal
             isOpen={!!newBookingContext}
             onClose={handleCloseNewBookingModal}
-            initialDate={newBookingContext.date}
-            initialTimeSlot={newBookingContext.timeSlot}
-            initialRack={newBookingContext.rack}
-            initialSide={newBookingContext.side}
-            role={role || 'snc_coach'}
-            selectedRacks={newBookingContext.selectedRacks}
-            endTimeSlot={newBookingContext.endTimeSlot}
             onSuccess={handleCloseNewBookingModal}
+            role={role || 'snc_coach'}
+            initialDate={format(newBookingContext.date, 'yyyy-MM-dd')}
+            initialStartTime={formatTimeSlot(newBookingContext.timeSlot)}
+            initialEndTime={
+              newBookingContext.endTimeSlot
+                ? formatTimeSlot(newBookingContext.endTimeSlot)
+                : getDefaultEndTimeFromSlot(newBookingContext.timeSlot)
+            }
+            initialSide={newBookingContext.side}
+            initialRacks={
+              newBookingContext.selectedRacks ?? [newBookingContext.rack]
+            }
           />
         )}
 
-        {/* Update Racks Confirmation Dialog */}
-        {isSelectingRacks && (
-          <UpdateRacksConfirmationDialog
-            isOpen={showUpdateRacksConfirm}
-            sessionCount={selectedInstancesForRacks.size}
-            racks={selectedRacks}
-            onCancel={() => setShowUpdateRacksConfirm(false)}
-            onConfirm={performRackUpdate}
-            saving={savingRacks}
+        {scopeModalBooking && (
+          <EditSessionScopeModal
+            booking={scopeModalBooking}
+            isOpen={true}
+            onClose={() => setScopeModalBooking(null)}
+            onConfirm={handleScopeConfirm}
           />
         )}
+
+        {editingBookingFull && (
+          <EditBookingSimpleModal
+            booking={editingBookingFull}
+            selectedInstanceIds={editingSelectedInstanceIds}
+            isOpen={true}
+            onClose={handleSimpleEditClose}
+            onSaved={handleSimpleEditClose}
+          />
+        )}
+
+        {/* Master view: read-only booking details (racks + areas) */}
+        <SessionBookingInfoModal
+          booking={viewingBooking}
+          side={sideKey}
+          isOpen={!!viewingBooking}
+          onClose={() => setViewingBooking(null)}
+        />
       </div>
     </div>
   );

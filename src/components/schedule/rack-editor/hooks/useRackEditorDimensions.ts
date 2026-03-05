@@ -15,8 +15,9 @@ export function useRackEditorDimensions() {
 
       // Available width (full container width minus padding)
       const width = rect.width - 16;
-      // Available height (viewport minus space for header and footer content)
-      const height = Math.max(400, window.innerHeight - rect.top - 180);
+      // Available height comes from the flex container itself.
+      // This avoids forcing extra page scroll when viewport is shorter.
+      const height = Math.max(240, rect.height - 16);
 
       setAvailableWidth(width);
       setAvailableHeight(height);

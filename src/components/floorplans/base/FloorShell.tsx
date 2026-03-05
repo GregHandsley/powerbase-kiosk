@@ -1,5 +1,15 @@
 import '../../../styles/floorplan.css';
 
+/** Area keys for SVG data-area-key; must match floorplanAreaKeys.ts and DB areas.key */
+const AREA_KEY = {
+  BIKE_MET_CON: 'bike_met_con',
+  MACHINES_1: 'machines_1',
+  MACHINES_2: 'machines_2',
+  DUMBBELL_1: 'dumbbell_1',
+  DUMBBELL_2: 'dumbbell_2',
+  WEIGHT_LIFTING: 'weight_lifting',
+} as const;
+
 type Props = {
   viewBoxWidth: number;
   viewBoxHeight: number;
@@ -44,6 +54,7 @@ export function FloorShell({
 
       {/* top-right BIKE/MET CON AREA */}
       <g
+        data-area-key={AREA_KEY.BIKE_MET_CON}
         transform={`translate(${viewBoxWidth - floorMargin - 29.5} ${floorMargin + 2})`}
       >
         <rect className="fp-area" width={27.5} height={41} />
@@ -116,8 +127,9 @@ export function FloorShell({
         </text>
       </g>
 
-      {/* large top-right MACHINES box */}
+      {/* large top-right MACHINES 1 */}
       <g
+        data-area-key={AREA_KEY.MACHINES_1}
         transform={`translate(${viewBoxWidth - floorMargin - 52} ${floorMargin + 2})`}
       >
         <rect className="fp-area" width={20} height={37} />
@@ -132,8 +144,9 @@ export function FloorShell({
         </text>
       </g>
 
-      {/* bottom-left dumbbell box */}
+      {/* bottom-left DUMBBELL 1 */}
       <g
+        data-area-key={AREA_KEY.DUMBBELL_1}
         transform={`translate(${viewBoxWidth - floorMargin - 52} ${viewBoxHeight - floorMargin - 38})`}
       >
         <rect className="fp-area" width={10} height={37} />
@@ -157,8 +170,9 @@ export function FloorShell({
         </text>
       </g>
 
-      {/* left machines vertical strip */}
+      {/* left MACHINES 2 vertical strip */}
       <g
+        data-area-key={AREA_KEY.MACHINES_2}
         transform={`translate(${floorMargin + 5} ${viewBoxHeight - floorMargin - 38})`}
       >
         <rect className="fp-area" width={10} height={37} />
@@ -193,8 +207,9 @@ export function FloorShell({
         />
       ))}
 
-      {/* top-right DB WEIGHT AREA */}
+      {/* top-left DUMBBELL 2 (was "DB WEIGHT AREA") */}
       <g
+        data-area-key={AREA_KEY.DUMBBELL_2}
         transform={`translate(${viewBoxWidth - floorMargin - 151.5} ${floorMargin + 2})`}
       >
         <rect className="fp-area" width={14} height={37} />

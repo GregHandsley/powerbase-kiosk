@@ -8,9 +8,6 @@ export function RackEditorHeader({ saving, savedAt, onSave }: Props) {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100">
-          Rack assignments
-        </h2>
         <button
           type="button"
           onClick={onSave}

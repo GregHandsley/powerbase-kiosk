@@ -1,16 +1,28 @@
 import { useMemo, useEffect } from 'react';
 import { format, parseISO, isAfter } from 'date-fns';
 import { formatDateBritish, formatDateBritishShort } from '../shared/dateUtils';
+import { areaKeyToLabel } from '../schedule/utils/areaKeyUtils';
+import { getCurrentStateSignature } from '../../utils/processedSnapshotSignature';
 import type {
   BookingForTeam,
   // ProcessedSnapshot,
 } from '../../hooks/useBookingsTeam';
 
 type Change = {
-  type: 'capacity' | 'time' | 'racks' | 'extended' | 'sessions_removed';
+  type:
+    | 'capacity'
+    | 'time'
+    | 'racks'
+    | 'areas'
+    | 'extended'
+    | 'sessions_removed';
   message: string;
   oldValue?: string | number;
   newValue?: string | number;
+  /** Single session date (e.g. "Monday 13 Apr 2026") when change applies to one session */
+  sessionLabel?: string;
+  /** Multiple session dates when change applies to several sessions */
+  sessionLabels?: string[];
 };
 
 type Props = {
@@ -32,6 +44,14 @@ export function BookingChanges({
     const snapshot = booking.processed_snapshot;
     const current = booking.instances;
     const now = new Date();
+
+    // If we have a processed signature and current state matches it, these changes were already processed — never show again
+    if (booking.processed_snapshot_signature) {
+      const currentSignature = getCurrentStateSignature(current);
+      if (currentSignature === booking.processed_snapshot_signature) {
+        return [];
+      }
+    }
 
     // Only show changes that occurred after the last processing
     // If last_edited_at is before processed_at, these changes were already processed
@@ -72,6 +92,7 @@ export function BookingChanges({
           message: `Booking extended: ${snapshot.instanceCount} → ${current.length} sessions. New sessions: ${newDates.slice(0, 3).join(', ')}${newDates.length > 3 ? ` +${newDates.length - 3} more` : ''}`,
           oldValue: snapshot.instanceCount,
           newValue: current.length,
+          sessionLabels: newDates,
         });
       }
     }
@@ -103,6 +124,7 @@ export function BookingChanges({
               message: `Session removed:\n• ${removedDates[0]}`,
               oldValue: snapshot.instanceCount,
               newValue: current.length,
+              sessionLabel: removedDates[0],
             });
           } else {
             const sessionDetails = removedDates
@@ -113,6 +135,7 @@ export function BookingChanges({
               message: `${futureRemovedDates.length} sessions removed:\n${sessionDetails}`,
               oldValue: snapshot.instanceCount,
               newValue: current.length,
+              sessionLabels: removedDates,
             });
           }
         } else {
@@ -298,6 +321,7 @@ export function BookingChanges({
             message: `Athletes changed from ${changedSessions[0].oldCapacity} to ${changedSessions[0].newCapacity} athletes`,
             oldValue: changedSessions[0].oldCapacity,
             newValue: changedSessions[0].newCapacity,
+            sessionLabel: changedSessions[0].date,
           });
         } else {
           // Multiple sessions
@@ -306,6 +330,7 @@ export function BookingChanges({
             message: `Athletes changed: All ${current.length} sessions changed from ${changedSessions[0].oldCapacity} to ${changedSessions[0].newCapacity} athletes`,
             oldValue: changedSessions[0].oldCapacity,
             newValue: changedSessions[0].newCapacity,
+            sessionLabels: changedSessions.map((s) => s.date),
           });
         }
       } else {
@@ -322,6 +347,7 @@ export function BookingChanges({
           message: `Athletes changed on ${changedSessions.length} session${changedSessions.length !== 1 ? 's' : ''}:\n${sessionDetails}`,
           oldValue: changedSessions.map((s) => s.oldCapacity).join(', '),
           newValue: changedSessions.map((s) => s.newCapacity).join(', '),
+          sessionLabels: changedSessions.map((s) => s.date),
         });
       }
     }
@@ -432,6 +458,7 @@ export function BookingChanges({
           message: `Time changed from ${change.oldTime} to ${change.newTime}`,
           oldValue: change.oldTime,
           newValue: change.newTime,
+          sessionLabel: change.date,
         });
       } else if (timeChangedSessions.length === 1) {
         // One session in a multi-session booking
@@ -441,6 +468,7 @@ export function BookingChanges({
           message: `Time changed: ${change.date} - ${change.oldTime} → ${change.newTime}`,
           oldValue: change.oldTime,
           newValue: change.newTime,
+          sessionLabel: change.date,
         });
       } else {
         // Show each session's time change clearly
@@ -455,6 +483,7 @@ export function BookingChanges({
           message: `Time changed on ${timeChangedSessions.length} sessions:\n${sessionDetails}`,
           oldValue: timeChangedSessions[0].oldTime,
           newValue: timeChangedSessions[0].newTime,
+          sessionLabels: timeChangedSessions.map((s) => s.date),
         });
       }
     }
@@ -550,6 +579,7 @@ export function BookingChanges({
           message: `Racks changed from ${change.oldRacks} to ${change.newRacks}`,
           oldValue: change.oldRacks,
           newValue: change.newRacks,
+          sessionLabel: change.date,
         });
       } else if (rackChangedSessions.length === 1) {
         // One session in a multi-session booking
@@ -559,6 +589,7 @@ export function BookingChanges({
           message: `Racks changed: ${change.date} - ${change.oldRacks} → ${change.newRacks}`,
           oldValue: change.oldRacks,
           newValue: change.newRacks,
+          sessionLabel: change.date,
         });
       } else {
         // Multiple sessions changed
@@ -574,11 +605,140 @@ export function BookingChanges({
           message: `Racks changed on ${rackChangedSessions.length} session${rackChangedSessions.length !== 1 ? 's' : ''}:\n${sessionDetails}`,
           oldValue: rackChangedSessions[0].oldRacks,
           newValue: rackChangedSessions.map((s) => s.newRacks).join(', '),
+          sessionLabels: rackChangedSessions.map((s) => s.date),
         });
       }
     }
 
-    return detectedChanges;
+    // Check area changes (compare each instance against its snapshot value)
+    const formatAreas = (areas: string[]) => {
+      return [...areas].sort().map(areaKeyToLabel).join(', ') || '—';
+    };
+
+    const areaChangedSessions: Array<{
+      date: string;
+      oldAreas: string;
+      newAreas: string;
+    }> = [];
+
+    if (snapshot.allInstanceAreas && snapshot.allInstanceAreas.length > 0) {
+      // We have stored areas for each instance, match by date and compare
+      // Only check future sessions
+      current.forEach((inst) => {
+        // Skip past sessions
+        if (isSessionInPast(inst.start)) return;
+
+        const instDateStr = format(parseISO(inst.start), 'yyyy-MM-dd');
+        const instAreas = inst.areas || [];
+        const instAreasSet = new Set(instAreas);
+
+        // Find the corresponding snapshot instance by matching date
+        const matchingSnapshotInstance = snapshot.allInstanceAreas?.find(
+          (snapInst) => {
+            const snapDateStr = format(parseISO(snapInst.start), 'yyyy-MM-dd');
+            return snapDateStr === instDateStr;
+          }
+        );
+
+        if (matchingSnapshotInstance) {
+          // Found a matching snapshot instance, check if areas changed
+          const snapshotAreas = matchingSnapshotInstance.areas || [];
+          const snapshotAreasSet = new Set(snapshotAreas);
+
+          // Check if areas changed by comparing sets
+          const areasMatch =
+            instAreasSet.size === snapshotAreasSet.size &&
+            Array.from(instAreasSet).every((area) =>
+              snapshotAreasSet.has(area)
+            );
+
+          if (!areasMatch) {
+            areaChangedSessions.push({
+              date: formatDateBritish(inst.start),
+              oldAreas: formatAreas(snapshotAreas),
+              newAreas: formatAreas(instAreas),
+            });
+          }
+        }
+      });
+    } else {
+      // Fallback for old snapshots - compare all instances against first instance areas
+      // Only check future sessions
+      const baselineAreas = snapshot.firstInstanceAreas || [];
+      const baselineAreasSet = new Set(baselineAreas);
+
+      current.forEach((inst) => {
+        // Skip past sessions
+        if (isSessionInPast(inst.start)) return;
+
+        const instAreas = inst.areas || [];
+        const instAreasSet = new Set(instAreas);
+
+        // Check if areas changed by comparing sets
+        const areasMatch =
+          instAreasSet.size === baselineAreasSet.size &&
+          Array.from(instAreasSet).every((area) => baselineAreasSet.has(area));
+
+        if (!areasMatch) {
+          areaChangedSessions.push({
+            date: formatDateBritish(inst.start),
+            oldAreas: formatAreas(baselineAreas),
+            newAreas: formatAreas(instAreas),
+          });
+        }
+      });
+    }
+
+    if (areaChangedSessions.length > 0) {
+      if (areaChangedSessions.length === 1 && current.length === 1) {
+        // Single session booking
+        const change = areaChangedSessions[0];
+        detectedChanges.push({
+          type: 'areas',
+          message: `Areas changed from ${change.oldAreas} to ${change.newAreas}`,
+          oldValue: change.oldAreas,
+          newValue: change.newAreas,
+          sessionLabel: change.date,
+        });
+      } else if (areaChangedSessions.length === 1) {
+        // One session in a multi-session booking
+        const change = areaChangedSessions[0];
+        detectedChanges.push({
+          type: 'areas',
+          message: `Areas changed: ${change.date} - ${change.oldAreas} → ${change.newAreas}`,
+          oldValue: change.oldAreas,
+          newValue: change.newAreas,
+          sessionLabel: change.date,
+        });
+      } else {
+        // Multiple sessions changed
+        const sessionDetails = areaChangedSessions
+          .map(
+            ({ date, oldAreas, newAreas }) =>
+              `• ${date}: ${oldAreas} → ${newAreas}`
+          )
+          .join('\n');
+
+        detectedChanges.push({
+          type: 'areas',
+          message: `Areas changed on ${areaChangedSessions.length} session${areaChangedSessions.length !== 1 ? 's' : ''}:\n${sessionDetails}`,
+          oldValue: areaChangedSessions[0].oldAreas,
+          newValue: areaChangedSessions.map((s) => s.newAreas).join(', '),
+          sessionLabels: areaChangedSessions.map((s) => s.date),
+        });
+      }
+    }
+
+    // Dedupe: never show the same change twice (same type + same message)
+    const seen = new Set<string>();
+    const deduped = detectedChanges.filter((c) => {
+      const key = `${c.type}:${c.message}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return deduped;
   }, [booking]);
 
   // Notify parent of change count
@@ -611,12 +771,33 @@ export function BookingChanges({
           const details = lines.slice(1);
           const isAcknowledged = acknowledgedChanges.has(idx);
           const showCheckbox = changes.length > 1 && onAcknowledgeChange; // Only show checkbox if multiple changes
+          const sessionText = change.sessionLabel
+            ? change.sessionLabel
+            : change.sessionLabels?.length
+              ? change.sessionLabels.length === 1
+                ? change.sessionLabels[0]
+                : `${change.sessionLabels.length} sessions: ${change.sessionLabels.slice(0, 3).join(', ')}${(change.sessionLabels.length ?? 0) > 3 ? ` +${change.sessionLabels.length - 3} more` : ''}`
+              : null;
 
           return (
             <div
               key={idx}
-              className={`text-sm ${isAcknowledged ? 'opacity-60' : ''}`}
+              className={`rounded border border-amber-700/40 bg-amber-950/30 p-3 text-sm ${isAcknowledged ? 'opacity-60' : ''}`}
             >
+              {sessionText && (
+                <div className="mb-2 flex items-center gap-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-500">
+                    Session
+                    {change.sessionLabels && change.sessionLabels.length !== 1
+                      ? 's'
+                      : ''}
+                    :
+                  </span>
+                  <span className="font-medium text-amber-200">
+                    {sessionText}
+                  </span>
+                </div>
+              )}
               <div className="flex gap-2">
                 {showCheckbox && (
                   <input
@@ -626,12 +807,12 @@ export function BookingChanges({
                     className="h-4 w-4 rounded border-amber-600 bg-slate-950 text-amber-600 focus:ring-amber-500 flex-shrink-0 mt-0.5"
                   />
                 )}
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="text-amber-300 font-semibold mb-1.5 leading-tight">
                     {title}
                   </div>
                   {details.length > 0 && (
-                    <div className="text-amber-200/90 ml-3 space-y-0.5 font-mono text-xs">
+                    <div className="text-amber-200/90 ml-0 space-y-0.5 font-mono text-xs">
                       {details.map((detail, detailIdx) => (
                         <div key={detailIdx}>{detail}</div>
                       ))}

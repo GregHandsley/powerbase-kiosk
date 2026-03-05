@@ -42,6 +42,43 @@ export const BookingFormSchema = z.object({
     .int({ message: 'Number of athletes must be a whole number' })
     .min(1, { message: 'Number of athletes must be at least 1' })
     .max(100, { message: 'Number of athletes cannot exceed 100' }), // Required - default provided in form defaultValues
+  areaSlots: z
+    .array(
+      z.object({
+        area_key: z.string().min(1, 'Area is required'),
+        start: z.string().min(1, 'Start time is required'),
+        end: z.string().min(1, 'End time is required'),
+      })
+    )
+    .default([]),
+  /** Per-platform start/end within the booking window (create flow). Persisted as area_slots with area_key "rack_N". */
+  platformSlots: z
+    .array(
+      z.object({
+        rackNumber: z.number(),
+        start: z.string(),
+        end: z.string(),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
+/** Time-first booking flow (Sprint 6): at least one of racksInput, areaSlots, or platformSlots required */
+export const BookingFormSchemaTimeFirst = BookingFormSchema.extend({
+  racksInput: z.string().optional(),
+}).refine(
+  (data) =>
+    (data.racksInput?.trim()?.length ?? 0) > 0 ||
+    (data.areaSlots?.length ?? 0) > 0 ||
+    (data.platformSlots?.length ?? 0) > 0,
+  {
+    message: 'Add at least one area or platform to create a booking.',
+    path: ['racksInput'],
+  }
+);
+
 export type BookingFormValues = z.infer<typeof BookingFormSchema>;
+export type BookingFormValuesTimeFirst = z.infer<
+  typeof BookingFormSchemaTimeFirst
+>;

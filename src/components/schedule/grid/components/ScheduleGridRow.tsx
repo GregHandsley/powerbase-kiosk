@@ -30,6 +30,8 @@ type Props = {
   isCellSelected: (slotIndex: number, rackIndex: number) => boolean;
   onCellClick: (rack: number, timeSlot: TimeSlot) => void;
   onBookingClick?: (booking: ActiveInstance) => void;
+  onBookingDoubleClick?: (booking: ActiveInstance) => void;
+  viewMode?: 'master' | 'platforms';
   onMouseDown: (
     e: React.MouseEvent,
     slotIndex: number,
@@ -54,9 +56,12 @@ export function ScheduleGridRow({
   isCellSelected,
   onCellClick,
   onBookingClick,
+  onBookingDoubleClick,
+  viewMode = 'platforms',
   onMouseDown,
   isDragging,
 }: Props) {
+  const isMaster = viewMode === 'master';
   const isHour = slot.minute === 0;
   const isEvenRow = slotIndex % 2 === 1;
 
@@ -124,16 +129,18 @@ export function ScheduleGridRow({
         const isSelected = isCellSelected(slotIndex, rackIndex);
 
         // Check if this rack is at capacity (not already booked)
-        const isAtCapacity = capacityExceededBySlot
-          ? isRackAtCapacity(
-              slotIndex,
-              rack,
-              capacityExceededBySlot,
-              bookings,
-              currentDate,
-              timeSlots
-            )
-          : false;
+        // In Master view, lanes are 0..14 for layout only; skip capacity/unavailable logic.
+        const isAtCapacity =
+          !isMaster && capacityExceededBySlot
+            ? isRackAtCapacity(
+                slotIndex,
+                rack,
+                capacityExceededBySlot,
+                bookings,
+                currentDate,
+                timeSlots
+              )
+            : false;
 
         // Check if this rack is in a General User block (blocked from booking)
         const isInGeneralUserBlock =
@@ -141,14 +148,10 @@ export function ScheduleGridRow({
           unavailableBlockForThisSlot?.periodType === 'General User';
 
         // Check if this rack is not available in the capacity schedule
-        // A rack is unavailable if:
-        // 1. There's capacity data for this slot
-        // 2. availablePlatforms is not null (meaning there's a restriction)
-        // 3. The rack is NOT in the availablePlatforms set
-        // 4. It's not already booked (bookings take priority)
-        // 5. There's no unavailable block (to avoid double indication)
+        // (Skip in Master view: lanes are display-only, not real platform numbers.)
         const capacityData = slotCapacityData.get(slotIndex);
         const isRackUnavailable =
+          !isMaster &&
           !isInBookingBlock && // Don't mark as unavailable if there's a booking
           !isInUnavailableBlock && // Don't show red if there's already an unavailable block
           capacityData !== undefined &&
@@ -184,7 +187,9 @@ export function ScheduleGridRow({
             {isBookingBlockStart && bookingBlockForThisSlot && (
               <BookingBlockComponent
                 block={bookingBlockForThisSlot}
-                onClick={onBookingClick}
+                onClick={isMaster ? undefined : onBookingClick}
+                onDoubleClick={isMaster ? onBookingDoubleClick : undefined}
+                viewOnly={isMaster}
               />
             )}
 
@@ -208,9 +213,12 @@ export function ScheduleGridRow({
                         isPast) &&
                       !isInBookingBlock
                     ? 'cursor-not-allowed opacity-60'
-                    : 'cursor-pointer hover:bg-indigo-500/10'
+                    : isMaster
+                      ? 'cursor-default'
+                      : 'cursor-pointer hover:bg-indigo-500/10'
               )}
               onMouseDown={(e) => {
+                if (isMaster) return;
                 if (
                   !isInBlock &&
                   !isBlockStart &&
@@ -223,6 +231,7 @@ export function ScheduleGridRow({
                 }
               }}
               onClick={() => {
+                if (isMaster) return;
                 if (
                   (isAtCapacity ||
                     isRackUnavailable ||
